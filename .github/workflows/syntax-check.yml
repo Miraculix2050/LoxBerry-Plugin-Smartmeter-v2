@@ -53,12 +53,15 @@ jobs:
 
           sub import {
               my $caller = caller;
-              no strict 'refs';
-              ${"${caller}::lbhomedir"} = '/opt/loxberry';
-              ${"${caller}::lbpplugindir"} = 'smartmeter';
-              ${"${caller}::lbpconfigdir"} = '/opt/loxberry/config/plugins/smartmeter';
-              ${"${caller}::lbptemplatedir"} = '/opt/loxberry/templates/plugins/smartmeter';
-              ${"${caller}::lbplogdir"} = '/opt/loxberry/log/plugins/smartmeter';
+              eval qq{
+                  package $caller;
+                  our \$lbhomedir = '/opt/loxberry';
+                  our \$lbpplugindir = 'smartmeter';
+                  our \$lbpconfigdir = '/opt/loxberry/config/plugins/smartmeter';
+                  our \$lbptemplatedir = '/opt/loxberry/templates/plugins/smartmeter';
+                  our \$lbplogdir = '/opt/loxberry/log/plugins/smartmeter';
+              };
+              die $@ if $@;
           }
 
           sub pluginversion { return '0.0.0'; }
@@ -81,12 +84,15 @@ jobs:
 
           sub import {
               my $caller = caller;
-              no strict 'refs';
-              ${"${caller}::lbhomedir"} = '/opt/loxberry';
-              ${"${caller}::lbpplugindir"} = 'smartmeter';
-              ${"${caller}::lbpconfigdir"} = '/opt/loxberry/config/plugins/smartmeter';
-              ${"${caller}::lbptemplatedir"} = '/opt/loxberry/templates/plugins/smartmeter';
-              ${"${caller}::lbplogdir"} = '/opt/loxberry/log/plugins/smartmeter';
+              eval qq{
+                  package $caller;
+                  our \$lbhomedir = '/opt/loxberry';
+                  our \$lbpplugindir = 'smartmeter';
+                  our \$lbpconfigdir = '/opt/loxberry/config/plugins/smartmeter';
+                  our \$lbptemplatedir = '/opt/loxberry/templates/plugins/smartmeter';
+                  our \$lbplogdir = '/opt/loxberry/log/plugins/smartmeter';
+              };
+              die $@ if $@;
           }
 
           1;
