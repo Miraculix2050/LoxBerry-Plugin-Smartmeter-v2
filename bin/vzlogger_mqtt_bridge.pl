@@ -13,7 +13,7 @@ use LoxBerry::Log;
 use LoxBerry::System;
 use lib $FindBin::Bin;
 use SmartMeterVZLoggerChannels qw(output_order_mapping ordered_output_names read_json);
-use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys);
+use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping normalize_mapping_keys validate_channel_announcement send_udp_cycle);
 use SmartMeterVZLoggerConfig qw(clean_number clean_qos sanitize_topic);
 
 my $home = $lbhomedir;
@@ -79,8 +79,10 @@ my $mqtt = read_mqtt_settings();
 my %uuid_by_channel = channel_mapping($mapping);
 my %uuid_by_identifier = identifier_mapping($mapping);
 my $output_order_by_serial = output_order_mapping($mapping);
+my @udp_targets = $send_udp ? miniserver_targets() : ();
 
 $bridge_log->loglevel(7) if ($debug_enabled);
+my $debug_callback = $debug_enabled ? \&debug_line : undef;
 log_line("Starting MQTT bridge. Topic=$subscribe_topic Host=$mqtt->{host}:$mqtt->{port}");
 log_line("Debug logging is enabled.") if ($debug_enabled);
 debug_line("UDP output is disabled in plugin config.") if (!$send_udp);
@@ -113,32 +115,27 @@ while (my $line = <$mqtt_fh>) {
 
 	my ($topic, $payload) = split(/\s+/, $line, 2);
 	next if (!defined($payload));
-	debug_line("MQTT raw topic=$topic payload=$payload");
+	debug_line("MQTT raw topic=$topic payload=$payload") if ($debug_enabled);
 
 	if ($topic =~ m{/([^/]+)/uuid\z}) {
 		my $channel = $1;
-		if ($payload =~ /\A[0-9a-fA-F-]{36}\z/) {
-			$uuid_by_channel{$channel} = lc($payload);
-			debug_line("MQTT channel mapping channel=$channel uuid=$payload");
-		}
+		my $uuid = validate_channel_announcement("uuid", $channel, $payload, $mapping, \%uuid_by_channel, \%uuid_by_identifier, $debug_callback);
+		debug_line("MQTT channel mapping verified channel=$channel uuid=$uuid") if ($debug_enabled && $uuid);
 		next;
 	}
 	if ($topic =~ m{/([^/]+)/id\z}) {
 		my $channel = $1;
-		my $identifier = clean_scalar_payload($payload);
-		if ($identifier && $uuid_by_identifier{$identifier}) {
-			$uuid_by_channel{$channel} = $uuid_by_identifier{$identifier};
-			debug_line("MQTT channel mapping channel=$channel identifier=$identifier uuid=$uuid_by_identifier{$identifier}");
-		}
+		my $uuid = validate_channel_announcement("id", $channel, $payload, $mapping, \%uuid_by_channel, \%uuid_by_identifier, $debug_callback);
+		debug_line("MQTT channel mapping verified channel=$channel identifier=$payload uuid=$uuid") if ($debug_enabled && $uuid);
 		next;
 	}
 
-	my $reading = parse_reading($topic, $payload, $mapping, \%uuid_by_channel, \&debug_line);
+	my $reading = parse_reading($topic, $payload, $mapping, \%uuid_by_channel, $debug_callback);
 	if (!$reading) {
-		debug_line("MQTT ignored topic=$topic payload=$payload");
+		debug_line("MQTT ignored topic=$topic payload=$payload") if ($debug_enabled);
 		next;
 	}
-	debug_line("MQTT parsed serial=$reading->{serial} name=$reading->{name} uuid=$reading->{uuid} value=$reading->{value}");
+	debug_line("MQTT parsed serial=$reading->{serial} name=$reading->{name} uuid=$reading->{uuid} value=$reading->{value}") if ($debug_enabled);
 
 	update_timestamp($reading, $values_by_serial{$reading->{serial}});
 	my $cache_value = normalize_cache_value($reading);
@@ -148,7 +145,7 @@ while (my $line = <$mqtt_fh>) {
 
 	if (time() - $last_update_cycle >= $update_interval) {
 		flush_cache(\%values_by_serial, \%dirty_serials, $output_order_by_serial);
-		send_udp(\%values_by_serial, $udp_port, $output_order_by_serial) if ($send_udp);
+		send_udp_cycle(\%values_by_serial, $udp_port, $output_order_by_serial, \@udp_targets, \&create_udp_socket, \&log_line, $debug_callback) if ($send_udp);
 		$last_update_cycle = time();
 	}
 }
@@ -292,30 +289,14 @@ sub write_power_state
 	}
 }
 
-sub send_udp
+sub create_udp_socket
 {
-	my ($values, $port, $output_order_by_serial) = @_;
-	my @targets = miniserver_targets();
-
-	foreach my $serial (sort keys %$values) {
-		my $payload = join("; ", map { "$serial:$_:$values->{$serial}->{$_}" }
-			ordered_output_names($values->{$serial}, $output_order_by_serial->{$serial}));
-		next if ($payload eq "");
-
-		foreach my $target (@targets) {
-			my $sock = IO::Socket::INET->new(
-				Proto => "udp",
-				PeerAddr => $target->{ip},
-				PeerPort => $port,
-			);
-			if (!$sock) {
-				log_line("$serial: Could not create UDP socket for $target->{name}: $!");
-				next;
-			}
-			$sock->send($payload);
-			log_line("$serial: UDP sent to $target->{name} at $target->{ip}:$port");
-		}
-	}
+	my ($target, $port) = @_;
+	return IO::Socket::INET->new(
+		Proto => "udp",
+		PeerAddr => $target->{ip},
+		PeerPort => $port,
+	);
 }
 
 sub miniserver_targets

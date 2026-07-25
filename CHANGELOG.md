@@ -4,6 +4,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Bound the vzLogger bridge to the configured `chnN` channel mapping, replace linear UUID topic searches with exact lookups, reuse MQTT JSON decoding and UDP sockets, and reduce successful UDP logging to one debug summary per cycle.
 - Preserve the vzLogger live-data chart history and session figures across page reloads in tab-scoped browser session storage, while keeping further collection isolated per tab and discarding history when channel metadata changes.
 - Require LoxBerry 4.0.0, adopt the V4 lifecycle argument and environment contracts, remove the obsolete reboot requirement and boot daemon, reload the SmartMeter Udev rule immediately, and start Legacy reboot polling once after upgrades.
 - Move privileged systemd installers into LoxBerry's plugin `sbin` directory, explicitly install them on early LoxBerry 4.0 systems whose plugin manager does not yet copy `sbin`, accept both original and current V4 path-variable names, remove their writable-bin sudo rules, migrate old helper files safely, and preserve pre-existing vzLogger packages, apt sources, and keyrings through explicit ownership markers.

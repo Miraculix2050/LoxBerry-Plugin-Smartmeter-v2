@@ -4,8 +4,12 @@ use strict;
 use warnings;
 use Exporter qw(import);
 use JSON::PP;
+use SmartMeterVZLoggerChannels qw(ordered_output_names);
 
-our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys);
+our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys validate_channel_announcement send_udp_cycle);
+
+my $json_decoder = JSON::PP->new->utf8;
+my $uuid_pattern = qr/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
 
 sub normalize_mapping_keys
 {
@@ -24,8 +28,7 @@ sub normalize_mapping_keys
 sub parse_reading
 {
 	my ($topic, $payload, $mapping, $uuid_by_channel, $debug) = @_;
-	$debug ||= sub {};
-	my $json = eval { JSON::PP->new->utf8->decode($payload) };
+	my $json = $payload =~ /\A\s*\{/ ? eval { $json_decoder->decode($payload) } : undef;
 	my $uuid = "";
 	my ($value, $timestamp);
 	if (!$@ && ref($json) eq "HASH") {
@@ -37,19 +40,89 @@ sub parse_reading
 	$uuid = $uuid_by_channel->{$uuid} if ($uuid && !exists($mapping->{$uuid}) && $uuid_by_channel->{$uuid});
 	$uuid = $uuid_by_channel->{$1} if (!$uuid && $topic =~ m{/([^/]+)/raw\z} && $uuid_by_channel->{$1});
 	if (!$uuid) {
-		foreach my $candidate (keys %$mapping) {
-			if ($topic =~ /\Q$candidate\E/) { $uuid = $candidate; last; }
-		}
+		my ($candidate) = $topic =~ m{(?:\A|/)($uuid_pattern)(?:/|\z)};
+		$candidate = lc($candidate) if ($candidate);
+		$uuid = $candidate if ($candidate && exists($mapping->{$candidate}));
 	}
-	if (!$uuid) { $debug->("MQTT parse failed: no uuid found in topic or payload."); return undef; }
-	if (!exists($mapping->{$uuid})) { $debug->("MQTT parse failed: uuid $uuid is not present in channel mapping."); return undef; }
+	if (!$uuid) { $debug->("MQTT parse failed: no uuid found in topic or payload.") if ($debug); return undef; }
+	if (!exists($mapping->{$uuid})) { $debug->("MQTT parse failed: uuid $uuid is not present in channel mapping.") if ($debug); return undef; }
 	$value = $payload if (!defined($value) && $payload =~ /\A-?\d+(?:\.\d+)?\z/);
-	if (!defined($value)) { $debug->("MQTT parse failed: no value found for uuid $uuid."); return undef; }
+	if (!defined($value)) { $debug->("MQTT parse failed: no value found for uuid $uuid.") if ($debug); return undef; }
 	return {
 		serial => $mapping->{$uuid}->{serial}, name => $mapping->{$uuid}->{name},
 		identifier => $mapping->{$uuid}->{identifier} || "", uuid => $uuid,
 		value => $value, timestamp => $timestamp,
 	};
+}
+
+sub validate_channel_announcement
+{
+	my ($kind, $channel, $payload, $mapping, $uuid_by_channel, $uuid_by_identifier, $debug) = @_;
+	if (!defined($channel) || $channel !~ /\Achn\d+\z/ || !exists($uuid_by_channel->{$channel})) {
+		$debug->("MQTT channel mapping ignored: unknown channel " . (defined($channel) ? $channel : "")) if ($debug);
+		return undef;
+	}
+
+	my $expected_uuid = $uuid_by_channel->{$channel};
+	my $announced_uuid;
+	if ($kind eq "uuid") {
+		my $candidate = clean_scalar_payload($payload);
+		$announced_uuid = lc($candidate) if ($candidate =~ /\A$uuid_pattern\z/);
+	} elsif ($kind eq "id") {
+		my $identifier = clean_scalar_payload($payload);
+		$announced_uuid = $uuid_by_identifier->{$identifier} if ($identifier ne "");
+	} else {
+		$debug->("MQTT channel mapping ignored: unsupported announcement type $kind") if ($debug);
+		return undef;
+	}
+
+	if (!$announced_uuid || !exists($mapping->{$announced_uuid}) || $announced_uuid ne $expected_uuid) {
+		$debug->("MQTT channel mapping ignored: $kind announcement for $channel does not match configured UUID $expected_uuid") if ($debug);
+		return undef;
+	}
+	return $announced_uuid;
+}
+
+sub send_udp_cycle
+{
+	my ($values, $port, $output_order_by_serial, $targets, $socket_factory, $log, $debug) = @_;
+	$log ||= sub {};
+	my $sent_count = 0;
+	my $serial_count = 0;
+	my %failed_targets;
+
+	foreach my $serial (sort keys %{ref($values) eq "HASH" ? $values : {}}) {
+		my $payload = join("; ", map { "$serial:$_:$values->{$serial}->{$_}" }
+			ordered_output_names($values->{$serial}, $output_order_by_serial->{$serial}));
+		next if ($payload eq "");
+		$serial_count++;
+
+		foreach my $target (@{ref($targets) eq "ARRAY" ? $targets : []}) {
+			my $target_key = "$target";
+			next if ($failed_targets{$target_key});
+			my $sock = $target->{socket};
+			if (!$sock) {
+				$sock = $socket_factory->($target, $port);
+				$target->{socket} = $sock if ($sock);
+			}
+			if (!$sock) {
+				$log->("$serial: Could not create UDP socket for $target->{name}: $!");
+				$failed_targets{$target_key} = 1;
+				next;
+			}
+			my $sent = $sock->send($payload);
+			if (!defined($sent) || $sent != length($payload)) {
+				$log->("$serial: Could not send UDP payload to $target->{name} at $target->{ip}:$port: $!");
+				eval { $sock->close(); };
+				delete $target->{socket};
+				$failed_targets{$target_key} = 1;
+				next;
+			}
+			$sent_count++;
+		}
+	}
+	$debug->("UDP cycle sent $sent_count datagrams for $serial_count meters to " . scalar(@{ref($targets) eq "ARRAY" ? $targets : []}) . " targets") if ($debug);
+	return ($sent_count, $serial_count);
 }
 
 sub channel_mapping
@@ -83,7 +156,7 @@ sub identifier_mapping
 sub clean_scalar_payload
 {
 	my ($payload) = @_;
-	my $json = eval { JSON::PP->new->utf8->decode($payload) };
+	my $json = eval { $json_decoder->decode($payload) };
 	$payload = $json if (!$@ && defined($json) && !ref($json));
 	$payload =~ s/\A\s+|\s+\z//g;
 	return $payload;
