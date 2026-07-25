@@ -4,6 +4,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Speed up repeated Save/Apply operations by updating systemd units and autostart only when their state changes, keep recurring service polling free of full configuration validation, reuse successful validation results in action responses, and expose the refreshed service state immediately with a brief success confirmation.
 - Bound the vzLogger bridge to the configured `chnN` channel mapping, replace linear UUID topic searches with exact lookups, reuse MQTT JSON decoding and UDP sockets, and reduce successful UDP logging to one debug summary per cycle.
 - Preserve the vzLogger live-data chart history and session figures across page reloads in tab-scoped browser session storage, while keeping further collection isolated per tab and discarding history when channel metadata changes.
 - Require LoxBerry 4.0.0, adopt the V4 lifecycle argument and environment contracts, remove the obsolete reboot requirement and boot daemon, reload the SmartMeter Udev rule immediately, and start Legacy reboot polling once after upgrades.
