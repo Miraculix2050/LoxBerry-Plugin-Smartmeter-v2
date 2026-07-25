@@ -121,7 +121,7 @@ Verlauf und Sitzungskennzahlen existieren nur im Arbeitsspeicher des Tabs und be
 
 Wenn der Zaehler keinen Momentanleistungswert liefert, berechnet die MQTT-Bridge zusaetzlich `Consumption_CalculatedPower_OBIS_1.99.0` aus `1.8.0` und `Delivery_CalculatedPower_OBIS_2.99.0` aus `2.8.0`, sobald zwei unterschiedliche Zaehlerstaende vorliegen. Die Einheit folgt der Einheit des vom Zaehler gelieferten Zaehlerstands pro Stunde.
 
-Das Bridge-Log liegt unter `/opt/loxberry/log/plugins/smartmeter-v2/vzlogger_mqtt_bridge.log` und wird bei 2 MB rotiert. Das Control-Log liegt unter `/opt/loxberry/log/plugins/smartmeter-v2/vzlogger_control.log`, wird bei 512 KB rotiert und kann über **Control-Log anzeigen** direkt unter den beiden Dienstbereichen geöffnet werden. Erfolgreiche Start-, Stop- und Restart-Aktionen werden kurz grün bestätigt; Warnungen und Fehler bleiben mit ihren Details im Aktionsfenster geöffnet. Apply- und Diagnose-Logs werden ebenfalls im Plugin-Logverzeichnis abgelegt; von `vzlogger_debug_*.log` bleiben die letzten fuenf Dateien erhalten. Das separate vzLogger-Debug-Log `/opt/loxberry/log/plugins/smartmeter-v2/vzlogger.log` wird nur bei aktivierter vzLogger-Debugoption geschrieben. Im Normalbetrieb schreibt vzLogger kein Dateilog.
+Bridge-, Dienststeuerungs- und Weboberflächen-Aktionen verwenden native, zeitgestempelte LoxBerry-Logsitzungen im Plugin-Logverzeichnis. Sie erscheinen in der zentralen LoxBerry-Logverwaltung, die auch ihre Aufbewahrung übernimmt. **Log anzeigen** und **Steuerungs-Log anzeigen** öffnen die jeweils neueste passende Sitzung, sofern eine vorhanden ist. Erfolgreiche Start-, Stop- und Restart-Aktionen werden kurz grün bestätigt; Warnungen und Fehler bleiben mit ihren Details im Aktionsfenster geöffnet. Diagnose-Logs werden ebenfalls im Plugin-Logverzeichnis abgelegt; von `vzlogger_debug_*.log` bleiben die letzten fuenf Dateien erhalten. Das separate externe vzLogger-Debug-Log `/opt/loxberry/log/plugins/smartmeter-v2/vzlogger.log` wird nur bei aktivierter vzLogger-Debugoption geschrieben. Im Normalbetrieb schreibt vzLogger kein Dateilog.
 
 Der Service heißt:
 
@@ -153,7 +153,7 @@ Der bestehende HTTP-Endpunkt liefert weiterhin Werte aus diesen Cachedateien. Di
 
 ## Debug-Log
 
-Aktiviere **Debug-Log** in der Bridge-Zeile, bevor ein Bridge-Problem reproduziert wird. Dadurch protokolliert die MQTT-Bridge rohe MQTT-Topics, Payloads, UUID-Zuordnungen, erkannte Cache-Namen und ignorierte Nachrichten. Die getrennte Debug-Option beim vzLogger-Dienst steuert dessen eigenes Log.
+Aktiviere **Debug-Log** in der Bridge-Zeile, bevor ein Bridge-Problem reproduziert wird. Dadurch setzt die Bridge ihre aktuelle native LoxBerry-Logsitzung auf Debug-Stufe und protokolliert rohe MQTT-Topics, Payloads, UUID-Zuordnungen, erkannte Cache-Namen und ignorierte Nachrichten. Die getrennte Debug-Option beim vzLogger-Dienst steuert dessen eigenes externes Log.
 
 Mit **Debug-Log erstellen** wird ein Diagnose-Log im Plugin-Logverzeichnis erzeugt, ohne die aktuellen Formularwerte zu speichern. Ein neuer Browser-Tab öffnet sofort eine Fortschrittsanzeige, überwacht die gesamte Operation und wechselt nach Fertigstellung zur LoxBerry-Logansicht; die Einstellungsseite zeigt kein zusätzliches Overlay und wird nicht neu geladen. Serverseitig wird die Erstellung nach 45 Sekunden beendet, falls sie nicht regulär fertig wird. Wird der neue Tab vorher geschlossen, kann der bereits gestartete Serverprozess noch bis zu diesem Zeitlimit weiterlaufen. Das Log enthält:
 

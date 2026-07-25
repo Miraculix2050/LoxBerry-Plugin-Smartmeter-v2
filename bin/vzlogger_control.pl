@@ -9,6 +9,7 @@ use File::Copy qw(copy);
 use File::Path qw(make_path);
 use File::Temp qw(tempdir);
 use JSON::PP;
+use LoxBerry::Log;
 use LoxBerry::System;
 use FindBin;
 use lib $FindBin::Bin;
@@ -19,20 +20,20 @@ use SmartMeterLegacyRuntime qw(acquire_legacy_fetch_lock);
 
 my $home = $lbhomedir;
 my $psubfolder = $lbpplugindir;
-my $bindir = "$home/bin/plugins/$psubfolder";
-my $plugin_config_file = "$home/config/plugins/$psubfolder/smartmeter.cfg";
-my $config_file = "$home/config/plugins/$psubfolder/vzlogger.conf";
-my $expert_file = "$home/config/plugins/$psubfolder/vzlogger_expert.conf";
-my $mapping_file = "$home/config/plugins/$psubfolder/vzlogger_channels.json";
+my $bindir = $lbpbindir;
+my $plugin_config_file = "$lbpconfigdir/smartmeter.cfg";
+my $config_file = "$lbpconfigdir/vzlogger.conf";
+my $expert_file = "$lbpconfigdir/vzlogger_expert.conf";
+my $mapping_file = "$lbpconfigdir/vzlogger_channels.json";
 my $runtime_dir = "/var/run/shm/$psubfolder";
 my $obis_watchdog_pid_file = "$runtime_dir/vzlogger_obis_watchdog.pid";
 my $obis_status_file = "$runtime_dir/vzlogger_obis_status.json";
-my $plugin_log_dir = "$home/log/plugins/$psubfolder";
-my $control_log_file = "$plugin_log_dir/vzlogger_control.log";
+my $plugin_log_dir = $lbplogdir;
 my $vzlogger_log_file = "$plugin_log_dir/vzlogger.log";
 my $bridge_service = "smartmeter-v2-vzlogger-bridge";
 my $vzlogger_override_file = "/etc/systemd/system/vzlogger.service.d/smartmeter-v2.conf";
 my $action = shift @ARGV || "status";
+my $control_log;
 
 make_path($runtime_dir) if (!-d $runtime_dir);
 make_path($plugin_log_dir) if (!-d $plugin_log_dir);
@@ -50,7 +51,10 @@ if ($mutating_action{$action}) {
 	}
 	$config_lock = $lock;
 }
-log_control("action=$action user=" . ($ENV{USER} || $ENV{LOGNAME} || "unknown"));
+# The UI polls status frequently. Keep read-only status calls out of the log
+# manager so they do not create a new LoxBerry log session every few seconds.
+log_control("action=$action user=" . ($ENV{USER} || $ENV{LOGNAME} || "unknown"))
+	if ($action ne "status");
 
 if ($action eq "generate") {
 	exit generate_and_validate();
@@ -196,7 +200,7 @@ sub apply_generated_configuration
 
 sub generate_validate_and_promote
 {
-	my $config_dir = "$home/config/plugins/$psubfolder";
+	my $config_dir = $lbpconfigdir;
 	my $stage = tempdir(".vzlogger-stage-XXXXXX", DIR => $config_dir, CLEANUP => 1);
 	my $stage_config = "$stage/vzlogger.conf";
 	my $stage_mapping = "$stage/vzlogger_channels.json";
@@ -420,8 +424,8 @@ sub start_bridge
 	die "Could not fork bridge process: $!\n" if (!defined($pid));
 	if ($pid == 0) {
 		open STDIN, "</dev/null";
-		open STDOUT, ">>$home/log/plugins/$psubfolder/vzlogger_mqtt_bridge.log";
-		open STDERR, ">>$home/log/plugins/$psubfolder/vzlogger_mqtt_bridge.log";
+		open STDOUT, ">/dev/null";
+		open STDERR, ">/dev/null";
 		exec($^X, "$bindir/vzlogger_mqtt_bridge.pl");
 		exit 1;
 	}
@@ -626,7 +630,7 @@ sub stop_orphaned_obis_discovery_processes
 		unlink($obis_watchdog_pid_file);
 	}
 
-	my $config_prefix = "$home/config/plugins/$psubfolder/vzLogger_IrTest_";
+	my $config_prefix = "$lbpconfigdir/vzLogger_IrTest_";
 	my @pids;
 	opendir(my $proc, "/proc") or return;
 	foreach my $entry (readdir($proc)) {
@@ -937,8 +941,9 @@ sub create_debug_log
 	print_file($fh, "Plugin config", $plugin_config_file, 1);
 	print_file($fh, "Generated vzLogger config", $config_file, 1);
 	print_file($fh, "Channel mapping", $mapping_file, 0);
-	print_file($fh, "Control action log", $control_log_file, 0, 200);
-	print_file($fh, "Bridge log tail", "$home/log/plugins/$psubfolder/vzlogger_mqtt_bridge.log", 0, 200);
+	print_file($fh, "Control action log", latest_plugin_log("control"), 0, 200);
+	print_file($fh, "Web interface action log", latest_plugin_log("webui"), 0, 200);
+	print_file($fh, "Bridge log tail", latest_plugin_log("bridge"), 0, 200);
 	print_loxberry_logs($fh, $debug_file);
 	print_runtime_cache($fh);
 	print_mqtt_capture($fh);
@@ -1040,12 +1045,10 @@ sub print_loxberry_logs
 	my ($fh, $exclude_file) = @_;
 	print_section($fh, "LoxBerry install and plugin logs");
 	my @candidates = (
-		"$home/log/plugins/$psubfolder/*.log",
-		"$home/log/system/plugininstall*.log",
-		"$home/log/system_tmpfs/plugininstall*.log",
-		"$home/log/system_tmpfs/*.log",
-		"/opt/loxberry/log/system/plugininstall*.log",
-		"/opt/loxberry/log/system_tmpfs/plugininstall*.log",
+		"$plugin_log_dir/*.log",
+		"$lbslogdir/plugininstall*.log",
+		"$lbstmpfslogdir/plugininstall*.log",
+		"$lbstmpfslogdir/*.log",
 	);
 	my %seen;
 	my @files;
@@ -1154,13 +1157,25 @@ sub run_privileged
 sub log_control
 {
 	my ($message) = @_;
-	if (-e $control_log_file && -s $control_log_file >= 512 * 1024) {
-		unlink("$control_log_file.1") if (-e "$control_log_file.1");
-		rename($control_log_file, "$control_log_file.1");
+	if (!$control_log) {
+		$control_log = LoxBerry::Log->new(
+			name => "control",
+			package => $psubfolder,
+		);
+		$control_log->LOGSTART("vzLogger control");
 	}
-	open(my $fh, ">>", $control_log_file) or return;
-	print $fh timestamp() . " $message\n";
-	close($fh);
+	$control_log->INF($message);
+}
+
+sub latest_plugin_log
+{
+	my ($name) = @_;
+	my @files = sort glob("$plugin_log_dir/*_$name.log");
+	return @files ? $files[-1] : undef;
+}
+
+END {
+	$control_log->LOGEND("vzLogger control finished") if ($control_log);
 }
 
 sub message_exit

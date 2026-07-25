@@ -12,9 +12,7 @@ use lib $FindBin::Bin;
 use SmartMeterVZLoggerChannels qw(compose_obis parse_obis validate_document valid_output_key output_key_format);
 use SmartMeterVZLoggerExpert qw(read_text validate_expert_text format_expert_validation);
 
-my $home = $lbhomedir;
-my $psubfolder = $lbpplugindir;
-my $plugin_config_dir = $ENV{SMARTMETER_CONFIG_DIR} || "$home/config/plugins/$psubfolder";
+my $plugin_config_dir = $ENV{SMARTMETER_CONFIG_DIR} || $lbpconfigdir;
 my $plugin_config_file = $ENV{SMARTMETER_CONFIG_FILE} || "$plugin_config_dir/smartmeter.cfg";
 my $config_file = $ENV{SMARTMETER_VZLOGGER_CONFIG_FILE} || "$plugin_config_dir/vzlogger.conf";
 my $mapping_file = $ENV{SMARTMETER_VZLOGGER_MAPPING_FILE} || "$plugin_config_dir/vzlogger_channels.json";
