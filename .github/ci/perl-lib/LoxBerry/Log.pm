@@ -44,6 +44,7 @@ sub stderr { return 1; }
 sub dbkey { return $_[0]->{dbkey}; }
 sub open { return 1; }
 sub close { return 1; }
+sub get_notifications_html { return ''; }
 
 for my $method (@LOG_METHODS) {
 	no strict 'refs';

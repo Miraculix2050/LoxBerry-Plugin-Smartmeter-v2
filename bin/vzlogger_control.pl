@@ -21,6 +21,7 @@ use SmartMeterLegacyRuntime qw(acquire_legacy_fetch_lock);
 my $home = $lbhomedir;
 my $psubfolder = $lbpplugindir;
 my $bindir = $lbpbindir;
+my $sbindir = $lbpsbindir;
 my $plugin_config_file = "$lbpconfigdir/smartmeter.cfg";
 my $config_file = "$lbpconfigdir/vzlogger.conf";
 my $expert_file = "$lbpconfigdir/vzlogger_expert.conf";
@@ -769,54 +770,38 @@ sub generated_mqtt_enabled
 sub install_bridge_service
 {
 	my ($action) = @_;
-	my $script = "$bindir/install_vzlogger_bridge_service.sh";
-	return message_exit("Bridge service helper not found: $script", 1) if (!-e $script);
-
-	if ($> == 0) {
-		system("sh", $script, $home, $psubfolder, $action);
-		my $exit = $? >> 8;
-		log_control("exit=$exit: sh $script $home $psubfolder $action");
-		return $exit;
-	}
-
-	if (command_exists("sudo")) {
-		system("sudo", "-n", "/bin/sh", $script, $home, $psubfolder, $action);
-		my $exit = $? >> 8;
-		log_control("exit=$exit: sudo -n /bin/sh $script $home $psubfolder $action");
-		return $exit if ($exit == 0);
-		print "Could not run sudo non-interactively. Run as root: sh $script $home $psubfolder $action\n";
-		return $exit || 1;
-	}
-
-	print "Root privileges are required. Run as root: sh $script $home $psubfolder $action\n";
-	log_control("root required: sh $script $home $psubfolder $action");
-	return 2;
+	return run_service_helper("$sbindir/install_vzlogger_bridge_service.sh", $action);
 }
 
 sub install_vzlogger_service_override
 {
 	my ($action) = @_;
-	my $script = "$bindir/install_vzlogger_service_override.sh";
-	return message_exit("vzLogger service override helper not found: $script", 1) if (!-e $script);
+	return run_service_helper("$sbindir/install_vzlogger_service_override.sh", $action);
+}
+
+sub run_service_helper
+{
+	my ($script, $action) = @_;
+	return message_exit("Privileged service helper not found: $script", 1) if (!-e $script);
 
 	if ($> == 0) {
-		system("sh", $script, $home, $psubfolder, $action);
+		system($script, $psubfolder, $action);
 		my $exit = $? >> 8;
-		log_control("exit=$exit: sh $script $home $psubfolder $action");
+		log_control("exit=$exit: $script $psubfolder $action");
 		return $exit;
 	}
 
 	if (command_exists("sudo")) {
-		system("sudo", "-n", "/bin/sh", $script, $home, $psubfolder, $action);
+		system("sudo", "-n", $script, $psubfolder, $action);
 		my $exit = $? >> 8;
-		log_control("exit=$exit: sudo -n /bin/sh $script $home $psubfolder $action");
+		log_control("exit=$exit: sudo -n $script $psubfolder $action");
 		return $exit if ($exit == 0);
-		print "Could not run sudo non-interactively. Run as root: sh $script $home $psubfolder $action\n";
+		print "Could not run sudo non-interactively. Run as root: $script $psubfolder $action\n";
 		return $exit || 1;
 	}
 
-	print "Root privileges are required. Run as root: sh $script $home $psubfolder $action\n";
-	log_control("root required: sh $script $home $psubfolder $action");
+	print "Root privileges are required. Run as root: $script $psubfolder $action\n";
+	log_control("root required: $script $psubfolder $action");
 	return 2;
 }
 

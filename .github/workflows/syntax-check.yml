@@ -77,7 +77,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for file in preinstall.sh postinstall.sh preupgrade.sh postupgrade.sh postroot.sh uninstall.sh; do
+          for file in \
+            preinstall.sh preroot.sh postinstall.sh postroot.sh preupgrade.sh postupgrade.sh \
+            uninstall/uninstall sbin/*.sh bin/*.sh
+          do
             [ ! -f "$file" ] || sh -n "$file"
           done
 
@@ -96,6 +99,7 @@ jobs:
           perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_config_validation.pl
           perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_bridge.pl
           perl -I .github/ci/perl-lib -I bin tests/test_loxberry_native_integration.pl
+          perl tests/test_lifecycle_v4.pl
           perl tests/test_bridge_service_lifecycle.pl
           perl -I .github/ci/perl-lib -I bin tests/test_legacy_runtime.pl
 

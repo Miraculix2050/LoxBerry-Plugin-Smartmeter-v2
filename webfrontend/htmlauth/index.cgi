@@ -2959,7 +2959,12 @@ sub form_print
 	
 	# Template
 	my $title = $L{'COMMON.PLUGIN_TITLE'} || "Smartmeter v2";
-	LoxBerry::Web::lbheader("$title V$version", "https://www.loxwiki.eu/x/mA-L", "");
+	LoxBerry::Web::lbheader(
+		"$title V$version",
+		"https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/master/docs/Readme.md",
+		"",
+	);
+	print LoxBerry::Log::get_notifications_html($lbpplugindir);
 	print $template->output();
 	LoxBerry::Web::lbfooter();
 	

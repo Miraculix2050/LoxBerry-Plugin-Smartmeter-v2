@@ -8,7 +8,7 @@ The legacy implementation remains available. Use it if an existing setup depends
 
 ## Requirements
 
-- LoxBerry with the SmartMeter v2 plugin installed.
+- LoxBerry 4.0.0 or newer with the SmartMeter v2 plugin installed.
 - At least one supported optical I/R reading head below `/dev/serial/smartmeter/`.
 - For the standard implementation: installed `vzlogger` package and `mosquitto-clients`. Both packages are installed by LoxBerry during plugin installation.
 - For MQTT transport: the LoxBerry MQTT broker settings must be available in LoxBerry.
@@ -34,6 +34,8 @@ The Legacy meter configuration is preserved independently as well. Meter selecti
 During installation or upgrade, the plugin configures the Volkszaehler/Cloudsmith apt repository. LoxBerry then installs `vzlogger` and `mosquitto-clients` through the plugin's normal `dpkg/apt` package list. If `vzlogger` is already installed, the existing package ownership is preserved and apt updates it to the available current version.
 
 After installation, the plugin stops and disables the `vzlogger` service again while Legacy is active. vzLogger starts when **Save and apply** is used in vzLogger mode; the MQTT bridge can remain disabled independently.
+
+No reboot is required after installation or upgrade for either vzLogger or Legacy. The plugin reloads its Udev rule and triggers device detection immediately. If the installation log reports that `udevadm` could not run, reconnect the USB reader; reboot once only if reconnecting is insufficient. For the Legacy **At system startup** interval, an upgrade additionally starts one reading immediately.
 
 ### Meter Setup
 

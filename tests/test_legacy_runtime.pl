@@ -70,6 +70,22 @@ ok(-l "$home/system/cron/cron.05min/plugin", "Legacy runtime creates the expecte
 remove_legacy_cronjobs($home, "plugin");
 ok(!-e "$home/system/cron/cron.05min/plugin", "Legacy cron removal removes the link");
 
+$cfg->param("MAIN.CRON", "M");
+my @started_sources;
+($message, $ok) = apply_legacy_runtime(
+	$home,
+	"plugin",
+	$cfg,
+	start_minimal_now => 1,
+	start_runner => sub {
+		push @started_sources, shift;
+		return 1;
+	},
+);
+ok($ok, "Legacy reboot polling can be restored and started immediately");
+is_deeply(\@started_sources, ["$home/bin/plugins/plugin/fetch.pl"], "immediate Legacy start invokes the meter fetcher directly");
+ok(-l "$home/system/cron/cron.reboot/plugin", "Legacy reboot cron link is restored");
+
 $cfg->param("MAIN.CRON", "2");
 ($message, $ok) = apply_legacy_runtime($home, "plugin", $cfg);
 ok(!$ok, "invalid Legacy interval is rejected");
@@ -96,7 +112,8 @@ open(my $upgrade_fh, "<", "$FindBin::Bin/../postupgrade.sh") or die $!;
 local $/;
 my $upgrade_source = <$upgrade_fh>;
 close($upgrade_fh);
-like($upgrade_source, qr/smartmeter_legacy_runtime\.pl" synchronize/, "upgrade lifecycle uses the shared Legacy runtime entry point");
+like($upgrade_source, qr/smartmeter_legacy_runtime\.pl"\s*\\?\s*synchronize/, "upgrade lifecycle uses the shared Legacy runtime entry point");
+like($upgrade_source, qr/--start-minimal-now/, "upgrade starts Legacy reboot polling immediately");
 unlike($upgrade_source, qr/case "\$cron_interval"/, "upgrade lifecycle contains no duplicate cron interval matrix");
 
 done_testing();

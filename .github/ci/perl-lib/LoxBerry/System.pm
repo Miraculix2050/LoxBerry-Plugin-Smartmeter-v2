@@ -5,6 +5,7 @@ use warnings;
 our $lbhomedir = '/opt/loxberry';
 our $lbpplugindir = 'smartmeter-v2';
 our $lbpbindir = '/opt/loxberry/bin/plugins/smartmeter-v2';
+our $lbpsbindir = '/opt/loxberry/sbin/plugins/smartmeter-v2';
 our $lbpconfigdir = '/opt/loxberry/config/plugins/smartmeter-v2';
 our $lbptemplatedir = '/opt/loxberry/templates/plugins/smartmeter-v2';
 our $lbplogdir = '/opt/loxberry/log/plugins/smartmeter-v2';
@@ -18,6 +19,7 @@ sub import {
 	*{"${caller}::lbhomedir"} = \$lbhomedir;
 	*{"${caller}::lbpplugindir"} = \$lbpplugindir;
 	*{"${caller}::lbpbindir"} = \$lbpbindir;
+	*{"${caller}::lbpsbindir"} = \$lbpsbindir;
 	*{"${caller}::lbpconfigdir"} = \$lbpconfigdir;
 	*{"${caller}::lbptemplatedir"} = \$lbptemplatedir;
 	*{"${caller}::lbplogdir"} = \$lbplogdir;

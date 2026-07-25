@@ -25,6 +25,7 @@ use warnings;
 use CGI::Carp qw(fatalsToBrowser);
 use CGI qw/:standard/;
 use Config::Simple;
+use LoxBerry::Log;
 use LoxBerry::System;
 use File::HomeDir;
 use Cwd 'abs_path';
@@ -353,6 +354,7 @@ sub form
 	$maintemplate->param( ROWS => \@rows );
 
 	# Print Template
+	print LoxBerry::Log::get_notifications_html($lbpplugindir);
 	print $maintemplate->output;
 
 	# Parse page footer		
@@ -435,5 +437,9 @@ sub load_page_header
 		close($help_fh);
 		$helptext =~ s/<!--\$psubfolder-->/$psubfolder/g;
 	}
-	LoxBerry::Web::lbheader($template_title, "https://www.loxwiki.eu/x/mA-L", $helptext);
+	LoxBerry::Web::lbheader(
+		$template_title,
+		"https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/master/docs/Readme.md",
+		$helptext,
+	);
 }

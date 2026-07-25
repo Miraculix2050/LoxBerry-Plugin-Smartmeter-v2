@@ -102,16 +102,27 @@ sub apply_legacy_runtime
 	symlink($source, $target) or return _runtime_result("Could not create Legacy cronjob $target: $!\n", 0);
 
 	if ($cron eq "M" && $options{start_minimal_now}) {
-		my $pid = fork();
-		if (defined($pid) && $pid == 0) {
-			open(STDIN, "<", "/dev/null");
-			open(STDOUT, ">", "/dev/null");
-			open(STDERR, ">", "/dev/null");
-			exec($^X, "$home/bin/plugins/$plugin_id/fetch.pl");
-			exit 1;
-		}
+		my $runner = $options{start_runner} || \&_start_fetch_now;
+		my $immediate_source = "$home/bin/plugins/$plugin_folder/fetch.pl";
+		return _runtime_result("Could not start Legacy polling immediately.\n", 0)
+			if (!$runner->($immediate_source));
 	}
 	return _runtime_result("Restored Legacy meter polling cronjob: $label\n", 1);
+}
+
+sub _start_fetch_now
+{
+	my ($source) = @_;
+	my $pid = fork();
+	return 0 if (!defined($pid));
+	if ($pid == 0) {
+		open(STDIN, "<", "/dev/null");
+		open(STDOUT, ">", "/dev/null");
+		open(STDERR, ">", "/dev/null");
+		exec($^X, $source);
+		exit 1;
+	}
+	return 1;
 }
 
 sub synchronize_legacy_runtime

@@ -4,6 +4,10 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Require LoxBerry 4.0.0, adopt the V4 lifecycle argument and environment contracts, remove the obsolete reboot requirement and boot daemon, reload the SmartMeter Udev rule immediately, and start Legacy reboot polling once after upgrades.
+- Move privileged systemd installers into LoxBerry's plugin `sbin` directory, remove their writable-bin sudo rules, migrate old helper files safely, and preserve pre-existing vzLogger packages, apt sources, and keyrings through explicit ownership markers.
+- Preserve only persistent configuration through the V4 upgrade temporary path, stop restoring RAM logs, modernize the compatible Legacy log page with native LoxBerry log and notification rendering, and remove hard-coded installation paths and obsolete help links.
+- Enforce Linux LF line endings for the complete LoxBerry plugin layout and add deterministic V4 lifecycle and Legacy immediate-start regression coverage.
 - Route vzLogger bridge, service-control, and web-interface action logs through native LoxBerry log sessions so they honor the central plugin logging infrastructure and retention, while retaining the dedicated bridge debug switch and the separate external vzLogger debug log.
 - Use the native `INF` and `DEB` object methods for LoxBerry logging so web actions, service control, and bridge startup do not fail on the target LoxBerry runtime.
 - Use LoxBerry-provided plugin and system directory variables throughout the vzLogger runtime and diagnostics instead of reconstructing LoxBerry paths from the installation root.
