@@ -236,6 +236,10 @@ Die tatsächlich verfügbaren Werte hängen vom Zählertyp, Protokoll und den ko
 
 Prüfe das LoxBerry-Installationslog. Entscheidend sind die Schritte `PREROOT`, `Refreshing APT database` und `Installing additional software packages`. Wenn die Volkszaehler/Cloudsmith-Quelle für Codename oder Architektur nicht verfügbar ist, kann LoxBerry das Paket `vzlogger` nicht installieren.
 
+### Speichern und anwenden verlangt ein sudo-Passwort
+
+Die Weboberfläche darf nie interaktiv nach einem sudo-Passwort fragen. Meldet das Apply-Log `sudo: a password is required` für `install_vzlogger_service_override.sh` oder `install_vzlogger_bridge_service.sh`, fehlen die zu den root-eigenen Service-Helpern gehörenden Berechtigungsregeln. Installiere bzw. aktualisiere das Plugin auf eine Version mit diesem Fix erneut über die LoxBerry-Pluginverwaltung und führe danach **Speichern und anwenden** nochmals aus. Die bereits erzeugte gültige `vzlogger.conf` kann dabei weiterverwendet werden.
+
 ### Es werden keine Cachewerte geschrieben
 
 Prüfe folgende Punkte:

@@ -236,6 +236,10 @@ The available values depend on the meter type, protocol, and configured OBIS cha
 
 Check the LoxBerry installation log. The relevant steps are `PREROOT`, `Refreshing APT database`, and `Installing additional software packages`. If the Volkszaehler/Cloudsmith repository does not support the target codename or architecture, LoxBerry cannot install the `vzlogger` package.
 
+### Save and apply requests a sudo password
+
+The web interface must never request a sudo password interactively. If the Apply log reports `sudo: a password is required` for `install_vzlogger_service_override.sh` or `install_vzlogger_bridge_service.sh`, the permission rules for the root-owned service helpers are missing. Reinstall or upgrade to a plugin version containing this fix through LoxBerry Plugin Management, then run **Save and apply** again. The already generated valid `vzlogger.conf` can be reused.
+
 ### No cached values are written
 
 Check the following:
