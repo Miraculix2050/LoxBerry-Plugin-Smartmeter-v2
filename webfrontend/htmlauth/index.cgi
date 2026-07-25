@@ -53,6 +53,7 @@ my $saved_meter_protocols_cache;
 my $channel_document;
 my $obis_catalog;
 my $webui_log;
+my %service_runtime_status_cache;
 our $configuration_action_deadline;
 our $configuration_action_timed_out = 0;
 
@@ -473,28 +474,43 @@ sub log_redirect_url
 sub service_summary
 {
 	my ($service) = @_;
-	my $state = service_state($service);
-	my $pid = service_pid($service);
+	my $runtime = service_runtime_status($service);
+	my $state = $runtime->{state};
+	my $pid = $runtime->{pid};
 	my $installed = service_installed($service) ? $L{'VZLOGGER.UI_INSTALLED'} : $L{'VZLOGGER.UI_NOT_INSTALLED'};
 	return "$state | PID: " . ($pid || "-") . " | Service: $service | $installed";
+}
+
+sub service_runtime_status
+{
+	my ($service) = @_;
+	return $service_runtime_status_cache{$service} if ($service_runtime_status_cache{$service});
+	my $runtime = { state => "unknown", pid => "" };
+	my $opened = open(my $fh, "-|", "systemctl", "show", "--property=ActiveState", "--property=MainPID", "--no-pager", $service);
+	if ($opened) {
+		while (my $line = <$fh>) {
+			chomp($line);
+			my ($name, $value) = split(/=/, $line, 2);
+			next if (!defined($value));
+			$runtime->{state} = $value if ($name eq "ActiveState" && $value ne "");
+			$runtime->{pid} = $value if ($name eq "MainPID" && $value ne "" && $value ne "0");
+		}
+		close($fh);
+	}
+	$service_runtime_status_cache{$service} = $runtime;
+	return $runtime;
 }
 
 sub service_state
 {
 	my ($service) = @_;
-	return "unknown" if (!command_exists("systemctl"));
-	my $state = `systemctl is-active $service 2>/dev/null`;
-	chomp($state);
-	return $state || "inactive";
+	return service_runtime_status($service)->{state};
 }
 
 sub service_pid
 {
 	my ($service) = @_;
-	return "" if (!command_exists("systemctl"));
-	my $pid = `systemctl show -p MainPID --value $service 2>/dev/null`;
-	chomp($pid);
-	return ($pid && $pid ne "0") ? $pid : "";
+	return service_runtime_status($service)->{pid};
 }
 
 sub service_installed
@@ -566,8 +582,9 @@ sub service_status_response
 sub service_status_data
 {
 	my ($service, $expected_active) = @_;
-	my $state = service_state($service);
-	my $pid = service_pid($service);
+	my $runtime = service_runtime_status($service);
+	my $state = $runtime->{state};
+	my $pid = $runtime->{pid};
 	my $installed = service_installed($service);
 	my $running = $state eq "active";
 	return {
@@ -2818,6 +2835,7 @@ sub run_control_result
 		? `timeout --signal=TERM --kill-after=5s ${remaining}s "$^X" "$script" "$action" 2>&1`
 		: `$^X "$script" "$action" 2>&1`;
 	my $exit = $? >> 8;
+	%service_runtime_status_cache = ();
 	if (defined($configuration_action_deadline) && ($exit == 124 || $exit == 137)) {
 		$configuration_action_timed_out = 1;
 		$output .= "\n" . $L{'VZLOGGER.UI_CONFIG_TIMEOUT'} . "\n";

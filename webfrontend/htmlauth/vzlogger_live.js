@@ -149,6 +149,22 @@
 		return isEnergy(meta) && Number.isFinite(previousValue) && Number.isFinite(value) && value < previousValue;
 	}
 
+	function readingDecision(previous, x, y, key, lastKey, meta) {
+		if (lastKey === key) return { accept: false, rememberKey: false, gap: false, reset: false };
+		if (previous && x === previous.x && y === previous.y) return { accept: false, rememberKey: true, gap: false, reset: false };
+		if (previous && x < previous.x) return { accept: false, rememberKey: false, gap: false, reset: false };
+		return {
+			accept: true,
+			rememberKey: true,
+			gap: !!previous && hasReadingGap(previous.x, x),
+			reset: !!previous && isCounterReset(meta, previous.absolute, y)
+		};
+	}
+
+	function liveDataSignature(data) {
+		return JSON.stringify(data);
+	}
+
 	function styleFor(uuid) {
 		let hash = 0;
 		for (const character of String(uuid)) hash = ((hash * 31) + character.charCodeAt(0)) >>> 0;
@@ -251,7 +267,7 @@
 		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, GAP_INTERVAL, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS,
 		numericTimestamp, scaledValue, category, isPower, isEnergy, chartValue,
 		chooseEnergyChannel, choosePowerChannels, defaultSelection, cleanPreferences, rangeForHistory,
-		limitSelection, hasReadingGap, isCounterReset, styleFor, balanceText,
+		limitSelection, hasReadingGap, isCounterReset, readingDecision, liveDataSignature, styleFor, balanceText,
 		historySnapshot, cleanHistorySnapshot, channelFingerprint, mergeBucket, expandBucket, compactHistory
 	};
 }));
@@ -272,6 +288,7 @@
 	let historyRange = Live.DEFAULT_RANGE;
 	let historyRangeExplicit = false;
 	let currentData = null;
+	let lastLiveDataSignature = null;
 	let timer = null;
 	let stopped = false;
 	let refreshing = false;
@@ -687,17 +704,19 @@
 				const y = Live.scaledValue(tuple[1], meta);
 				if (x === null || y === null) return;
 				const key = String(tuple[0]) + "|" + String(tuple[1]);
-				if (lastTuple.get(uuid) === key) return;
 				const history = histories.get(uuid) || [];
 				const previous = history.slice().reverse().find(point => point.y !== null);
-				if (previous && x === previous.x && y === previous.y) { lastTuple.set(uuid, key); return; }
-				if (previous && x < previous.x) return;
+				const decision = Live.readingDecision(previous, x, y, key, lastTuple.get(uuid), meta);
+				if (!decision.accept) {
+					if (decision.rememberKey) lastTuple.set(uuid, key);
+					return;
+				}
 				if (Live.isEnergy(meta) && !energySegments.has(String(meta.serial || "unknown"))) energySegments.set(String(meta.serial || "unknown"), [{ start: x, bases: { [uuid]: y }, reset: false }]);
-				if (previous && Live.hasReadingGap(previous.x, x)) {
+				if (decision.gap) {
 					const gap = { uuid, x: previous.x + 1 };
 					history.push({ x: gap.x, y: null, absolute: null, raw: null }); gaps.push(gap);
 				}
-				if (previous && Live.isCounterReset(meta, previous.absolute, y)) registerEnergyReset(String(meta.serial || "unknown"), x, uuid, y);
+				if (decision.reset) registerEnergyReset(String(meta.serial || "unknown"), x, uuid, y);
 				history.push({ x, y, absolute: y, raw: tuple[1] });
 				histories.set(uuid, history);
 				lastTuple.set(uuid, key);
@@ -713,6 +732,7 @@
 			}
 			queueHistoryWrite(samples, gaps);
 		}
+		return changed;
 	}
 
 	function renderTable(data) {
@@ -881,12 +901,18 @@
 			const response = await fetch("?json=1" + languageQuery, { cache: "no-store" });
 			if (!response.ok) throw new Error(i18n.dataFailed);
 			const version = response.headers.get("X-Smartmeter-Metadata-Version") || "";
-			if (version && version !== metadataVersion) await loadMetadata();
+			let metadataChanged = false;
+			if (version && version !== metadataVersion) { await loadMetadata(); metadataChanged = true; }
 			const data = await response.json();
 			if (data && data.error) throw new Error(data.error);
-			currentData = data; ingest(data);
+			const firstRender = currentData === null;
+			const signature = Live.liveDataSignature(data);
+			const responseChanged = signature !== lastLiveDataSignature;
+			currentData = data;
+			const historyChanged = ingest(data);
+			lastLiveDataSignature = signature;
 			if (!document.hidden) {
-				renderTable(data); updateChart();
+				if (firstRender || metadataChanged || responseChanged || historyChanged) { renderTable(data); updateChart(); }
 				document.getElementById("status").className = "status";
 				document.getElementById("status").textContent = i18n.lastUpdate + ": " + new Date().toLocaleString(locale);
 			}

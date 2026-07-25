@@ -38,6 +38,18 @@ assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL), false, "the acc
 assert.equal(Live.isCounterReset({ category: "active_energy_export" }, 20, 19), true, "a decreasing energy counter starts a new baseline");
 assert.equal(Live.isCounterReset({ category: "active_power_total" }, 20, 19), false, "ordinary power changes are not counter resets");
 
+const previousReading = { x: 1000, y: 10, absolute: 10 };
+assert.deepEqual(Live.readingDecision(previousReading, 1001, 11, "1001|11", "1000|10", { category: "active_power_total" }), {
+	accept: true, rememberKey: true, gap: false, reset: false
+}, "a newer reading is accepted");
+assert.equal(Live.readingDecision(previousReading, 1001, 11, "1001|11", "1001|11", { category: "active_power_total" }).accept, false, "the last raw tuple is ignored");
+assert.equal(Live.readingDecision(previousReading, 1000, 10, "1000|10.0", "1000|10", { category: "active_power_total" }).rememberKey, true, "an equivalent scaled tuple advances deduplication without adding history");
+assert.equal(Live.readingDecision(previousReading, 999, 9, "999|9", "1000|10", { category: "active_power_total" }).accept, false, "an older reading is ignored");
+assert.equal(Live.readingDecision(previousReading, 1000 + Live.GAP_INTERVAL + 1, 11, "gap|11", "1000|10", { category: "active_power_total" }).gap, true, "a delayed accepted reading requests a chart gap");
+assert.equal(Live.readingDecision(previousReading, 1001, 9, "1001|9", "1000|10", { category: "active_energy_import" }).reset, true, "an accepted decreasing energy reading requests a new baseline");
+assert.equal(Live.liveDataSignature({ data: [] }), Live.liveDataSignature({ data: [] }), "equivalent live responses have a stable signature");
+assert.notEqual(Live.liveDataSignature({ data: [] }), Live.liveDataSignature({ data: [{ tuples: [[1, 2]] }] }), "changed live responses have a different signature");
+
 const history = new Map([["total", [{ x: 1000, y: 12, absolute: 12, raw: 12 }, { x: 1001, y: null, absolute: null, raw: null }]]]);
 const lastTuples = new Map([["total", "1|12"]]);
 const energySegments = new Map([["reader", [{ start: 1000, bases: { import: 42, missing: 5 }, reset: false }]]]);

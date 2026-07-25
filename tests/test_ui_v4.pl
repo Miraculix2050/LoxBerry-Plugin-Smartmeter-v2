@@ -23,6 +23,7 @@ my %sources = map { $_ => read_file($_) } qw(
 	webfrontend/htmlauth/index_legacy.cgi
 	webfrontend/htmlauth/smartmeter-ui.js
 	webfrontend/htmlauth/smartmeter-v4.css
+	webfrontend/htmlauth/vzlogger_live.js
 );
 
 foreach my $template (qw(templates/settings.html templates/multi/main.html)) {
@@ -85,6 +86,14 @@ like($vzlogger, qr/obis-storage-clear\.lb-btn\s*\{[^}]*height:\s*40px/s, "storag
 like($vzlogger, qr/smartmeter-vzlogger-channel-details:/, "channel collapsible state uses a dedicated local storage namespace");
 like($vzlogger, qr/channel_details_storage_key\(serial,\s*uuid\)/, "channel collapsible state is keyed by meter and channel UUID");
 like($vzlogger, qr/channel_details\.addEventListener\(['"]toggle['"]/, "channel collapsible changes are persisted through the native toggle event");
+my ($aggtime_input) = $vzlogger =~ /([^\r\n]*id="<TMPL_VAR NAME=SERIAL>_aggtime"[^\r\n]*)/;
+like($aggtime_input || "", qr/update_meter_enabled/, "aggtime updates channel availability immediately");
+unlike($aggtime_input || "", qr/render_channel_editor/, "aggtime input does not rebuild every channel card");
+
+my $live = $sources{'webfrontend/htmlauth/vzlogger_live.js'};
+like($live, qr/function ingest\(data\).*?return changed;/s, "live ingestion reports whether history changed");
+like($live, qr/firstRender \|\| metadataChanged \|\| responseChanged \|\| historyChanged.*?renderTable\(data\); updateChart\(\);/s, "live rendering is gated by first render or changed data");
+like($live, qr/visibilitychange.*?renderTable\(currentData\); updateChart\(\);/s, "returning to the live page forces a current render");
 
 my $help = read_file("webfrontend/htmlauth/help.cgi");
 like($help, qr/LoxBerry::Web::lbheader\s*\([^;]*["']nojqm["']/s, "local help uses the V4 header without jQuery Mobile");
