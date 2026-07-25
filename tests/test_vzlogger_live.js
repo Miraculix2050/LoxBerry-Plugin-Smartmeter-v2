@@ -33,6 +33,16 @@ assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL), false, "the acc
 assert.equal(Live.isCounterReset({ category: "active_energy_export" }, 20, 19), true, "a decreasing energy counter starts a new baseline");
 assert.equal(Live.isCounterReset({ category: "active_power_total" }, 20, 19), false, "ordinary power changes are not counter resets");
 
+const history = new Map([["total", [{ x: 1000, y: 12, absolute: 12, raw: 12 }, { x: 1001, y: null, absolute: null, raw: null }]]]);
+const lastTuples = new Map([["total", "1|12"]]);
+const energySegments = new Map([["reader", [{ start: 1000, bases: { import: 42, missing: 5 }, reset: false }]]]);
+const snapshot = Live.historySnapshot("meta-1", history, lastTuples, energySegments);
+const restored = Live.cleanHistorySnapshot(snapshot, ["total", "import"], "meta-1");
+assert.deepEqual(restored.histories.total, [{ x: 1000, y: 12, absolute: 12, raw: null }, { x: 1001, y: null, absolute: null, raw: null }], "chart history survives compact storage round-trip");
+assert.equal(restored.lastTuples.total, "1|12", "the last tuple survives reload deduplication");
+assert.deepEqual(restored.energySegments.reader[0].bases, { import: 42 }, "removed channels are pruned from restored energy baselines");
+assert.equal(Live.cleanHistorySnapshot(snapshot, ["total", "import"], "meta-2"), null, "history from changed metadata is rejected");
+
 const labels = { unavailable: "n/a", balanced: "balanced", moreImport: "import {value}", moreExport: "export {value}" };
 assert.equal(Live.balanceText(0.0009, 0.001, labels, String), "balanced", "one Wh balance tolerance is applied");
 assert.equal(Live.balanceText(0.25, 0.001, labels, String), "import 0.25", "positive balance means grid import");

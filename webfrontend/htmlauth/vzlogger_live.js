@@ -6,6 +6,7 @@
 	"use strict";
 
 	const STORAGE_KEY = "smartmeter-v2.vzloggerLiveCharts.v1";
+	const HISTORY_STORAGE_KEY = "smartmeter-v2.vzloggerLiveHistory.v1";
 	const POLL_INTERVAL = 2000;
 	const GAP_INTERVAL = POLL_INTERVAL * 3;
 	const POWER_CATEGORIES = new Set(["active_power_total", "active_power_import", "active_power_export"]);
@@ -135,11 +136,52 @@
 		return (balance > 0 ? labels.moreImport : labels.moreExport).replace("{value}", format(Math.abs(balance)));
 	}
 
+	function historySnapshot(metadataVersion, histories, lastTuples, energySegments) {
+		const packedHistories = {}, packedLastTuples = {}, packedSegments = {};
+		histories.forEach((points, uuid) => {
+			packedHistories[uuid] = points.map(point => [point.x, point.y]);
+		});
+		lastTuples.forEach((value, uuid) => { packedLastTuples[uuid] = value; });
+		energySegments.forEach((segments, serial) => {
+			packedSegments[serial] = segments.map(segment => [segment.start, segment.bases, segment.reset === true]);
+		});
+		return { schema: 1, metadataVersion: String(metadataVersion || ""), histories: packedHistories, lastTuples: packedLastTuples, energySegments: packedSegments };
+	}
+
+	function cleanHistorySnapshot(input, availableUuids, metadataVersion) {
+		if (!input || input.schema !== 1 || input.metadataVersion !== String(metadataVersion || "") || !input.histories || typeof input.histories !== "object") return null;
+		const available = new Set(availableUuids.map(uuid => String(uuid).toLowerCase()));
+		const cleaned = { histories: {}, lastTuples: {}, energySegments: {} };
+		Object.keys(input.histories).forEach(rawUuid => {
+			const uuid = rawUuid.toLowerCase(), points = input.histories[rawUuid];
+			if (!available.has(uuid) || !Array.isArray(points)) return;
+			cleaned.histories[uuid] = points.filter(point => Array.isArray(point) && Number.isFinite(point[0]) && (point[1] === null || Number.isFinite(point[1]))).map(point => ({ x: point[0], y: point[1], absolute: point[1], raw: null }));
+		});
+		if (input.lastTuples && typeof input.lastTuples === "object") Object.keys(input.lastTuples).forEach(rawUuid => {
+			const uuid = rawUuid.toLowerCase();
+			if (available.has(uuid) && typeof input.lastTuples[rawUuid] === "string") cleaned.lastTuples[uuid] = input.lastTuples[rawUuid];
+		});
+		if (input.energySegments && typeof input.energySegments === "object") Object.keys(input.energySegments).forEach(serial => {
+			const segments = input.energySegments[serial];
+			if (!Array.isArray(segments)) return;
+			cleaned.energySegments[serial] = segments.filter(segment => Array.isArray(segment) && Number.isFinite(segment[0]) && segment[1] && typeof segment[1] === "object").map(segment => {
+				const bases = {};
+				Object.keys(segment[1]).forEach(rawUuid => {
+					const uuid = rawUuid.toLowerCase(), value = segment[1][rawUuid];
+					if (available.has(uuid) && Number.isFinite(value)) bases[uuid] = value;
+				});
+				return { start: segment[0], bases, reset: segment[2] === true };
+			});
+		});
+		return cleaned;
+	}
+
 	return {
-		STORAGE_KEY, POLL_INTERVAL, GAP_INTERVAL,
+		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, GAP_INTERVAL,
 		numericTimestamp, scaledValue, category, isPower, isEnergy, chartValue,
 		chooseEnergyChannel, choosePowerChannels, defaultSelection, cleanPreferences,
-		limitSelection, hasReadingGap, isCounterReset, styleFor, balanceText
+		limitSelection, hasReadingGap, isCounterReset, styleFor, balanceText,
+		historySnapshot, cleanHistorySnapshot
 	};
 }));
 
@@ -162,6 +204,9 @@
 	let refreshing = false;
 	let chart = null;
 	let focusedDataset = -1;
+	let historyRestored = false;
+	let historySaveTimer = null;
+	let historyDirty = false;
 	const histories = new Map();
 	const lastTuple = new Map();
 	const energySegments = new Map();
@@ -191,12 +236,15 @@
 	}
 
 	async function loadMetadata() {
+		const previousVersion = metadataVersion;
 		const response = await fetch("?meta=1" + languageQuery, { cache: "no-store" });
 		if (!response.ok) throw new Error(i18n.metadataFailed);
 		metadata = await response.json();
 		metadata.channels = metadata.channels || {};
 		metadataVersion = String(metadata.version || "");
 		channels = Object.keys(metadata.channels).map(uuid => ({ uuid: uuid.toLowerCase(), meta: metadata.channels[uuid] })).sort((a, b) => channelNumber(a.meta, 0) - channelNumber(b.meta, 0));
+		if (previousVersion && previousVersion !== metadataVersion) clearHistory();
+		if (!historyRestored) { restoreHistory(); historyRestored = true; }
 		loadPreferences();
 		renderControls();
 	}
@@ -219,6 +267,36 @@
 
 	function savePreferences() {
 		try { localStorage.setItem(Live.STORAGE_KEY, JSON.stringify({ schema: 1, channels: Array.from(selected), energyMode, backgroundCollection })); } catch (_) { /* Browser storage may be unavailable. */ }
+	}
+
+	function restoreHistory() {
+		let parsed = null;
+		try { parsed = JSON.parse(sessionStorage.getItem(Live.HISTORY_STORAGE_KEY) || "null"); } catch (_) { parsed = null; }
+		const cleaned = Live.cleanHistorySnapshot(parsed, channels.map(item => item.uuid), metadataVersion);
+		if (!cleaned) return;
+		Object.keys(cleaned.histories).forEach(uuid => histories.set(uuid, cleaned.histories[uuid]));
+		Object.keys(cleaned.lastTuples).forEach(uuid => lastTuple.set(uuid, cleaned.lastTuples[uuid]));
+		Object.keys(cleaned.energySegments).forEach(serial => energySegments.set(serial, cleaned.energySegments[serial]));
+	}
+
+	function persistHistory() {
+		clearTimeout(historySaveTimer);
+		historySaveTimer = null;
+		if (!historyDirty) return;
+		try {
+			sessionStorage.setItem(Live.HISTORY_STORAGE_KEY, JSON.stringify(Live.historySnapshot(metadataVersion, histories, lastTuple, energySegments)));
+			historyDirty = false;
+		} catch (_) { /* Keep collecting if browser storage is unavailable or full. */ }
+	}
+
+	function scheduleHistorySave() {
+		if (historySaveTimer === null) historySaveTimer = setTimeout(persistHistory, 30000);
+	}
+
+	function clearHistory() {
+		histories.clear(); lastTuple.clear(); energySegments.clear();
+		historyDirty = false;
+		try { sessionStorage.removeItem(Live.HISTORY_STORAGE_KEY); } catch (_) { /* Browser storage may be unavailable. */ }
 	}
 
 	function renderControls() {
@@ -311,6 +389,7 @@
 
 	function ingest(data) {
 		const liveChannels = Array.isArray(data && data.data) ? data.data : (Array.isArray(data) ? data : []);
+		let changed = false;
 		liveChannels.forEach((channel, index) => {
 			const uuid = channelUuid(channel);
 			const meta = metadata.channels[uuid] || {};
@@ -331,8 +410,10 @@
 				history.push({ x, y, absolute: y, raw: tuple[1] });
 				histories.set(uuid, history);
 				lastTuple.set(uuid, key);
+				changed = true;
 			});
 		});
+		if (changed) { historyDirty = true; scheduleHistorySave(); }
 	}
 
 	function renderTable(data) {
@@ -525,7 +606,8 @@
 	document.getElementById("energy-mode").addEventListener("change", event => { energyMode = event.target.value === "absolute" ? "absolute" : "since-open"; savePreferences(); updateChart(); });
 	document.getElementById("background-collection").addEventListener("change", event => { backgroundCollection = event.target.checked; savePreferences(); schedule(true); });
 	document.getElementById("reset-chart-defaults").addEventListener("click", resetDefaults);
-	window.addEventListener("beforeunload", () => { stopped = true; clearTimeout(timer); });
+	window.addEventListener("pagehide", persistHistory);
+	window.addEventListener("beforeunload", () => { stopped = true; clearTimeout(timer); persistHistory(); });
 
 	(async function initialize() {
 		try { await loadMetadata(); await refresh(); }
