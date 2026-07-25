@@ -107,6 +107,11 @@ like($vzlogger_cgi_source, qr/start_obis_discovery_background.*saved_implementat
 like($vzlogger_cgi_source, qr/service-status.*?service_status_response\(details =>/s, "service-status explicitly selects detailed or lightweight snapshots");
 my ($status_response_source) = $vzlogger_cgi_source =~ /(sub service_status_response.*?)(?=\nsub service_status_data)/s;
 like($status_response_source || "", qr/return \$response if \(!\$details\);.*?generated_config_status\(\)/s, "lightweight service status returns before full configuration validation");
+my ($runtime_status_source) = $vzlogger_cgi_source =~ /(sub service_runtime_status.*?)(?=\nsub service_state)/s;
+like($runtime_status_source || "", qr/service_runtime_status_cache.*?systemctl.*?show.*?ActiveState.*?MainPID/s, "service runtime state and PID share one cached systemctl query");
+my ($status_data_source) = $vzlogger_cgi_source =~ /(sub service_status_data.*?)(?=\nsub run_service_ajax_action)/s;
+like($status_data_source || "", qr/my \$runtime = service_runtime_status\(\$service\)/, "service polling reads the combined runtime snapshot once per service");
+unlike($status_data_source || "", qr/service_state\(|service_pid\(/, "service polling does not launch separate state and PID queries");
 like($vzlogger_cgi_source, qr/service_status_response\(config_status => \$config, expert_status => \$expert\)/, "service actions reuse their validated configuration in the final snapshot");
 like($vzlogger_cgi_source, qr/generated_config_status\(1\)/, "successful Apply responses reuse trusted validation results");
 my ($service_settings_source) = $vzlogger_cgi_source =~ /(sub save_service_log_settings.*?)(?=\nsub generated_config_status)/s;

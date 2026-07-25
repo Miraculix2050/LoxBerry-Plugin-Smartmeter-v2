@@ -4,6 +4,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Reduce recurring AJAX work by reading each service's state and PID with one cached systemd query, skipping unchanged live-table and chart renders, and updating aggregation availability without rebuilding every channel card on each input event.
 - Make the disposable test-device deployment's explicit `-Apply` switch work in non-interactive PowerShell hosts while retaining optional `-Confirm` and `-WhatIf` support.
 - Select the initial vzLogger live-chart range from the available browser history, preserve explicit range choices independently of channel changes, restore the live page's collapsible state after reloads, align its reset/history actions with visible descriptions of their separate scopes, and state prominently that histories belong only to the current browser profile or container and are never stored on the LoxBerry.
 - Label channel summaries explicitly with their source, direct vzLogger API target, and SmartMeter bridge-output state, and present the technical `null` API value as `None (null)` in the editor.
