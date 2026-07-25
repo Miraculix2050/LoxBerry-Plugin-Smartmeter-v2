@@ -116,6 +116,7 @@ This document records the product and engineering contracts that must remain tru
 - Recurring service and live-data polling uses the authenticated lightweight endpoints. Service state is refreshed every ten seconds while visible; live readings retain their two-second cadence and back off temporarily after failures.
 - Closed meter panels and channel-detail controls are initialized on demand. The hidden channel document remains authoritative so deferred controls do not change saved values.
 - The rendered live-data history is browser-local and persistent without LoxBerry disk writes. It uses bounded multi-resolution retention (raw values for 15 minutes, 10-second extrema through 2 hours, one-minute extrema through 24 hours, and 15-minute extrema through 7 days), preserves gaps, counter resets, and peaks, and discards only channel histories whose data semantics changed.
+- For readable long-range charts, render instantaneous values as temporal averages (30 seconds through 2 hours, 5 minutes through 24 hours, and 30 minutes through 7 days) and energy counters as the last value in each display interval. Persist exact sums and sample counts alongside first/last/minimum/maximum so averages remain unbiased, while summaries continue to use retained extrema and counter edges.
 - Never expose an unmasked generated configuration or expert editor outside the authenticated frontend.
 
 ## 11. Verification And Documentation

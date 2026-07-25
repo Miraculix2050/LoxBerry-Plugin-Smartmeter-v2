@@ -72,6 +72,11 @@ assert.equal(Live.rangeForHistory(new Map([["total", [{ x: rangeNow - Live.RANGE
 
 const bucket = Live.mergeBucket(null, [{ x: 1, y: 5 }, { x: 2, y: 1 }, { x: 3, y: 9 }, { x: 4, y: 7 }]);
 assert.deepEqual(Live.expandBucket(bucket).map(point => [point.x, point.y]), [[1,5],[2,1],[3,9],[4,7]], "bucket expansion preserves first, minimum, maximum, and last in chronological order");
+assert.equal(bucket.sum, 22, "bucket tracks the exact sample sum");
+assert.equal(bucket.count, 4, "bucket tracks the exact sample count");
+const expandedBucket = Live.expandBucket(bucket);
+assert.equal(expandedBucket.reduce((sum, point) => sum + (point.sampleSum || 0), 0), 22, "expanded extrema carry the bucket sum exactly once");
+assert.equal(expandedBucket.reduce((sum, point) => sum + (point.sampleCount || 0), 0), 4, "expanded extrema carry the bucket count exactly once");
 const now = 10 * 24 * 60 * 60 * 1000;
 const bucketStart = Math.floor((now - 20 * 60 * 1000) / 10000) * 10000;
 const compacted = Live.compactHistory([
@@ -81,6 +86,28 @@ const compacted = Live.compactHistory([
 ], now);
 assert.equal(compacted.some(point => point.y === 99), false, "values older than seven days are removed");
 assert.deepEqual(compacted.filter(point => point.x >= bucketStart && point.x < bucketStart + 10000).map(point => point.y), [5,1,9,7], "older raw values are reduced to bucket extrema and edges");
+assert.equal(compacted.filter(point => point.x >= bucketStart && point.x < bucketStart + 10000).reduce((sum, point) => sum + (point.sampleSum || 0), 0), 28, "history compaction retains the exact bucket sum");
+assert.equal(compacted.filter(point => point.x >= bucketStart && point.x < bucketStart + 10000).reduce((sum, point) => sum + (point.sampleCount || 0), 0), 5, "history compaction retains the exact sample count");
+
+const chartStart = 20 * Live.RANGE_VALUES[3];
+const averaged = Live.aggregateChartPoints([
+	{ x: chartStart + 1000, y: 10 }, { x: chartStart + 2000, y: 20 }, { x: chartStart + 31000, y: 40 }
+], { category:"active_power_total" }, Live.RANGE_VALUES[1]);
+assert.deepEqual(averaged.map(point => [point.x, point.y]), [[chartStart + 2000,15],[chartStart + 31000,40]], "two-hour charts show 30-second averages");
+const weighted = Live.aggregateChartPoints([
+	{ x: chartStart + 1000, y: 1, sampleSum:0, sampleCount:0 },
+	{ x: chartStart + 9000, y: 9, sampleSum:40, sampleCount:10 },
+	{ x: chartStart + 12000, y: 8, sampleSum:20, sampleCount:2 }
+], { category:"voltage" }, Live.RANGE_VALUES[1]);
+assert.deepEqual(weighted.map(point => [point.x, point.y]), [[chartStart + 12000,5]], "chart averages use persisted sums and counts instead of retained extrema");
+const energyChart = Live.aggregateChartPoints([
+	{ x: chartStart + 1000, y: 100 }, { x: chartStart + 2000, y: 101 }, { x: chartStart + 31000, y: 102 }
+], { category:"active_energy_import" }, Live.RANGE_VALUES[1]);
+assert.deepEqual(energyChart.map(point => [point.x, point.y]), [[chartStart + 2000,101],[chartStart + 31000,102]], "energy charts keep the last counter reading in each interval");
+const chartWithGap = Live.aggregateChartPoints([
+	{ x: chartStart + 1000, y: 10 }, { x: chartStart + 5000, y: null }, { x: chartStart + 6000, y: 20 }
+], { category:"active_power_total" }, Live.RANGE_VALUES[1]);
+assert.deepEqual(chartWithGap.map(point => [point.x, point.y]), [[chartStart + 1000,10],[chartStart + 5000,null],[chartStart + 6000,20]], "chart aggregation preserves collection gaps even within one interval");
 assert.equal(Live.channelFingerprint({ identifier:"1-0:1.8.0", unit:"kWh", category:"active_energy_import", display_factor:0.001, display_name:"Old" }), Live.channelFingerprint({ identifier:"1-0:1.8.0", unit:"kWh", category:"active_energy_import", display_factor:0.001, display_name:"New" }), "display-name changes retain compatible history");
 
 const labels = { unavailable: "n/a", balanced: "balanced", moreImport: "import {value}", moreExport: "export {value}" };
