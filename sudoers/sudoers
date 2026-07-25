@@ -6,3 +6,7 @@ loxberry ALL = NOPASSWD: /bin/systemctl start smartmeter-v2-vzlogger-bridge
 loxberry ALL = NOPASSWD: /bin/systemctl stop smartmeter-v2-vzlogger-bridge
 loxberry ALL = NOPASSWD: /bin/systemctl restart smartmeter-v2-vzlogger-bridge
 loxberry ALL = NOPASSWD: /bin/systemctl reset-failed smartmeter-v2-vzlogger-bridge
+loxberry ALL = NOPASSWD: REPLACELBHOMEDIR/sbin/plugins/REPLACELBPPLUGINDIR/install_vzlogger_bridge_service.sh REPLACELBPPLUGINDIR install
+loxberry ALL = NOPASSWD: REPLACELBHOMEDIR/sbin/plugins/REPLACELBPPLUGINDIR/install_vzlogger_bridge_service.sh REPLACELBPPLUGINDIR remove
+loxberry ALL = NOPASSWD: REPLACELBHOMEDIR/sbin/plugins/REPLACELBPPLUGINDIR/install_vzlogger_service_override.sh REPLACELBPPLUGINDIR install
+loxberry ALL = NOPASSWD: REPLACELBHOMEDIR/sbin/plugins/REPLACELBPPLUGINDIR/install_vzlogger_service_override.sh REPLACELBPPLUGINDIR remove

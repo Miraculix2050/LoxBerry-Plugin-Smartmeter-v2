@@ -48,7 +48,16 @@ like($postroot, qr/chmod 0640 "\$CONFIG_FILE"/, "postroot limits smartmeter.cfg 
 unlike($control, qr{sudo.*?/bin/sh.*?install_vzlogger_}, "runtime does not sudo a writable bin shell script");
 
 my $sudoers = read_file("sudoers/sudoers");
-unlike($sudoers, qr/install_vzlogger_/, "manual helper rules were removed from sudoers");
+unlike($sudoers, qr{/bin/sh\s+.*install_vzlogger_}, "sudoers never runs a service helper through a shell");
+foreach my $helper (qw(install_vzlogger_bridge_service.sh install_vzlogger_service_override.sh)) {
+	foreach my $action (qw(install remove)) {
+		like(
+			$sudoers,
+			qr{^loxberry ALL = NOPASSWD: REPLACELBHOMEDIR/sbin/plugins/REPLACELBPPLUGINDIR/\Q$helper\E REPLACELBPPLUGINDIR \Q$action\E$}m,
+			"sudoers permits the root-owned $helper $action action",
+		);
+	}
+}
 
 my $uninstall = read_file("uninstall/uninstall");
 unlike($uninstall, qr/\$5\b/, "uninstaller uses only the four documented arguments");
