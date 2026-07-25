@@ -4,6 +4,8 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Make the disposable test-device deployment's explicit `-Apply` switch work in non-interactive PowerShell hosts while retaining optional `-Confirm` and `-WhatIf` support.
+- Select the initial vzLogger live-chart range from the available browser history, preserve explicit range choices independently of channel changes, restore the live page's collapsible state after reloads, and align its reset/history actions with visible descriptions of their separate scopes.
 - Speed up repeated Save/Apply operations by updating systemd units and autostart only when their state changes, keep recurring service polling free of full configuration validation, reuse successful validation results in action responses, and expose the refreshed service state immediately with a brief success confirmation.
 - Bound the vzLogger bridge to the configured `chnN` channel mapping, replace linear UUID topic searches with exact lookups, reuse MQTT JSON decoding and UDP sockets, and reduce successful UDP logging to one debug summary per cycle.
 - Persist vzLogger live-data history in browser-local IndexedDB across reloads and reopenings, migrate the previous tab cache, offer 15-minute through 7-day ranges plus explicit clearing, and bound storage with raw 15-minute data followed by 10-second, one-minute, and 15-minute first/last/min/max buckets while preserving gaps, counter resets, and compatible renamed channels.
