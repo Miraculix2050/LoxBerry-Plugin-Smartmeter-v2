@@ -15,7 +15,7 @@ sub read_file {
 }
 
 my $control = read_file("$FindBin::Bin/../bin/vzlogger_control.pl");
-my $installer = read_file("$FindBin::Bin/../bin/install_vzlogger_bridge_service.sh");
+my $installer = read_file("$FindBin::Bin/../sbin/install_vzlogger_bridge_service.sh");
 my $postroot = read_file("$FindBin::Bin/../postroot.sh");
 
 unlike(

@@ -25,6 +25,7 @@ use warnings;
 use CGI::Carp qw(fatalsToBrowser);
 use CGI qw/:standard/;
 use Config::Simple;
+use LoxBerry::Log;
 use LoxBerry::System;
 use File::HomeDir;
 use Cwd 'abs_path';
@@ -65,8 +66,7 @@ my  $validation_error = "";
 # Read Settings
 ##########################################################################
 
-# Version fallback. The installed plugin metadata overrides this below.
-$version = "unknown";
+$version = LoxBerry::System::pluginversion();
 
 # Figure out in which subfolder we are installed
 $psubfolder = abs_path($0);
@@ -83,13 +83,7 @@ $plugin_cfg 	= new Config::Simple("$installfolder/config/plugins/$psubfolder/sma
 $plugin_cfg->param("MAIN.SENDMQTT", "0") if (!defined $plugin_cfg->param("MAIN.SENDMQTT"));
 $plugin_cfg->param("MAIN.MQTTTOPIC", "smartmeter") if (!$plugin_cfg->param("MAIN.MQTTTOPIC"));
 
-my $installed_plugin_cfg = Config::Simple->new("$installfolder/data/system/install/$psubfolder/plugin.cfg");
-my $plugin_title = "Smartmeter v2";
-if ($installed_plugin_cfg) {
-	$version = $installed_plugin_cfg->param("PLUGIN.VERSION") || $version;
-	$plugin_title = $installed_plugin_cfg->param("PLUGIN.TITLE") || $plugin_title;
-}
-$template_title = "$plugin_title V$version";
+$template_title = "SmartMeter v2 V$version";
 
 # Create temp folder if not already exist
 if (!-d $runtime_dir) {
@@ -353,6 +347,7 @@ sub form
 	$maintemplate->param( ROWS => \@rows );
 
 	# Print Template
+	print LoxBerry::Log::get_notifications_html($lbpplugindir);
 	print $maintemplate->output;
 
 	# Parse page footer		
@@ -427,13 +422,10 @@ sub clean_config_value
 sub load_page_header
 {
 	require LoxBerry::Web;
-	my $help_file = "$installfolder/templates/plugins/$psubfolder/multi/help.html";
-	my $helptext = "";
-	if (open(my $help_fh, "<", $help_file)) {
-		local $/;
-		$helptext = <$help_fh> || "";
-		close($help_fh);
-		$helptext =~ s/<!--\$psubfolder-->/$psubfolder/g;
-	}
-	LoxBerry::Web::lbheader($template_title, "https://www.loxwiki.eu/x/mA-L", $helptext);
+	LoxBerry::Web::lbheader(
+		$template_title,
+		"./help.cgi",
+		"",
+		"nojqm",
+	);
 }

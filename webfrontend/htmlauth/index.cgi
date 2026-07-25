@@ -28,6 +28,7 @@ use File::Path qw(make_path);
 use File::Temp qw(tempdir);
 use FindBin;
 use JSON::PP;
+use LoxBerry::Log;
 use LoxBerry::System;
 #use LoxBerry::Web;
 use LoxBerry::JSON; # Available with LoxBerry 2.0
@@ -51,6 +52,7 @@ my $meter_templates_cache;
 my $saved_meter_protocols_cache;
 my $channel_document;
 my $obis_catalog;
+my $webui_log;
 our $configuration_action_deadline;
 our $configuration_action_timed_out = 0;
 
@@ -339,7 +341,7 @@ sub form_vzlogger
 	my $ui_language = $L{'COMMON.LANGUAGE_CODE'} || "en";
 	$template->param("VZLOGGER_CONFIG_URL" => "./vzlogger_config.cgi?lang=$ui_language");
 	my $visible_config_exists = $expert_mode ? -e expert_config_file() : -e "$lbpconfigdir/vzlogger.conf";
-	$template->param("VZLOGGER_CONFIG_DISABLED" => ($visible_config_exists ? "" : "ui-disabled"));
+	$template->param("VZLOGGER_CONFIG_DISABLED" => ($visible_config_exists ? "" : "is-disabled"));
 	my $runtime_config = read_json("$lbpconfigdir/vzlogger.conf") || {};
 	$template->param("EXPERT_MQTT_ENABLED" => (ref($runtime_config->{mqtt}) eq "HASH" && $runtime_config->{mqtt}->{enabled}) ? 1 : 0);
 	$template->param("VZLOGGER_LIVEURL" => "http://$ENV{HTTP_HOST}:$local_port/");
@@ -368,16 +370,19 @@ sub add_service_template_params
 	$template->param("BRIDGE_SERVICE_STATUS_CLASS" => service_status_class($bridge_state, $bridge_expected_active));
 	$template->param("VZLOGGER_SERVICE_RUNNING" => $vzlogger_state eq "active");
 	$template->param("BRIDGE_SERVICE_RUNNING" => $bridge_state eq "active");
-	$template->param("VZLOGGER_LIVE_DISABLED" => ($vzlogger_state eq "active" ? "" : "ui-disabled"));
+	$template->param("VZLOGGER_LIVE_DISABLED" => ($vzlogger_state eq "active" ? "" : "is-disabled"));
 
-	my $vzlogger_log = "$lbhomedir/log/plugins/$lbpplugindir/vzlogger.log";
-	my $bridge_log = "$lbhomedir/log/plugins/$lbpplugindir/vzlogger_mqtt_bridge.log";
+	my $vzlogger_log = "$lbplogdir/vzlogger.log";
 	$template->param("VZLOGGER_LOG_URL" => log_url("plugins/$lbpplugindir/vzlogger.log"));
-	$template->param("VZLOGGER_LOG_DISABLED" => (-e $vzlogger_log ? "" : "ui-disabled"));
-	$template->param("BRIDGE_LOG_URL" => log_url("plugins/$lbpplugindir/vzlogger_mqtt_bridge.log"));
-	$template->param("BRIDGE_LOG_DISABLED" => (-e $bridge_log ? "" : "ui-disabled"));
-	$template->param("CONTROL_LOG_URL" => log_url("plugins/$lbpplugindir/vzlogger_control.log"));
-	$template->param("CONTROL_LOG_DISABLED" => "");
+	$template->param("VZLOGGER_LOG_DISABLED" => (-e $vzlogger_log ? "" : "is-disabled"));
+
+	my $bridge_log = latest_plugin_log_name("bridge");
+	$template->param("BRIDGE_LOG_URL" => $bridge_log ? log_url("plugins/$lbpplugindir/$bridge_log") : "#");
+	$template->param("BRIDGE_LOG_DISABLED" => ($bridge_log ? "" : "is-disabled"));
+
+	my $control_log = latest_plugin_log_name("control") || latest_plugin_log_name("webui");
+	$template->param("CONTROL_LOG_URL" => $control_log ? log_url("plugins/$lbpplugindir/$control_log") : "#");
+	$template->param("CONTROL_LOG_DISABLED" => ($control_log ? "" : "is-disabled"));
 }
 
 sub add_http_cache_template_params
@@ -405,7 +410,7 @@ sub add_http_cache_template_params
 	$template->param("HTTP_CACHE_STATUS" => (@summaries ? join("<br>", @summaries) : html_escape($L{'VZLOGGER.HTTP_CACHE_NO_METERS'})));
 	$template->param("HTTP_CACHE_URL" => "/plugins/$lbpplugindir/index.php");
 	$template->param("HTTP_CACHE_AVAILABLE" => ($has_cache ? "1" : "0"));
-	$template->param("HTTP_CACHE_DISABLED" => ($has_cache ? "" : "ui-disabled"));
+	$template->param("HTTP_CACHE_DISABLED" => ($has_cache ? "" : "is-disabled"));
 }
 
 sub cache_file_summary
@@ -448,6 +453,15 @@ sub log_url
 {
 	my ($logfile) = @_;
 	return "/admin/system/tools/logfile.cgi?logfile=$logfile&amp;header=html&amp;format=template";
+}
+
+sub latest_plugin_log_name
+{
+	my ($name) = @_;
+	my @files = sort glob("$lbplogdir/*_$name.log");
+	return undef if (!@files);
+	my ($base) = $files[-1] =~ m{([^/]+)\z};
+	return $base;
 }
 
 sub log_redirect_url
@@ -1052,7 +1066,7 @@ sub save_expert_allowed_form
 	my ($updated, $result) = update_expert_log_settings(
 		$text,
 		$debug ? $level : 0,
-		$debug ? "$lbhomedir/log/plugins/$lbpplugindir/vzlogger.log" : "/dev/null",
+		$debug ? "$lbplogdir/vzlogger.log" : "/dev/null",
 	);
 	return format_expert_validation(localize_expert_validation($result, \%L)) . $L{'VZLOGGER.UI_EXPERT_LOG_UPDATE_FAILED'} . "\n" if (!defined($updated));
 	return $L{'VZLOGGER.UI_EXPERT_LOG_SAVE_FAILED'} . "\n" if (!write_text_atomic(expert_config_file(), $updated));
@@ -1519,7 +1533,7 @@ sub remove_meter_artifacts
 		pending_meter_draft_file($serial),
 		"$lbpconfigdir/vzLogger_IrTest_$safe_serial.conf",
 		"$lbpconfigdir/vzLogger_IrTest_$safe_serial.conf.output.log",
-		"$lbhomedir/log/plugins/$lbpplugindir/vzLogger_$safe_serial.log",
+		"$lbplogdir/vzLogger_$safe_serial.log",
 		"/var/run/shm/$lbpplugindir/$safe_serial.data",
 		"/var/run/shm/$lbpplugindir/$safe_serial.lastcons",
 		"/var/run/shm/$lbpplugindir/$safe_serial.lastdel",
@@ -1861,7 +1875,7 @@ sub write_vzlogger_obis_test_config
 	}
 
 	my $safe_serial = safe_filename($serial);
-	my $log_file = "$lbhomedir/log/plugins/$lbpplugindir/vzLogger_$safe_serial.log";
+	my $log_file = "$lbplogdir/vzLogger_$safe_serial.log";
 	my $config_file = "$lbpconfigdir/vzLogger_IrTest_$safe_serial.conf";
 	my $local_port = clean_number($plugin_cfg->param("VZLOGGER.LOCALPORT"), 18080);
 	my $config = {
@@ -1881,7 +1895,7 @@ sub write_vzlogger_obis_test_config
 		meters => [ $meter_config ],
 	};
 
-	make_path("$lbhomedir/log/plugins/$lbpplugindir") if (!-d "$lbhomedir/log/plugins/$lbpplugindir");
+	make_path($lbplogdir) if (!-d $lbplogdir);
 	make_path($lbpconfigdir) if (!-d $lbpconfigdir);
 	open(my $fh, ">", $config_file) or return ("", "", ui_text($L{'VZLOGGER.UI_DISCOVERY_CONFIG_WRITE_FAILED'}, file => $config_file, error => $!) . "\n");
 	print $fh JSON::PP->new->utf8->pretty->canonical->encode($config);
@@ -2799,42 +2813,39 @@ sub run_control_result
 sub write_control_log
 {
 	my ($action, $output) = @_;
-	my $plugin_log_dir = "$lbhomedir/log/plugins/$lbpplugindir";
-	my $control_log = "$plugin_log_dir/vzlogger_control.log";
-	make_path($plugin_log_dir) if (!-d $plugin_log_dir);
-	if (-e $control_log && -s $control_log >= 512 * 1024) {
-		unlink("$control_log.1") if (-e "$control_log.1");
-		rename($control_log, "$control_log.1");
-	}
-	open(my $fh, ">>", $control_log) or return;
-	print $fh timestamp() . " web-action=$action\n";
-	print $fh $output;
-	print $fh "\n" if ($output !~ /\n\z/);
-	close($fh);
+	my $logger = webui_logger();
+	$logger->INF("web-action=$action");
+	$logger->INF($output) if (defined($output) && $output ne "");
 }
 
 sub write_apply_log
 {
 	my ($output, $display_output) = @_;
-	my $apply_log = "$lbhomedir/log/plugins/$lbpplugindir/vzlogger_apply.log";
-	make_path("$lbhomedir/log/plugins/$lbpplugindir") if (!-d "$lbhomedir/log/plugins/$lbpplugindir");
-	return if (!open(my $apply_fh, ">", $apply_log));
-	print $apply_fh $output;
-	close($apply_fh);
-	my $notice = "\nApply log: $apply_log\n";
+	my $logger = webui_logger();
+	$logger->INF("apply result:\n$output");
+	my $notice = "\nApply log: " . $logger->filename() . "\n";
 	${$display_output} .= $notice if ($display_output);
 }
 
-sub timestamp
+sub webui_logger
 {
-	my ($sec, $min, $hour, $mday, $mon, $year) = localtime();
-	return sprintf("%04d%02d%02d-%02d%02d%02d", $year + 1900, $mon + 1, $mday, $hour, $min, $sec);
+	return $webui_log if ($webui_log);
+	$webui_log = LoxBerry::Log->new(
+		name => "webui",
+		package => $lbpplugindir,
+	);
+	$webui_log->LOGSTART("SmartMeter web interface action");
+	return $webui_log;
+}
+
+END {
+	$webui_log->LOGEND("SmartMeter web interface action finished") if ($webui_log);
 }
 
 sub read_loxberry_mqtt_settings
 {
 	my ($general_json) = @_;
-	$general_json ||= "$lbhomedir/config/system/general.json";
+	$general_json ||= "$lbsconfigdir/general.json";
 	my %settings = (
 		host => "127.0.0.1",
 		port => 1883,
@@ -2948,7 +2959,13 @@ sub form_print
 	
 	# Template
 	my $title = $L{'COMMON.PLUGIN_TITLE'} || "Smartmeter v2";
-	LoxBerry::Web::lbheader("$title V$version", "https://www.loxwiki.eu/x/mA-L", "");
+	LoxBerry::Web::lbheader(
+		"$title V$version",
+		"./help.cgi",
+		"",
+		"nojqm",
+	);
+	print LoxBerry::Log::get_notifications_html($lbpplugindir);
 	print $template->output();
 	LoxBerry::Web::lbfooter();
 	

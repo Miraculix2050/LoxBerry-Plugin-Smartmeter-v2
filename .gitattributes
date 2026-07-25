@@ -1,28 +1,40 @@
-# Auto detect text files and perform LF normalization
 * text=auto
 
-# LoxBerry executes these files directly; CRLF breaks Linux shebang lines.
-*.pl  text eol=lf
-*.pm  text eol=lf
-*.cgi text eol=lf
-*.sh  text eol=lf
+*.sh    text eol=lf
+*.cgi   text eol=lf
+*.pl    text eol=lf
+*.pm    text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+*.html  text eol=lf
+*.php   text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.jsonc text eol=lf
 
-# Custom for Visual Studio
-*.cs     diff=csharp
+daemon/*           text eol=lf
+uninstall/*        text eol=lf
+sudoers/*          text eol=lf
+dpkg/apt*          text eol=lf
+cron/*             text eol=lf
 
-# Standard to msysgit
-*.doc	 diff=astextplain
-*.DOC	 diff=astextplain
+*.png binary
+*.zip binary
+
+# Keep existing document diff behavior.
+*.cs   diff=csharp
+*.doc  diff=astextplain
+*.DOC  diff=astextplain
 *.docx diff=astextplain
 *.DOCX diff=astextplain
 *.dot  diff=astextplain
 *.DOT  diff=astextplain
 *.pdf  diff=astextplain
-*.PDF	 diff=astextplain
-*.rtf	 diff=astextplain
-*.RTF	 diff=astextplain
+*.PDF  diff=astextplain
+*.rtf  diff=astextplain
+*.RTF  diff=astextplain
 
-# Exclude development-only files from GitHub source archives used by LoxBerry.
+# Exclude development-only files from release archives.
 .github/ export-ignore
 AGENTS.md export-ignore
 docs/release-process.md export-ignore

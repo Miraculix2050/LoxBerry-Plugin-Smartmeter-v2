@@ -1,29 +1,14 @@
 #!/bin/sh
 
-# Bash script which is executed by bash *BEFORE* installation is started (but
-# *AFTER* preupdate). Use with caution and remember, that all systems may be
-# different! Better to do this in your own Pluginscript if possible.
-#
-# Exit code must be 0 if executed successfull.
-#
-# Will be executed as user "loxberry".
-#
-# We add 4 arguments when executing the script:
-# command <TEMPFOLDER> <NAME> <FOLDER> <VERSION>
-#
-# For logging, print to STDOUT. You can use the following tags for showing
-# different colorized information during plugin installation:
-#
-# <OK> This was ok!"
-# <INFO> This is just for your information."
-# <WARNING> This is a warning!"
-# <ERROR> This is an error!"
-# <FAIL> This is a fail!"
+# Runs as loxberry before the plugin files are copied. LoxBerry V4 exports the
+# system directory variables through /etc/environment. This plugin has no
+# pre-copy work, but keeping the hook makes the lifecycle explicit.
 
-ARGV1=$1 # First argument is temp folder during install
-ARGV2=$2 # Second argument is Plugin-Name for scipts etc.
-ARGV3=$3 # Third argument is Plugin installation folder
-ARGV4=$4 # Forth argument is Plugin version
+PTEMPDIR=$1
+PSHNAME=$2
+PDIR=$3
+PVERSION=$4
+PTEMPPATH=$6
 
-# Exit with Status 0
+echo "<INFO> Preparing SmartMeter v2 $PVERSION for folder $PDIR."
 exit 0

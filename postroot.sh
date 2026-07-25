@@ -4,20 +4,41 @@
 # normal postinstall/postupgrade scripts. Keep vzLogger stopped unless the
 # plugin configuration explicitly enables the vzLogger implementation.
 
-ARGV3=$3
-ARGV5=$5
+PTEMPDIR=$1
+PSHNAME=$2
+PDIR=$3
+PVERSION=$4
+PTEMPPATH=$6
 
-CONFIG_FILE="$ARGV5/config/plugins/$ARGV3/smartmeter.cfg"
+if [ -r /etc/environment ]; then
+	. /etc/environment
+fi
+# Bridge the original 4.0.0 environment and names used by newer V4 samples.
+LBPCGI=${LBPCGI:-${LBPHTMLAUTH:-}}
+LBPSBIN=${LBPSBIN:-"$LBHOMEDIR/sbin/plugins"}
+
+for required in LBHOMEDIR LBPCONFIG LBPBIN LBPSBIN LBPLOG; do
+	eval "value=\${$required:-}"
+	if [ -z "$value" ]; then
+		echo "<ERROR> Required LoxBerry V4 environment variable $required is missing."
+		exit 2
+	fi
+done
+
+CONFIG_FILE="$LBPCONFIG/$PDIR/smartmeter.cfg"
 BRIDGE_SERVICE="smartmeter-v2-vzlogger-bridge.service"
-BRIDGE_INSTALLER="$ARGV5/bin/plugins/$ARGV3/install_vzlogger_bridge_service.sh"
-VZLOGGER_CONTROL="$ARGV5/bin/plugins/$ARGV3/vzlogger_control.pl"
-VZLOGGER_OVERRIDE_INSTALLER="$ARGV5/bin/plugins/$ARGV3/install_vzlogger_service_override.sh"
-PREUPGRADE_ACTIVE_FILE="$ARGV5/config/plugins/$ARGV3/vzlogger.preupgrade-service-active"
-SMARTMETER_LOG_DIR="$ARGV5/log/plugins/$ARGV3"
+BRIDGE_INSTALLER="$LBPSBIN/$PDIR/install_vzlogger_bridge_service.sh"
+VZLOGGER_CONTROL="$LBPBIN/$PDIR/vzlogger_control.pl"
+VZLOGGER_OVERRIDE_INSTALLER="$LBPSBIN/$PDIR/install_vzlogger_service_override.sh"
+PREUPGRADE_ACTIVE_FILE="$LBPCONFIG/$PDIR/vzlogger.preupgrade-service-active"
+SMARTMETER_LOG_DIR="$LBPLOG/$PDIR"
 SMARTMETER_LOG_FILE="$SMARTMETER_LOG_DIR/smartmeter.log"
 SMARTMETER_UDEV_RULE="/etc/udev/rules.d/99-smartmeter.rules"
-RUNTIME_DIR="/var/run/shm/$ARGV3"
-PLUGIN_CONFIG_DIR="$ARGV5/config/plugins/$ARGV3"
+RUNTIME_DIR="/var/run/shm/$PDIR"
+PLUGIN_CONFIG_DIR="$LBPCONFIG/$PDIR"
+OLD_DAEMON="$LBHOMEDIR/system/daemons/plugins/$PSHNAME"
+OLD_BRIDGE_INSTALLER="$LBPBIN/$PDIR/install_vzlogger_bridge_service.sh"
+OLD_OVERRIDE_INSTALLER="$LBPBIN/$PDIR/install_vzlogger_service_override.sh"
 
 if [ "$(id -u)" != "0" ]; then
 	echo "<ERROR> postroot.sh must run as root."
@@ -43,11 +64,36 @@ install_ir_head_udev_rule()
 		if udevadm control --reload-rules >>"$SMARTMETER_LOG_FILE" 2>&1 && udevadm trigger >>"$SMARTMETER_LOG_FILE" 2>&1; then
 			echo "<INFO> SmartMeter I/R head udev rule installed and triggered."
 		else
-			echo "<WARNING> SmartMeter I/R head udev rule was written, but udev reload/trigger failed."
+			echo "<WARNING> SmartMeter I/R head rule was written, but udev reload/trigger failed. Reconnect the USB reader or, if necessary, reboot once."
 		fi
 	else
-		echo "<WARNING> udevadm is not available. SmartMeter I/R head rule was written but not triggered."
+		echo "<WARNING> udevadm is not available. Reconnect the USB reader or, if necessary, reboot once."
 	fi
+}
+
+prepare_privileged_helpers()
+{
+	if [ -z "$PTEMPPATH" ] || [ ! -d "$PTEMPPATH/sbin" ]; then
+		echo "<ERROR> Privileged helper source folder is missing from the installation archive."
+		return 1
+	fi
+	mkdir -p "$LBPSBIN/$PDIR"
+	for helper in "$BRIDGE_INSTALLER" "$VZLOGGER_OVERRIDE_INSTALLER"
+	do
+		source_helper="$PTEMPPATH/sbin/$(basename "$helper")"
+		if [ ! -f "$source_helper" ]; then
+			echo "<ERROR> Required privileged helper is missing: $source_helper"
+			return 1
+		fi
+		install -o root -g root -m 0755 "$source_helper" "$helper"
+	done
+
+	rm -f "$OLD_BRIDGE_INSTALLER" "$OLD_OVERRIDE_INSTALLER"
+	if [ -e "$OLD_DAEMON" ] || [ -L "$OLD_DAEMON" ]; then
+		rm -f "$OLD_DAEMON"
+		echo "<INFO> Removed obsolete SmartMeter boot daemon."
+	fi
+	return 0
 }
 
 refresh_bridge_service()
@@ -58,7 +104,7 @@ refresh_bridge_service()
 	fi
 
 	echo "<INFO> Refresh vzLogger bridge systemd service"
-	if /bin/sh "$BRIDGE_INSTALLER" "$ARGV5" "$ARGV3" install; then
+	if "$BRIDGE_INSTALLER" "$PDIR" install; then
 		echo "<INFO> Refreshed vzLogger bridge systemd service"
 	else
 		echo "<WARNING> Could not refresh vzLogger bridge systemd service"
@@ -75,10 +121,17 @@ has_configured_vzlogger_meter()
 }
 
 install_ir_head_udev_rule
+if ! prepare_privileged_helpers; then
+	exit 2
+fi
 mkdir -p "$RUNTIME_DIR"
 chown loxberry:loxberry "$RUNTIME_DIR"
 chmod 0750 "$RUNTIME_DIR"
 find "$RUNTIME_DIR" -maxdepth 1 -type f -exec chown loxberry:loxberry {} \; -exec chmod 0640 {} \;
+if [ -f "$CONFIG_FILE" ]; then
+	chown loxberry:loxberry "$CONFIG_FILE"
+	chmod 0640 "$CONFIG_FILE"
+fi
 for PRIVATE_FILE in \
 	"$PLUGIN_CONFIG_DIR/vzlogger_channels.json" \
 	"$PLUGIN_CONFIG_DIR/vzlogger_channel_definitions.json" \
@@ -107,6 +160,7 @@ if [ "$implementation" = "vzlogger" ] && has_configured_vzlogger_meter; then
 			echo "<INFO> Applied active vzLogger configuration after install or upgrade."
 		else
 			echo "<WARNING> Could not apply active vzLogger configuration after install or upgrade."
+			exit 1
 		fi
 	else
 		echo "<WARNING> vzLogger control helper is missing or not executable."
@@ -117,7 +171,7 @@ fi
 rm -f "$PREUPGRADE_ACTIVE_FILE"
 
 if [ -f "$VZLOGGER_OVERRIDE_INSTALLER" ]; then
-	/bin/sh "$VZLOGGER_OVERRIDE_INSTALLER" "$ARGV5" "$ARGV3" remove || \
+	"$VZLOGGER_OVERRIDE_INSTALLER" "$PDIR" remove || \
 		echo "<WARNING> Could not remove SmartMeter vzLogger service override"
 fi
 

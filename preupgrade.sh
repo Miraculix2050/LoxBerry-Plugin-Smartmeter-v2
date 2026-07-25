@@ -1,56 +1,35 @@
 #!/bin/sh
 
-# Bash script which is executed in case of an update (if this plugin is already
-# installed on the system). This script is executed as very first step (*BEFORE*
-# preinstall.sh) and can be used e.g. to save existing configfiles to /tmp 
-# during installation. Use with caution and remember, that all systems may be
-# different!
-#
-# Exit code must be 0 if executed successfully.
-#
-# Will be executed as user "loxberry".
-#
-# We add 5 arguments when executing the script:
-# command <TEMPFOLDER> <NAME> <FOLDER> <VERSION> <BASEFOLDER>
-#
-# For logging, print to STDOUT. You can use the following tags for showing
-# different colorized information during plugin installation:
-#
-# <OK> This was ok!"
-# <INFO> This is just for your information."
-# <WARNING> This is a warning!"
-# <ERROR> This is an error!"
-# <FAIL> This is a fail!"
+# Runs as loxberry before files of an existing installation are replaced.
 
-# To use important variables from command line use the following code:
-ARGV0=$0 # Zero argument is shell command
-#echo "<INFO> Command is: $ARGV0"
+PTEMPDIR=$1
+PSHNAME=$2
+PDIR=$3
+PVERSION=$4
+PTEMPPATH=$6
 
-ARGV1=$1 # First argument is temp folder during install
-#echo "<INFO> Temporary folder is: $ARGV1"
+for required in LBPCONFIG; do
+	eval "value=\${$required:-}"
+	if [ -z "$value" ]; then
+		echo "<ERROR> Required LoxBerry V4 environment variable $required is missing."
+		exit 2
+	fi
+done
+if [ -z "$PTEMPPATH" ]; then
+	echo "<ERROR> LoxBerry did not provide the full installation temporary path in argument 6."
+	exit 2
+fi
 
-ARGV2=$2 # Second argument is Plugin-Name for scipts etc.
-#echo "<INFO> (Short) Name is: $ARGV2"
+PCONFIG="$LBPCONFIG/$PDIR"
+BACKUP="$PTEMPPATH/smartmeter-upgrade"
 
-ARGV3=$3 # Third argument is Plugin installation folder
-#echo "<INFO> Installation folder is: $ARGV3"
+echo "<INFO> Backing up persistent SmartMeter configuration."
+mkdir -p "$BACKUP/config"
+if [ -d "$PCONFIG" ]; then
+	cp -R "$PCONFIG/." "$BACKUP/config/" || {
+		echo "<ERROR> Could not back up SmartMeter configuration."
+		exit 2
+	}
+fi
 
-ARGV4=$4 # Forth argument is Plugin version
-#echo "<INFO> Installation folder is: $ARGV4"
-
-ARGV5=$5 # Fifth argument is Base folder of LoxBerry
-#echo "<INFO> Installation folder is: $ARGV5"
-
-echo "<INFO> Creating temporary folders for upgrading"
-mkdir -p /tmp/$ARGV1\_upgrade
-mkdir -p /tmp/$ARGV1\_upgrade/config
-mkdir -p /tmp/$ARGV1\_upgrade/log
-
-echo "<INFO> Backing up existing config files"
-cp -v -r $ARGV5/config/plugins/$ARGV3/ /tmp/$ARGV1\_upgrade/config
-
-echo "<INFO> Backing up existing log files"
-cp -v -r $ARGV5/log/plugins/$ARGV3/ /tmp/$ARGV1\_upgrade/log
-
-# Exit with Status 0
 exit 0

@@ -1,21 +1,38 @@
 #!/bin/sh
 
-ARGV0=$0 # Zero argument is shell command
-ARGV1=$1 # First argument is temp folder during install
-ARGV2=$2 # Second argument is Plugin-Name for scipts etc.
-ARGV3=$3 # Third argument is Plugin installation folder
-ARGV4=$4 # Forth argument is Plugin version
-ARGV5=$5 # Fifth argument is Base folder of LoxBerry
+# Runs as loxberry after the updated plugin files have been installed.
+
+PTEMPDIR=$1
+PSHNAME=$2
+PDIR=$3
+PVERSION=$4
+PTEMPPATH=$6
+
+for required in LBHOMEDIR LBPCONFIG LBPBIN LBPTEMPL; do
+	eval "value=\${$required:-}"
+	if [ -z "$value" ]; then
+		echo "<ERROR> Required LoxBerry V4 environment variable $required is missing."
+		exit 2
+	fi
+done
+if [ -z "$PTEMPPATH" ]; then
+	echo "<ERROR> LoxBerry did not provide the full installation temporary path in argument 6."
+	exit 2
+fi
+
+PCONFIG="$LBPCONFIG/$PDIR"
+PBIN="$LBPBIN/$PDIR"
+PTEMPL="$LBPTEMPL/$PDIR"
+BACKUP="$PTEMPPATH/smartmeter-upgrade"
+configfile="$PCONFIG/smartmeter.cfg"
 
 cleanup_obsolete_language_files()
 {
-	templatefolder="$ARGV5/templates/plugins/$ARGV3"
-
 	for languagefile in \
-		"$templatefolder/en/language.txt" \
-		"$templatefolder/de/language.txt" \
-		"$templatefolder/multi/en/language.txt" \
-		"$templatefolder/multi/de/language.txt"
+		"$PTEMPL/en/language.txt" \
+		"$PTEMPL/de/language.txt" \
+		"$PTEMPL/multi/en/language.txt" \
+		"$PTEMPL/multi/de/language.txt"
 	do
 		if [ -e "$languagefile" ]; then
 			rm -f "$languagefile"
@@ -23,13 +40,16 @@ cleanup_obsolete_language_files()
 		fi
 	done
 
-	rmdir "$templatefolder/en" "$templatefolder/de" \
-		"$templatefolder/multi/en" "$templatefolder/multi/de" 2>/dev/null || true
+	rmdir "$PTEMPL/en" "$PTEMPL/de" \
+		"$PTEMPL/multi/en" "$PTEMPL/multi/de" 2>/dev/null || true
 }
 
 migrate_config()
 {
-	configfile="$ARGV5/config/plugins/$ARGV3/smartmeter.cfg"
+	if [ ! -f "$configfile" ]; then
+		echo "<ERROR> SmartMeter configuration is missing after upgrade restore."
+		return 1
+	fi
 
 	if ! grep -q '^SENDMQTT=' "$configfile"; then
 		sed -i '/^UDPPORT=/a SENDMQTT=0' "$configfile"
@@ -64,69 +84,60 @@ LOGLEVEL=0
 EOF
 		echo "<INFO> Added default vzLogger settings"
 	else
-		if ! grep -q '^LOCALPORT=' "$configfile"; then
-			sed -i '/^\[VZLOGGER\]/a LOCALPORT=18080' "$configfile"
-			echo "<INFO> Added default vzLogger local HTTP port"
-		fi
-		if ! grep -q '^UDPINTERVAL=' "$configfile"; then
-			sed -i '/^\[VZLOGGER\]/a UDPINTERVAL=5' "$configfile"
-			echo "<INFO> Added default bridge update interval"
-		fi
-		if ! grep -q '^DEBUG=' "$configfile"; then
-			sed -i '/^\[VZLOGGER\]/a DEBUG=0' "$configfile"
-			echo "<INFO> Added default vzLogger debug setting"
-		fi
-		if ! grep -q '^VZLOGGERDEBUG=' "$configfile"; then
-			sed -i '/^\[VZLOGGER\]/a VZLOGGERDEBUG=0' "$configfile"
-			echo "<INFO> Added default vzLogger service debug setting"
-		fi
-		if ! grep -q '^LOGLEVEL=' "$configfile"; then
-			sed -i '/^\[VZLOGGER\]/a LOGLEVEL=0' "$configfile"
-			echo "<INFO> Added default vzLogger service log level"
-		fi
+		for setting in \
+			"LOCALPORT=18080" \
+			"UDPINTERVAL=5" \
+			"DEBUG=0" \
+			"VZLOGGERDEBUG=0" \
+			"LOGLEVEL=0"
+		do
+			key=${setting%%=*}
+			if ! grep -q "^$key=" "$configfile"; then
+				sed -i "/^\[VZLOGGER\]/a $setting" "$configfile"
+				echo "<INFO> Added default vzLogger setting $key"
+			fi
+		done
 	fi
 }
 
-echo "<INFO> Copy back existing config files"
-cp -v -r "/tmp/$ARGV1"_upgrade/config/"$ARGV3"/* "$ARGV5/config/plugins/$ARGV3/"
+echo "<INFO> Restoring persistent SmartMeter configuration."
+mkdir -p "$PCONFIG"
+if [ -d "$BACKUP/config" ]; then
+	cp -R "$BACKUP/config/." "$PCONFIG/" || {
+		echo "<ERROR> Could not restore SmartMeter configuration."
+		exit 2
+	}
+fi
 
-echo "<INFO> Migrate config files"
-migrate_config
+echo "<INFO> Migrating SmartMeter configuration."
+if ! migrate_config; then
+	exit 2
+fi
 
-echo "<INFO> Remove obsolete language resources"
+echo "<INFO> Removing obsolete language resources."
 cleanup_obsolete_language_files
 
-echo "<INFO> Ensure executable permissions for vzLogger helper scripts"
-chmod +x "$ARGV5/bin/plugins/$ARGV3/vzlogger_config.pl" 2>/dev/null || true
-chmod +x "$ARGV5/bin/plugins/$ARGV3/vzlogger_validate.pl" 2>/dev/null || true
-chmod +x "$ARGV5/bin/plugins/$ARGV3/vzlogger_control.pl" 2>/dev/null || true
-chmod +x "$ARGV5/bin/plugins/$ARGV3/vzlogger_mqtt_bridge.pl" 2>/dev/null || true
-chmod +x "$ARGV5/bin/plugins/$ARGV3/smartmeter_legacy_runtime.pl" 2>/dev/null || true
-chmod +x "$ARGV5/bin/plugins/$ARGV3/install_vzlogger_bridge_service.sh" 2>/dev/null || true
-chmod +x "$ARGV5/bin/plugins/$ARGV3/install_vzlogger_service_override.sh" 2>/dev/null || true
-chmod +x "$ARGV5/webfrontend/htmlauth/plugins/$ARGV3/vzlogger_live.cgi" 2>/dev/null || true
+echo "<INFO> Ensuring executable permissions for runtime helpers."
+for executable in \
+	"$PBIN/vzlogger_config.pl" \
+	"$PBIN/vzlogger_validate.pl" \
+	"$PBIN/vzlogger_control.pl" \
+	"$PBIN/vzlogger_mqtt_bridge.pl" \
+	"$PBIN/smartmeter_legacy_runtime.pl"
+do
+	chmod 0755 "$executable" 2>/dev/null || true
+done
 
-echo "<INFO> Copy back existing log files"
-if [ -d "/tmp/$ARGV1"_upgrade/log/"$ARGV3" ]; then
-	for logfile in "/tmp/$ARGV1"_upgrade/log/"$ARGV3"/*
-	do
-		[ -e "$logfile" ] || continue
-		target="$ARGV5/log/plugins/$ARGV3/$(basename "$logfile")"
-		rm -rf "$target"
-		cp -v -r "$logfile" "$ARGV5/log/plugins/$ARGV3/" || echo "<WARNING> Could not restore log file $logfile"
-	done
-fi
-
-echo "<INFO> Restore automatic meter polling cronjob"
-configfile="$ARGV5/config/plugins/$ARGV3/smartmeter.cfg"
-if "$ARGV5/bin/plugins/$ARGV3/smartmeter_legacy_runtime.pl" synchronize "$ARGV5" "$ARGV2" "$ARGV3" "$configfile"; then
-	echo "<INFO> Synchronized Legacy polling runtime after upgrade"
+echo "<INFO> Restoring automatic Legacy meter polling."
+if "$PBIN/smartmeter_legacy_runtime.pl" \
+	synchronize "$LBHOMEDIR" "$PSHNAME" "$PDIR" "$configfile" --start-minimal-now
+then
+	echo "<OK> Synchronized Legacy polling runtime after upgrade."
 else
-	echo "<WARNING> Could not synchronize Legacy polling runtime after upgrade"
+	echo "<WARNING> Could not synchronize Legacy polling runtime after upgrade."
+	rm -r "$BACKUP" 2>/dev/null || true
+	exit 1
 fi
 
-echo "<INFO> Remove temporary folders"
-rm -r "/tmp/$ARGV1"_upgrade
-
-# Exit with Status 0
+rm -r "$BACKUP" 2>/dev/null || true
 exit 0

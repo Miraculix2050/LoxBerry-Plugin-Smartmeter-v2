@@ -4,5 +4,6 @@ use warnings;
 
 sub lbheader { return; }
 sub lbfooter { return; }
+sub loglist_html { return '<div class="loglist"></div>'; }
 
 1;

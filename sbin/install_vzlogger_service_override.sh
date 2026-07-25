@@ -2,12 +2,25 @@
 
 set -eu
 
-LBHOMEDIR="${1:-}"
-PLUGINFOLDER="${2:-}"
-ACTION="${3:-install}"
+if [ -r /etc/environment ]; then
+	. /etc/environment
+fi
 
-if [ -z "$LBHOMEDIR" ] || [ -z "$PLUGINFOLDER" ]; then
-	echo "<ERROR> Usage: $0 <lbhomedir> <pluginfolder> [install|remove]"
+PLUGINFOLDER="${1:-}"
+ACTION="${2:-}"
+
+if [ -z "${LBPCONFIG:-}" ] || [ -z "${LBPLOG:-}" ]; then
+	echo "<ERROR> Required LoxBerry V4 environment variables are missing."
+	exit 2
+fi
+case "$PLUGINFOLDER" in
+	""|*[!A-Za-z0-9._-]*)
+		echo "<ERROR> Invalid plugin folder."
+		exit 2
+		;;
+esac
+if [ "$ACTION" != "install" ] && [ "$ACTION" != "remove" ]; then
+	echo "<ERROR> Usage: $0 <plugin-folder> <install|remove>"
 	exit 2
 fi
 
@@ -18,7 +31,7 @@ fi
 
 DROPIN_DIR="/etc/systemd/system/vzlogger.service.d"
 DROPIN_FILE="$DROPIN_DIR/smartmeter-v2.conf"
-CONFIG_FILE="$LBHOMEDIR/config/plugins/$PLUGINFOLDER/vzlogger.conf"
+CONFIG_FILE="$LBPCONFIG/$PLUGINFOLDER/vzlogger.conf"
 LEGACY_CONFIG="/etc/vzlogger.conf"
 LEGACY_MARKER="/etc/vzlogger.conf.smartmeter-v2"
 
@@ -76,7 +89,7 @@ do
 		chmod 0600 "$PRIVATE_FILE"
 	fi
 done
-LOG_DIR="$LBHOMEDIR/log/plugins/$PLUGINFOLDER"
+LOG_DIR="$LBPLOG/$PLUGINFOLDER"
 LOG_FILE="$LOG_DIR/vzlogger.log"
 RUNTIME_DIR="/var/run/shm/$PLUGINFOLDER"
 mkdir -p "$LOG_DIR"

@@ -1,28 +1,24 @@
-<center><h3><TMPL_VAR NAME=LEGACY.LOGFILETABLEROWS_TITLE></h3></center>
+<div class="lb-content">
+	<h2><TMPL_VAR NAME=LEGACY.LOGFILETABLEROWS_TITLE></h2>
+	<TMPL_VAR LOGLIST>
 
-<table border=0 width="100%" cellpadding="10">
-
-<TMPL_LOOP NAME=ROWS>
-
-	<tr>
-		<td colspan=2>
-		<h3><TMPL_VAR NAME=__counter__>. <TMPL_VAR NAME=LEGACY.LOGFILETABLEROWS_ROWTITLE> <TMPL_VAR NAME=SERIAL></h3>
-		</td>
-	</tr>
-
-	<TMPL_LOOP NAME=FILES>
-
-		<tr>
-		<td width="20%"><TMPL_VAR NAME=LEGACY.LOGFILETABLEROWS_LABEL></td>
-		<td width="80%"><a href="/admin/system/tools/logfile.cgi?logfile=plugins/<TMPL_VAR NAME=PSUBFOLDER>/shm/<TMPL_VAR NAME=LOGFILE>&header=html&format=template" target="_blank"><TMPL_VAR NAME=LOGFILE></a></td>
-		</tr>
-
-	</TMPL_LOOP>
-
-	<tr>
-		<td colspan=2>&nbsp;</td>
-	</tr>
-
-</TMPL_LOOP>
-
-</table>
+	<h3><TMPL_VAR NAME=LEGACY.RUNTIME_LOGS_TITLE></h3>
+	<TMPL_IF HAS_LEGACY_RUNTIME_LOGS>
+	<table class="lb-table">
+		<thead>
+			<tr>
+				<th><TMPL_VAR NAME=LEGACY.LOGFILETABLEROWS_LABEL></th>
+			</tr>
+		</thead>
+		<tbody>
+		<TMPL_LOOP LEGACY_RUNTIME_LOGS>
+			<tr>
+				<td><a href="<TMPL_VAR URL ESCAPE=HTML>" target="_blank" rel="noopener"><TMPL_VAR NAME ESCAPE=HTML></a></td>
+			</tr>
+		</TMPL_LOOP>
+		</tbody>
+	</table>
+	<TMPL_ELSE>
+	<p><TMPL_VAR NAME=LEGACY.RUNTIME_LOGS_EMPTY></p>
+	</TMPL_IF>
+</div>

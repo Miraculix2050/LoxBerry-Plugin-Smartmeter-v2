@@ -4,15 +4,28 @@
 # Configure the external Volkszaehler repository so LoxBerry can install
 # vzlogger through the normal plugin package mechanism.
 
-ARGV3=$3
-ARGV5=$5
+PTEMPDIR=$1
+PSHNAME=$2
+PDIR=$3
+PVERSION=$4
+PTEMPPATH=$6
+
+for required in LBPCONFIG; do
+	eval "value=\${$required:-}"
+	if [ -z "$value" ]; then
+		echo "<ERROR> Required LoxBerry V4 environment variable $required is missing."
+		exit 2
+	fi
+done
 
 KEYRING="/usr/share/keyrings/volkszaehler-volkszaehler-org-project-archive-keyring.gpg"
 SOURCE_LIST="/etc/apt/sources.list.d/volkszaehler-volkszaehler-org-project.list"
 REPO_BASE="https://dl.cloudsmith.io/public/volkszaehler/volkszaehler-org-project"
 KEY_URL="$REPO_BASE/gpg.21DBDAC56DF44DA1.key"
-MARKER_DIR="$ARGV5/config/plugins/$ARGV3"
+MARKER_DIR="$LBPCONFIG/$PDIR"
 MARKER_FILE="$MARKER_DIR/vzlogger.installed-by-plugin"
+SOURCE_MARKER="$MARKER_DIR/vzlogger.repository-installed-by-plugin"
+KEYRING_MARKER="$MARKER_DIR/vzlogger.keyring-installed-by-plugin"
 PREUPGRADE_ACTIVE_FILE="$MARKER_DIR/vzlogger.preupgrade-service-active"
 
 if [ "$(id -u)" != "0" ]; then
@@ -73,11 +86,17 @@ tmpkey="$(mktemp)"
 trap 'rm -f "$tmpkey"' EXIT
 
 echo "<INFO> Installing Volkszaehler repository key"
+if [ ! -e "$KEYRING" ]; then
+	touch "$KEYRING_MARKER"
+fi
 curl -fsSL "$KEY_URL" -o "$tmpkey"
 gpg --dearmor < "$tmpkey" > "$KEYRING"
 chmod 0644 "$KEYRING"
 
 echo "<INFO> Configuring Volkszaehler apt repository for $REPO_OS $CODENAME"
+if [ ! -e "$SOURCE_LIST" ]; then
+	touch "$SOURCE_MARKER"
+fi
 cat > "$SOURCE_LIST" <<EOF
 deb [signed-by=$KEYRING] $REPO_BASE/deb/$REPO_OS $CODENAME main
 deb-src [signed-by=$KEYRING] $REPO_BASE/deb/$REPO_OS $CODENAME main

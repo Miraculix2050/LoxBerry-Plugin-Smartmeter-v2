@@ -9,6 +9,7 @@ use File::Path qw(make_path);
 use FindBin;
 use IO::Socket;
 use JSON::PP;
+use LoxBerry::Log;
 use LoxBerry::System;
 use lib $FindBin::Bin;
 use SmartMeterVZLoggerChannels qw(output_order_mapping ordered_output_names read_json);
@@ -17,14 +18,14 @@ use SmartMeterVZLoggerConfig qw(clean_number clean_qos sanitize_topic);
 
 my $home = $lbhomedir;
 my $psubfolder = $lbpplugindir;
-my $config_file = "$home/config/plugins/$psubfolder/smartmeter.cfg";
-my $mapping_file = "$home/config/plugins/$psubfolder/vzlogger_channels.json";
-my $vzlogger_config_file = "$home/config/plugins/$psubfolder/vzlogger.conf";
+my $config_file = "$lbpconfigdir/smartmeter.cfg";
+my $mapping_file = "$lbpconfigdir/vzlogger_channels.json";
+my $vzlogger_config_file = "$lbpconfigdir/vzlogger.conf";
 my $runtime_dir = "/var/run/shm/$psubfolder";
-my $plugin_log_dir = "$home/log/plugins/$psubfolder";
-my $log_file = "$plugin_log_dir/vzlogger_mqtt_bridge.log";
+my $plugin_log_dir = $lbplogdir;
 my $pid_file = "$runtime_dir/vzlogger_mqtt_bridge.pid";
 my $foreground = grep { $_ eq "--foreground" } @ARGV;
+my $bridge_log;
 
 make_path($runtime_dir) if (!-d $runtime_dir);
 make_path($plugin_log_dir) if (!-d $plugin_log_dir);
@@ -39,9 +40,15 @@ if (grep { $_ eq "--status" } @ARGV) {
 }
 
 if (!$foreground && bridge_running()) {
-	log_line("Bridge already running.");
+	print "Bridge already running.\n";
 	exit 0;
 }
+
+$bridge_log = LoxBerry::Log->new(
+	name => "bridge",
+	package => $psubfolder,
+);
+$bridge_log->LOGSTART("MQTT bridge starting (PID $$)");
 
 open(my $pid_fh, ">", $pid_file) or die "Could not write $pid_file: $!\n";
 print $pid_fh "$$\n";
@@ -73,6 +80,7 @@ my %uuid_by_channel = channel_mapping($mapping);
 my %uuid_by_identifier = identifier_mapping($mapping);
 my $output_order_by_serial = output_order_mapping($mapping);
 
+$bridge_log->loglevel(7) if ($debug_enabled);
 log_line("Starting MQTT bridge. Topic=$subscribe_topic Host=$mqtt->{host}:$mqtt->{port}");
 log_line("Debug logging is enabled.") if ($debug_enabled);
 debug_line("UDP output is disabled in plugin config.") if (!$send_udp);
@@ -312,7 +320,7 @@ sub send_udp
 
 sub miniserver_targets
 {
-	my $general_cfg = Config::Simple->new("$home/config/system/general.cfg");
+	my $general_cfg = Config::Simple->new("$lbsconfigdir/general.cfg");
 	return ({ name => "localhost", ip => "127.0.0.1" }) if (!$general_cfg);
 
 	my $count = clean_number($general_cfg->param("BASE.MINISERVERS"), 0);
@@ -372,24 +380,16 @@ sub stop_bridge
 sub log_line
 {
 	my ($message) = @_;
-	bound_log_file($log_file, 2 * 1024 * 1024);
-	open(my $fh, ">>", $log_file) or return;
-	my ($sec, $min, $hour, $mday, $mon, $year) = localtime();
-	printf $fh "%04d-%02d-%02d %02d:%02d:%02d %s\n", $year + 1900, $mon + 1, $mday, $hour, $min, $sec, $message;
-	close($fh);
-}
-
-sub bound_log_file
-{
-	my ($file, $max_bytes) = @_;
-	return if (!-e $file || -s $file < $max_bytes);
-	unlink("$file.1") if (-e "$file.1");
-	rename($file, "$file.1");
+	$bridge_log->INF($message) if ($bridge_log);
 }
 
 sub debug_line
 {
 	my ($message) = @_;
 	return if (!$debug_enabled);
-	log_line("DEBUG $message");
+	$bridge_log->DEB($message) if ($bridge_log);
+}
+
+END {
+	$bridge_log->LOGEND("MQTT bridge stopped") if ($bridge_log);
 }

@@ -14,7 +14,8 @@ Expected:
 - All plugin-owned folders and files are removed.
 - Plugin-owned services are stopped and removed.
 - The `vzlogger` package installed for SmartMeter v2 is removed.
-- The vzLogger apt source list configured by SmartMeter v2 is removed.
+- The vzLogger apt source and keyring introduced by SmartMeter v2 are removed.
+- A pre-existing `vzlogger` package, apt source, or keyring without a plugin ownership marker is retained.
 
 ## Fresh Install
 
@@ -27,6 +28,10 @@ Expected:
 - Installation completes successfully.
 - The active implementation is `vzlogger`.
 - Connected USB I/R heads are available below `/dev/serial/smartmeter/` before the first reboot.
+- Installation does not request a reboot.
+- The original LoxBerry 4.0.0 `LBPHTMLAUTH` environment name and a missing
+  `LBPSBIN` alias are handled without fixed installation-root paths; the
+  privileged helpers are installed root-owned in the derived plugin `sbin`.
 - The MQTT bridge is disabled.
 - All optional logs and debug logs are disabled.
 
@@ -43,6 +48,7 @@ Expected:
   - previous `vzlogger` remains `vzlogger`;
   - previous `legacy` remains `legacy`;
   - previous `none` remains `none`.
+- An active Legacy configuration with the reboot polling interval is restored and receives one immediate reading without rebooting.
 
 ## Implementation Switching
 
