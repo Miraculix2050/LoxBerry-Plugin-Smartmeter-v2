@@ -20,3 +20,12 @@ function ConvertTo-LfLineEndings {
 	[Array]::Copy($buffer, $result, $writeIndex)
 	return ,$result
 }
+
+function ConvertTo-LfTextLineEndings {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string] $Text
+	)
+
+	return $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+}
