@@ -48,6 +48,10 @@ like($vzlogger, qr/\bshowModal\s*\(/, "vzLogger opens native dialogs");
 like($vzlogger, qr/class="ch-api lb-select"/, "dynamic channel API selects use V4 classes directly");
 like($vzlogger, qr/class="ch-obis lb-input"/, "dynamic channel inputs use V4 classes directly");
 like($vzlogger, qr/\bpi-trash\b/, "dynamic destructive actions use PrimeIcons");
+for my $key (qw(CHANNEL_SOURCE CHANNEL_API_TARGET CHANNEL_API_NONE CHANNEL_BRIDGE_OUTPUT CHANNEL_STATE_ENABLED CHANNEL_STATE_DISABLED)) {
+	like($vzlogger, qr/\bVZLOGGER\.\Q$key\E\b/, "channel summary references $key");
+}
+like($vzlogger, qr/<option value="null">'\+html_text\(channel_labels\.apiNoneOption\)\+'<\/option>/, "null API option uses its explanatory label without changing the submitted value");
 
 for my $field (qw(implementation read sendudp)) {
 	like($vzlogger, qr/id="${field}_value"\s+name="$field"/, "vzLogger preserves submitted $field field name");
