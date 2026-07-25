@@ -11,6 +11,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 . (Join-Path $PSScriptRoot "TestDeviceSettings.ps1")
+. (Join-Path $PSScriptRoot "TestDeviceFileTransfer.ps1")
 $settings = Resolve-TestDeviceSettings -Target $Target -Transport $Transport -PluginFolder $PluginFolder -IdentityFile $IdentityFile
 $Target = $settings.Target
 $Transport = $settings.Transport
@@ -54,6 +55,7 @@ for file in vzlogger.conf vzlogger_expert.conf vzlogger_channels.json; do
     fi
 done
 "@
+$remoteCommand = ConvertTo-LfTextLineEndings $remoteCommand
 
 Write-Host "Read-only test-device check: $Target ($Transport)"
 if ($Transport -eq "PuTTY") {
