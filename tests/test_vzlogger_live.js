@@ -24,9 +24,10 @@ const ambiguous = channels.concat({ uuid: "import-copy", meta: { serial: "reader
 assert.equal(Live.chooseEnergyChannel(ambiguous, "import"), null, "ambiguous counters are not guessed");
 
 assert.deepEqual(Live.cleanPreferences({ schema: 1, channels: ["TOTAL", "missing"], energyMode: "absolute", backgroundCollection: true }, ["total"]), {
-	schema: 1, channels: ["total"], energyMode: "absolute", backgroundCollection: true
+	schema: 2, channels: ["total"], energyMode: "absolute", backgroundCollection: true, historyRange: Live.DEFAULT_RANGE
 }, "preferences are normalized and unavailable UUIDs are removed");
-assert.equal(Live.cleanPreferences({ schema: 2, channels: [] }, []), null, "unknown preference schemas fall back to defaults");
+assert.equal(Live.cleanPreferences({ schema: 3, channels: [] }, []), null, "unknown preference schemas fall back to defaults");
+assert.equal(Live.cleanPreferences({ schema: 2, channels: ["total"], historyRange: Live.RANGE_VALUES[3] }, ["total"]).historyRange, Live.RANGE_VALUES[3], "the persisted seven-day range is restored");
 assert.deepEqual(Array.from(Live.limitSelection(channels, new Set(["total", "import", "voltage"]), 2)), ["total", "import"], "restored preferences are limited to two unit groups");
 assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL + 1), true, "a delayed reading creates a chart gap");
 assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL), false, "the accepted polling window remains connected");
@@ -42,6 +43,19 @@ assert.deepEqual(restored.histories.total, [{ x: 1000, y: 12, absolute: 12, raw:
 assert.equal(restored.lastTuples.total, "1|12", "the last tuple survives reload deduplication");
 assert.deepEqual(restored.energySegments.reader[0].bases, { import: 42 }, "removed channels are pruned from restored energy baselines");
 assert.equal(Live.cleanHistorySnapshot(snapshot, ["total", "import"], "meta-2"), null, "history from changed metadata is rejected");
+
+const bucket = Live.mergeBucket(null, [{ x: 1, y: 5 }, { x: 2, y: 1 }, { x: 3, y: 9 }, { x: 4, y: 7 }]);
+assert.deepEqual(Live.expandBucket(bucket).map(point => [point.x, point.y]), [[1,5],[2,1],[3,9],[4,7]], "bucket expansion preserves first, minimum, maximum, and last in chronological order");
+const now = 10 * 24 * 60 * 60 * 1000;
+const bucketStart = Math.floor((now - 20 * 60 * 1000) / 10000) * 10000;
+const compacted = Live.compactHistory([
+	{ x: now - 1000, y: 10 },
+	{ x: bucketStart + 1, y: 5 }, { x: bucketStart + 2, y: 1 }, { x: bucketStart + 3, y: 9 }, { x: bucketStart + 4, y: 6 }, { x: bucketStart + 5, y: 7 },
+	{ x: now - Live.RANGE_VALUES[3] - 1, y: 99 }
+], now);
+assert.equal(compacted.some(point => point.y === 99), false, "values older than seven days are removed");
+assert.deepEqual(compacted.filter(point => point.x >= bucketStart && point.x < bucketStart + 10000).map(point => point.y), [5,1,9,7], "older raw values are reduced to bucket extrema and edges");
+assert.equal(Live.channelFingerprint({ identifier:"1-0:1.8.0", unit:"kWh", category:"active_energy_import", display_factor:0.001, display_name:"Old" }), Live.channelFingerprint({ identifier:"1-0:1.8.0", unit:"kWh", category:"active_energy_import", display_factor:0.001, display_name:"New" }), "display-name changes retain compatible history");
 
 const labels = { unavailable: "n/a", balanced: "balanced", moreImport: "import {value}", moreExport: "export {value}" };
 assert.equal(Live.balanceText(0.0009, 0.001, labels, String), "balanced", "one Wh balance tolerance is applied");
