@@ -481,6 +481,7 @@ sub set_bridge_autostart
 	return 0 if (!service_installed($bridge_service));
 	return message_exit("systemctl is not available. Could not update $bridge_service autostart.", 1)
 		if (!command_exists("systemctl"));
+	return 0 if (service_autostart_enabled($bridge_service) == ($enabled ? 1 : 0));
 	my $action = $enabled ? "enable" : "disable";
 	my $rc = run_privileged(
 		"$action $bridge_service autostart",
@@ -603,6 +604,7 @@ sub stop_vzlogger
 	run_privileged("reset failed state for vzlogger", systemctl_command(), "reset-failed", "vzlogger") if ($rc == 0);
 	$rc = 1 if ($rc == 0 && !wait_for_service_state("vzlogger", 0));
 	if ($disable && $rc == 0) {
+		return 0 if (!service_autostart_enabled("vzlogger"));
 		my $disable_rc = run_privileged("disable vzlogger autostart", systemctl_command(), "disable", "vzlogger");
 		print "Disabled vzlogger autostart.\n" if ($disable_rc == 0);
 		return $disable_rc;
@@ -722,9 +724,18 @@ sub enable_vzlogger_autostart
 		print "vzlogger service is not installed.\n";
 		return 1;
 	}
+	return 0 if (service_autostart_enabled("vzlogger"));
 	my $enable_rc = run_privileged("enable vzlogger autostart", systemctl_command(), "enable", "vzlogger");
 	print "Enabled vzlogger autostart.\n" if ($enable_rc == 0);
 	return $enable_rc;
+}
+
+sub service_autostart_enabled
+{
+	my ($service) = @_;
+	return 0 if (!command_exists("systemctl"));
+	system(systemctl_command(), "is-enabled", "--quiet", $service);
+	return (($? >> 8) == 0) ? 1 : 0;
 }
 
 sub read_enabled

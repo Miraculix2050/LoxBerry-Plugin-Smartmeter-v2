@@ -36,10 +36,16 @@ TEMPLATE="$LBPTEMPL/$PLUGINFOLDER/systemd/smartmeter-vzlogger-bridge.service.in"
 if [ "$ACTION" = "remove" ]; then
 	if command -v systemctl >/dev/null 2>&1; then
 		systemctl stop "$SERVICE_NAME" >/dev/null 2>&1 || true
-		systemctl disable "$SERVICE_NAME" >/dev/null 2>&1 || true
+		if systemctl is-enabled --quiet "$SERVICE_NAME"; then
+			systemctl disable "$SERVICE_NAME" >/dev/null 2>&1 || true
+		fi
 	fi
-	rm -f "$UNIT_FILE"
-	if command -v systemctl >/dev/null 2>&1; then
+	UNIT_CHANGED=0
+	if [ -f "$UNIT_FILE" ]; then
+		rm -f "$UNIT_FILE"
+		UNIT_CHANGED=1
+	fi
+	if [ "$UNIT_CHANGED" = "1" ] && command -v systemctl >/dev/null 2>&1; then
 		systemctl daemon-reload >/dev/null 2>&1 || true
 	fi
 	echo "<OK> Removed $SERVICE_NAME"
@@ -51,16 +57,29 @@ if [ ! -f "$TEMPLATE" ]; then
 	exit 3
 fi
 
+TEMP_FILE=$(mktemp "/etc/systemd/system/.smartmeter-v2-bridge.XXXXXX")
+trap 'rm -f "$TEMP_FILE"' 0 HUP INT TERM
 sed \
 	-e "s#__LBHOMEDIR__#$LBHOMEDIR#g" \
 	-e "s#__PLUGINFOLDER__#$PLUGINFOLDER#g" \
-	"$TEMPLATE" > "$UNIT_FILE"
+	"$TEMPLATE" > "$TEMP_FILE"
 
+UNIT_CHANGED=0
+if [ ! -f "$UNIT_FILE" ] || ! cmp -s "$TEMP_FILE" "$UNIT_FILE"; then
+	chmod 0644 "$TEMP_FILE"
+	mv -f "$TEMP_FILE" "$UNIT_FILE"
+	UNIT_CHANGED=1
+else
+	rm -f "$TEMP_FILE"
+fi
+trap - 0 HUP INT TERM
 chmod 0644 "$UNIT_FILE"
 
-if command -v systemctl >/dev/null 2>&1; then
+if [ "$UNIT_CHANGED" = "1" ] && command -v systemctl >/dev/null 2>&1; then
 	systemctl daemon-reload
 	echo "<OK> Installed $SERVICE_NAME"
+elif command -v systemctl >/dev/null 2>&1; then
+	echo "<OK> $SERVICE_NAME is unchanged"
 else
 	echo "<WARNING> systemctl is not available. Unit file was written but not loaded."
 fi

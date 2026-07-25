@@ -44,10 +44,14 @@ remove_legacy_config_copy()
 }
 
 if [ "$ACTION" = "remove" ]; then
-	rm -f "$DROPIN_FILE"
+	UNIT_CHANGED=0
+	if [ -f "$DROPIN_FILE" ]; then
+		rm -f "$DROPIN_FILE"
+		UNIT_CHANGED=1
+	fi
 	rmdir "$DROPIN_DIR" >/dev/null 2>&1 || true
 	remove_legacy_config_copy
-	if command -v systemctl >/dev/null 2>&1; then
+	if [ "$UNIT_CHANGED" = "1" ] && command -v systemctl >/dev/null 2>&1; then
 		systemctl daemon-reload
 	fi
 	echo "<OK> Removed SmartMeter vzLogger service override"
@@ -102,6 +106,8 @@ chmod 0750 "$RUNTIME_DIR"
 find "$RUNTIME_DIR" -maxdepth 1 -type f -exec chown "loxberry:loxberry" {} \; -exec chmod 0640 {} \;
 
 mkdir -p "$DROPIN_DIR"
+TEMP_FILE=$(mktemp "$DROPIN_DIR/.smartmeter-v2.XXXXXX")
+trap 'rm -f "$TEMP_FILE"' 0 HUP INT TERM
 {
 	echo "[Service]"
 	echo "Type=simple"
@@ -116,13 +122,24 @@ mkdir -p "$DROPIN_DIR"
 	echo "UMask=0027"
 	echo "Restart=on-failure"
 	echo "RestartSec=5s"
-} > "$DROPIN_FILE"
+} > "$TEMP_FILE"
+UNIT_CHANGED=0
+if [ ! -f "$DROPIN_FILE" ] || ! cmp -s "$TEMP_FILE" "$DROPIN_FILE"; then
+	chmod 0644 "$TEMP_FILE"
+	mv -f "$TEMP_FILE" "$DROPIN_FILE"
+	UNIT_CHANGED=1
+else
+	rm -f "$TEMP_FILE"
+fi
+trap - 0 HUP INT TERM
 chmod 0644 "$DROPIN_FILE"
 remove_legacy_config_copy
 
-if command -v systemctl >/dev/null 2>&1; then
+if [ "$UNIT_CHANGED" = "1" ] && command -v systemctl >/dev/null 2>&1; then
 	systemctl daemon-reload
 	echo "<OK> Installed SmartMeter vzLogger service override for $CONFIG_FILE"
+elif command -v systemctl >/dev/null 2>&1; then
+	echo "<OK> SmartMeter vzLogger service override is unchanged"
 else
 	echo "<WARNING> systemctl is not available. Override was written but not loaded."
 fi

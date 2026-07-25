@@ -104,6 +104,11 @@ like($vzlogger_cgi_source, qr/rollback_failed_vzlogger_activation\(\$previous_im
 like($vzlogger_cgi_source, qr/SMARTMETER_LEGACY_LOCK_HELD/, "vzLogger activation passes its held Legacy polling guard to the service controller");
 like($vzlogger_cgi_source, qr/\$starting && implementation_mode\(\) ne "vzlogger"/, "service Start and Restart require saved vzLogger mode server-side");
 like($vzlogger_cgi_source, qr/start_obis_discovery_background.*saved_implementation_mode\(\) ne "vzlogger"/s, "OBIS discovery requires saved vzLogger mode server-side");
+like($vzlogger_cgi_source, qr/service-status.*?service_status_response\(details =>/s, "service-status explicitly selects detailed or lightweight snapshots");
+my ($status_response_source) = $vzlogger_cgi_source =~ /(sub service_status_response.*?)(?=\nsub service_status_data)/s;
+like($status_response_source || "", qr/return \$response if \(!\$details\);.*?generated_config_status\(\)/s, "lightweight service status returns before full configuration validation");
+like($vzlogger_cgi_source, qr/service_status_response\(config_status => \$config, expert_status => \$expert\)/, "service actions reuse their validated configuration in the final snapshot");
+like($vzlogger_cgi_source, qr/generated_config_status\(1\)/, "successful Apply responses reuse trusted validation results");
 my ($service_settings_source) = $vzlogger_cgi_source =~ /(sub save_service_log_settings.*?)(?=\nsub generated_config_status)/s;
 unlike($service_settings_source || "", qr/set_implementation_mode|remove_legacy_cronjobs/, "service buttons cannot persist an implementation transition themselves");
 
@@ -121,6 +126,10 @@ local $/;
 my $vzlogger_template = <$vzlogger_template_fh>;
 close($vzlogger_template_fh);
 like($vzlogger_template, qr/action == "apply" && response\.ok/, "failed vzLogger apply keeps the saved tab and activation state unchanged");
+like($vzlogger_template, qr/!last_service_snapshot \? "&details=1" : ""/, "only the first status poll requests full details");
+like($vzlogger_template, qr/if \(response\.config\) last_service_snapshot\.config = response\.config/, "lightweight polls preserve detailed configuration state");
+like($vzlogger_template, qr/close_configuration_action_overlay\(\);\s*show_action_success\(obis_text\("configuration_action_apply_success_text"\)\)/s, "successful Apply closes immediately and shows brief feedback");
+unlike($vzlogger_template, qr/start_configuration_action_countdown|CONFIG_ACTION_AUTOCLOSE/, "Apply no longer waits for an auto-close countdown");
 like($vzlogger_template, qr/var saved_vzlogger = !!applied\.vzlogger_enabled/, "vzLogger runtime buttons use the saved implementation snapshot");
 like($vzlogger_template, qr/var vz_enabled = saved_vzlogger && ui\.vzlogger/, "vzLogger Start and Restart require both saved and current draft activation");
 like($vzlogger_template, qr/runtime_action_disabled = saved_implementation != "vzlogger"/, "OBIS discovery remains disabled until vzLogger activation is saved");

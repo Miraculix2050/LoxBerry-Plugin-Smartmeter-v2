@@ -129,7 +129,7 @@ if( $q->{ajax} ) {
 			$response = cancel_obis_discovery($q->{job_id});
 		} elsif ($action eq "service-status") {
 			load_service_ajax_config();
-			$response = service_status_response();
+			$response = service_status_response(details => (($q->{details} || "") eq "1" ? 1 : 0));
 		} elsif ($action eq "service-action") {
 			die $L{'VZLOGGER.UI_SERVICE_ACTION_POST'} if (($ENV{REQUEST_METHOD} || "") ne "POST");
 			load_service_ajax_config();
@@ -513,12 +513,23 @@ sub load_service_ajax_config
 
 sub service_status_response
 {
+	my (%options) = @_;
+	my $details = exists($options{details}) ? $options{details} : 1;
 	my $vzlogger_expected = implementation_mode() eq "vzlogger";
 	my $mqtt_enabled = effective_vzlogger_mqtt_enabled();
 	my $bridge_enabled = (($plugin_cfg->param("MAIN.READ") || "0") eq "1");
 	my $bridge_expected = $vzlogger_expected && $mqtt_enabled && $bridge_enabled;
-	my $config = generated_config_status();
-	my $expert = expert_draft_status();
+	my $response = {
+		ok => JSON::PP::true,
+		services => {
+			vzlogger => service_status_data("vzlogger", $vzlogger_expected),
+			bridge => service_status_data("smartmeter-v2-vzlogger-bridge", $bridge_expected),
+		},
+	};
+	return $response if (!$details);
+
+	my $config = $options{config_status} || generated_config_status();
+	my $expert = $options{expert_status} || expert_draft_status();
 	my $expert_applied = expert_configuration_applied();
 	$config->{expert_mode} = expert_mode_enabled() ? JSON::PP::true : JSON::PP::false;
 	$config->{expert_present} = $expert->{present} ? JSON::PP::true : JSON::PP::false;
@@ -528,33 +539,33 @@ sub service_status_response
 	my $vzlogger_startable = $config->{valid};
 	$vzlogger_startable = 0 if (expert_mode_enabled() && (!$expert->{valid} || !$expert_applied));
 	my $bridge_startable = $vzlogger_startable && $mqtt_enabled && $config->{mqtt_enabled};
-	return {
-		ok => JSON::PP::true,
-		applied => {
-			vzlogger_enabled => $vzlogger_expected ? JSON::PP::true : JSON::PP::false,
-			mqtt_enabled => $mqtt_enabled ? JSON::PP::true : JSON::PP::false,
-			bridge_enabled => $bridge_enabled ? JSON::PP::true : JSON::PP::false,
-		},
-		config => {
-			present => $config->{present} ? JSON::PP::true : JSON::PP::false,
-			valid => $config->{valid} ? JSON::PP::true : JSON::PP::false,
-			mqtt_enabled => $config->{mqtt_enabled} ? JSON::PP::true : JSON::PP::false,
-			expert_mode => $config->{expert_mode},
-			expert_present => $config->{expert_present},
-			expert_valid => $config->{expert_valid},
-			expert_message => $config->{expert_message},
-			expert_applied => $config->{expert_applied},
-		},
-		services => {
-			vzlogger => service_status_data("vzlogger", $vzlogger_expected, $vzlogger_startable),
-			bridge => service_status_data("smartmeter-v2-vzlogger-bridge", $bridge_expected, $bridge_startable),
-		},
+	$response->{applied} = {
+		vzlogger_enabled => $vzlogger_expected ? JSON::PP::true : JSON::PP::false,
+		mqtt_enabled => $mqtt_enabled ? JSON::PP::true : JSON::PP::false,
+		bridge_enabled => $bridge_enabled ? JSON::PP::true : JSON::PP::false,
 	};
+	$response->{config} = {
+		present => $config->{present} ? JSON::PP::true : JSON::PP::false,
+		valid => $config->{valid} ? JSON::PP::true : JSON::PP::false,
+		mqtt_enabled => $config->{mqtt_enabled} ? JSON::PP::true : JSON::PP::false,
+		expert_mode => $config->{expert_mode},
+		expert_present => $config->{expert_present},
+		expert_valid => $config->{expert_valid},
+		expert_message => $config->{expert_message},
+		expert_applied => $config->{expert_applied},
+	};
+	$response->{services}->{vzlogger}->{config_valid} = $vzlogger_startable ? JSON::PP::true : JSON::PP::false;
+	$response->{services}->{vzlogger}->{can_start} = $vzlogger_startable ? JSON::PP::true : JSON::PP::false;
+	$response->{services}->{vzlogger}->{can_restart} = $vzlogger_startable ? JSON::PP::true : JSON::PP::false;
+	$response->{services}->{bridge}->{config_valid} = $bridge_startable ? JSON::PP::true : JSON::PP::false;
+	$response->{services}->{bridge}->{can_start} = $bridge_startable ? JSON::PP::true : JSON::PP::false;
+	$response->{services}->{bridge}->{can_restart} = $bridge_startable ? JSON::PP::true : JSON::PP::false;
+	return $response;
 }
 
 sub service_status_data
 {
-	my ($service, $expected_active, $startable) = @_;
+	my ($service, $expected_active) = @_;
 	my $state = service_state($service);
 	my $pid = service_pid($service);
 	my $installed = service_installed($service);
@@ -566,9 +577,6 @@ sub service_status_data
 		running => $running ? JSON::PP::true : JSON::PP::false,
 		status_text => "$state | PID: " . ($pid || "-") . " | Service: $service | " . ($installed ? $L{'VZLOGGER.UI_INSTALLED'} : $L{'VZLOGGER.UI_NOT_INSTALLED'}),
 		status_class => service_status_class($state, $expected_active),
-		config_valid => $startable ? JSON::PP::true : JSON::PP::false,
-		can_start => $startable ? JSON::PP::true : JSON::PP::false,
-		can_restart => $startable ? JSON::PP::true : JSON::PP::false,
 		can_stop => $running ? JSON::PP::true : JSON::PP::false,
 	};
 }
@@ -606,7 +614,7 @@ sub run_service_ajax_action
 	save_service_log_settings($action);
 
 	my ($output, $exit) = run_control_result($action);
-	my $response = service_status_response();
+	my $response = service_status_response(config_status => $config, expert_status => $expert);
 	my $service_name = $bridge_action ? "bridge" : "vzlogger";
 	my $expected_running = $action =~ /\A(?:start|restart)-/ ? 1 : 0;
 	my $running = $response->{services}->{$service_name}->{running} ? 1 : 0;
@@ -654,7 +662,10 @@ sub run_form_ajax_action
 			$exit = $apply_exit;
 		}
 		load_service_ajax_config();
-		my $response = service_status_response();
+		my $response = service_status_response(
+			config_status => $status->{valid} && $exit == 0 ? generated_config_status(1) : undef,
+			expert_status => $status,
+		);
 		$response->{ok} = ($status->{valid} && $exit == 0) ? JSON::PP::true : JSON::PP::false;
 		$response->{action} = "apply";
 		$response->{message} = $output;
@@ -681,7 +692,8 @@ sub run_form_ajax_action
 	$exit = $apply_exit;
 	# Reload persisted values before producing the service snapshot.
 	load_service_ajax_config();
-	my $response = service_status_response();
+	my $trusted_config = ($exit == 0 && implementation_mode() eq "vzlogger") ? generated_config_status(1) : undef;
+	my $response = service_status_response(config_status => $trusted_config);
 	my $operation_ok = $exit == 0;
 	$operation_ok = 0 if ($output =~ /(?:\ACould not|\nCould not|\bnot available\b)/i);
 	my $meterless = $output =~ /No meter is configured/i;
@@ -840,6 +852,7 @@ sub save_service_log_settings
 
 sub generated_config_status
 {
+	my ($assume_valid) = @_;
 	my $config_file = "$lbpconfigdir/vzlogger.conf";
 	my $mapping_file = "$lbpconfigdir/vzlogger_channels.json";
 	my $validator = "$lbpbindir/vzlogger_validate.pl";
@@ -854,8 +867,12 @@ sub generated_config_status
 	$status->{mqtt_enabled} = (ref($config->{mqtt}) eq "HASH" && $config->{mqtt}->{enabled}) ? 1 : 0;
 	return $status if (!-e $validator || ref($config->{meters}) ne "ARRAY" || !@{$config->{meters}});
 	return $status if (!expert_mode_enabled() && !-e $mapping_file);
-	my $output = `$^X "$validator" 2>&1`;
-	$status->{valid} = (($? >> 8) == 0) ? 1 : 0;
+	if ($assume_valid) {
+		$status->{valid} = 1;
+	} else {
+		my $output = `$^X "$validator" 2>&1`;
+		$status->{valid} = (($? >> 8) == 0) ? 1 : 0;
+	}
 	return $status;
 }
 

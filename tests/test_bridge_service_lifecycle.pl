@@ -16,6 +16,7 @@ sub read_file {
 
 my $control = read_file("$FindBin::Bin/../bin/vzlogger_control.pl");
 my $installer = read_file("$FindBin::Bin/../sbin/install_vzlogger_bridge_service.sh");
+my $vzlogger_installer = read_file("$FindBin::Bin/../sbin/install_vzlogger_service_override.sh");
 my $postroot = read_file("$FindBin::Bin/../postroot.sh");
 
 unlike(
@@ -68,5 +69,12 @@ like(
 	qr/systemctl stop "\$BRIDGE_SERVICE".*?systemctl disable "\$BRIDGE_SERVICE".*?systemctl reset-failed/s,
 	"inactive install and upgrade handling stops and disables the bridge",
 );
+like($installer, qr/cmp -s "\$TEMP_FILE" "\$UNIT_FILE"/, "unchanged bridge units are detected before installation");
+like($vzlogger_installer, qr/cmp -s "\$TEMP_FILE" "\$DROPIN_FILE"/, "unchanged vzLogger drop-ins are detected before installation");
+like($installer, qr/if \[ "\$UNIT_CHANGED" = "1" \].*?systemctl daemon-reload/s, "bridge daemon reload is conditional on a unit change");
+like($vzlogger_installer, qr/if \[ "\$UNIT_CHANGED" = "1" \].*?systemctl daemon-reload/s, "vzLogger daemon reload is conditional on a drop-in change");
+like($control, qr/service_autostart_enabled\(\$bridge_service\) == \(\$enabled \? 1 : 0\)/, "bridge autostart updates are skipped when already correct");
+like($control, qr/return 0 if \(service_autostart_enabled\("vzlogger"\)\)/, "vzLogger enable is skipped when already enabled");
+like($control, qr/return 0 if \(!service_autostart_enabled\("vzlogger"\)\)/, "vzLogger disable is skipped when already disabled");
 
 done_testing();
