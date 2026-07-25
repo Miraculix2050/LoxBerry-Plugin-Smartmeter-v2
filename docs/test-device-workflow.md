@@ -55,6 +55,11 @@ Perform the displayed deployment only after checking the target and destination 
 tools/deploy-test-device.ps1 -Files bin/example.pl,webfrontend/htmlauth/example.cgi -Apply
 ```
 
+`-Apply` is the explicit deployment confirmation and works in interactive and
+non-interactive PowerShell hosts. Add `-Confirm` when an additional interactive
+prompt is desired; `-WhatIf` remains available to exercise PowerShell's
+`ShouldProcess` handling without uploading files.
+
 The script accepts only files below these plugin runtime trees:
 
 | Repository path | Test-device path |

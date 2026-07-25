@@ -99,17 +99,33 @@
 	}
 
 	function cleanPreferences(input, availableUuids) {
-		const valid = input && (input.schema === 1 || input.schema === 2) && Array.isArray(input.channels);
+		const valid = input && (input.schema === 1 || input.schema === 2 || input.schema === 3) && Array.isArray(input.channels);
 		if (!valid) return null;
 		const available = new Set(availableUuids);
 		const requestedRange = Number(input.historyRange);
+		const validRange = RANGE_VALUES.includes(requestedRange);
 		return {
-			schema: 2,
+			schema: 3,
 			channels: input.channels.filter(uuid => available.has(String(uuid).toLowerCase())).map(uuid => String(uuid).toLowerCase()),
 			energyMode: input.energyMode === "absolute" ? "absolute" : "since-open",
 			backgroundCollection: input.backgroundCollection === true,
-			historyRange: RANGE_VALUES.includes(requestedRange) ? requestedRange : DEFAULT_RANGE
+			historyRange: validRange ? requestedRange : DEFAULT_RANGE,
+			historyRangeExplicit: input.schema === 3
+				? input.historyRangeExplicit === true
+				: input.schema === 2 && validRange && requestedRange !== DEFAULT_RANGE
 		};
+	}
+
+	function rangeForHistory(histories, now) {
+		let oldest = null;
+		(histories || new Map()).forEach(points => {
+			(points || []).forEach(point => {
+				if (point && point.y !== null && Number.isFinite(point.x) && (oldest === null || point.x < oldest)) oldest = point.x;
+			});
+		});
+		if (oldest === null) return RANGE_VALUES[0];
+		const age = Math.max(0, now - oldest);
+		return RANGE_VALUES.find(range => age <= range) || RANGE_VALUES[RANGE_VALUES.length - 1];
 	}
 
 	function limitSelection(channels, wanted, maximumUnits) {
@@ -234,7 +250,7 @@
 	return {
 		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, GAP_INTERVAL, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS,
 		numericTimestamp, scaledValue, category, isPower, isEnergy, chartValue,
-		chooseEnergyChannel, choosePowerChannels, defaultSelection, cleanPreferences,
+		chooseEnergyChannel, choosePowerChannels, defaultSelection, cleanPreferences, rangeForHistory,
 		limitSelection, hasReadingGap, isCounterReset, styleFor, balanceText,
 		historySnapshot, cleanHistorySnapshot, channelFingerprint, mergeBucket, expandBucket, compactHistory
 	};
@@ -254,6 +270,7 @@
 	let energyMode = "since-open";
 	let backgroundCollection = false;
 	let historyRange = Live.DEFAULT_RANGE;
+	let historyRangeExplicit = false;
 	let currentData = null;
 	let timer = null;
 	let stopped = false;
@@ -310,22 +327,48 @@
 		let parsed = null;
 		try { parsed = JSON.parse(localStorage.getItem(Live.STORAGE_KEY) || "null"); } catch (_) { parsed = null; }
 		const cleaned = Live.cleanPreferences(parsed, channels.map(item => item.uuid));
-		if (cleaned && cleaned.channels.length) {
-			selected = Live.limitSelection(channels, new Set(cleaned.channels), 2);
+		if (cleaned) {
+			selected = cleaned.channels.length ? Live.limitSelection(channels, new Set(cleaned.channels), 2) : Live.defaultSelection(channels);
 			energyMode = cleaned.energyMode;
 			backgroundCollection = cleaned.backgroundCollection;
 			historyRange = cleaned.historyRange;
+			historyRangeExplicit = cleaned.historyRangeExplicit;
 		} else {
 			selected = Live.defaultSelection(channels);
 			energyMode = "since-open";
 			backgroundCollection = false;
 			historyRange = Live.DEFAULT_RANGE;
+			historyRangeExplicit = false;
 		}
 		savePreferences();
 	}
 
 	function savePreferences() {
-		try { localStorage.setItem(Live.STORAGE_KEY, JSON.stringify({ schema: 2, channels: Array.from(selected), energyMode, backgroundCollection, historyRange })); } catch (_) { /* Browser storage may be unavailable. */ }
+		try { localStorage.setItem(Live.STORAGE_KEY, JSON.stringify({ schema: 3, channels: Array.from(selected), energyMode, backgroundCollection, historyRange, historyRangeExplicit })); } catch (_) { /* Browser storage may be unavailable. */ }
+	}
+
+	function selectInitialHistoryRange() {
+		if (historyRangeExplicit) return;
+		historyRange = Live.rangeForHistory(histories, Date.now());
+		savePreferences();
+		renderControls();
+	}
+
+	function collapsibleStorageKey(element) {
+		return "smartmeter-vzlogger-live-collapsible:" + window.location.pathname + ":" + element.id;
+	}
+
+	function initializeCollapsiblePersistence() {
+		document.querySelectorAll("details.persisted-collapsible[id]").forEach(element => {
+			try {
+				const state = localStorage.getItem(collapsibleStorageKey(element));
+				if (state === "open") element.open = true;
+				else if (state === "closed") element.open = false;
+			} catch (_) { /* Browser storage may be unavailable. */ }
+			element.addEventListener("toggle", () => {
+				try { localStorage.setItem(collapsibleStorageKey(element), element.open ? "open" : "closed"); } catch (_) { /* Browser storage may be unavailable. */ }
+			});
+		});
 	}
 
 	function requestResult(request) {
@@ -608,7 +651,8 @@
 		selected = Live.defaultSelection(channels);
 		energyMode = "since-open";
 		backgroundCollection = false;
-		historyRange = Live.DEFAULT_RANGE;
+		historyRange = Live.rangeForHistory(histories, Date.now());
+		historyRangeExplicit = false;
 		savePreferences();
 		renderControls();
 		showChoiceMessage("", false);
@@ -866,7 +910,7 @@
 		schedule(true);
 	});
 	document.getElementById("energy-mode").addEventListener("change", event => { energyMode = event.target.value === "absolute" ? "absolute" : "since-open"; savePreferences(); updateChart(); });
-	document.getElementById("history-range").addEventListener("change", event => { const value = Number(event.target.value); historyRange = Live.RANGE_VALUES.includes(value) ? value : Live.DEFAULT_RANGE; savePreferences(); updateChart(); });
+	document.getElementById("history-range").addEventListener("change", event => { const value = Number(event.target.value); historyRange = Live.RANGE_VALUES.includes(value) ? value : Live.DEFAULT_RANGE; historyRangeExplicit = true; savePreferences(); updateChart(); });
 	document.getElementById("background-collection").addEventListener("change", event => { backgroundCollection = event.target.checked; savePreferences(); schedule(true); });
 	document.getElementById("reset-chart-defaults").addEventListener("click", resetDefaults);
 	document.getElementById("clear-history").addEventListener("click", () => document.getElementById("clear-history-dialog").showModal());
@@ -876,8 +920,9 @@
 	});
 	window.addEventListener("beforeunload", () => { stopped = true; clearTimeout(timer); });
 
+	initializeCollapsiblePersistence();
 	(async function initialize() {
-		try { await loadMetadata(); await initializeHistoryStorage(); await refresh(); }
+		try { await loadMetadata(); await initializeHistoryStorage(); selectInitialHistoryRange(); await refresh(); }
 		catch (error) { document.getElementById("status").className = "status error"; document.getElementById("status").textContent = error.message; }
 	}());
 }());

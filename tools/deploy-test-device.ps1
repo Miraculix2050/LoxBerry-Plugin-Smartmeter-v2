@@ -1,4 +1,4 @@
-[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "High")]
+[CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "Medium")]
 param(
 	[Parameter(Mandatory = $true, Position = 0)]
 	[string[]] $Files,

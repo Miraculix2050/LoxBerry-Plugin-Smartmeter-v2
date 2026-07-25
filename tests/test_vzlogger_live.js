@@ -24,10 +24,14 @@ const ambiguous = channels.concat({ uuid: "import-copy", meta: { serial: "reader
 assert.equal(Live.chooseEnergyChannel(ambiguous, "import"), null, "ambiguous counters are not guessed");
 
 assert.deepEqual(Live.cleanPreferences({ schema: 1, channels: ["TOTAL", "missing"], energyMode: "absolute", backgroundCollection: true }, ["total"]), {
-	schema: 2, channels: ["total"], energyMode: "absolute", backgroundCollection: true, historyRange: Live.DEFAULT_RANGE
+	schema: 3, channels: ["total"], energyMode: "absolute", backgroundCollection: true, historyRange: Live.DEFAULT_RANGE, historyRangeExplicit: false
 }, "preferences are normalized and unavailable UUIDs are removed");
-assert.equal(Live.cleanPreferences({ schema: 3, channels: [] }, []), null, "unknown preference schemas fall back to defaults");
-assert.equal(Live.cleanPreferences({ schema: 2, channels: ["total"], historyRange: Live.RANGE_VALUES[3] }, ["total"]).historyRange, Live.RANGE_VALUES[3], "the persisted seven-day range is restored");
+assert.equal(Live.cleanPreferences({ schema: 4, channels: [] }, []), null, "unknown preference schemas fall back to defaults");
+assert.deepEqual(Live.cleanPreferences({ schema: 3, channels: ["missing"], historyRange: Live.RANGE_VALUES[3], historyRangeExplicit: true }, ["total"]), {
+	schema: 3, channels: [], energyMode: "since-open", backgroundCollection: false, historyRange: Live.RANGE_VALUES[3], historyRangeExplicit: true
+}, "display preferences survive removal of every selected channel");
+assert.equal(Live.cleanPreferences({ schema: 2, channels: ["total"], historyRange: Live.RANGE_VALUES[3] }, ["total"]).historyRangeExplicit, true, "a non-default range from the previous schema remains an explicit choice");
+assert.equal(Live.cleanPreferences({ schema: 2, channels: ["total"], historyRange: Live.DEFAULT_RANGE }, ["total"]).historyRangeExplicit, false, "the old automatic 24-hour default can migrate to dynamic selection");
 assert.deepEqual(Array.from(Live.limitSelection(channels, new Set(["total", "import", "voltage"]), 2)), ["total", "import"], "restored preferences are limited to two unit groups");
 assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL + 1), true, "a delayed reading creates a chart gap");
 assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL), false, "the accepted polling window remains connected");
@@ -43,6 +47,13 @@ assert.deepEqual(restored.histories.total, [{ x: 1000, y: 12, absolute: 12, raw:
 assert.equal(restored.lastTuples.total, "1|12", "the last tuple survives reload deduplication");
 assert.deepEqual(restored.energySegments.reader[0].bases, { import: 42 }, "removed channels are pruned from restored energy baselines");
 assert.equal(Live.cleanHistorySnapshot(snapshot, ["total", "import"], "meta-2"), null, "history from changed metadata is rejected");
+
+const rangeNow = Live.RANGE_VALUES[3] + 1000000;
+assert.equal(Live.rangeForHistory(new Map(), rangeNow), Live.RANGE_VALUES[0], "an empty history starts with the 15-minute range");
+assert.equal(Live.rangeForHistory(new Map([["total", [{ x: rangeNow - Live.RANGE_VALUES[0], y: 1 }]]]), rangeNow), Live.RANGE_VALUES[0], "up to 15 minutes of history selects 15 minutes");
+assert.equal(Live.rangeForHistory(new Map([["total", [{ x: rangeNow - Live.RANGE_VALUES[0] - 1, y: 1 }]]]), rangeNow), Live.RANGE_VALUES[1], "history older than 15 minutes selects two hours");
+assert.equal(Live.rangeForHistory(new Map([["total", [{ x: rangeNow - Live.RANGE_VALUES[1] - 1, y: 1 }]]]), rangeNow), Live.RANGE_VALUES[2], "history older than two hours selects 24 hours");
+assert.equal(Live.rangeForHistory(new Map([["total", [{ x: rangeNow - Live.RANGE_VALUES[2] - 1, y: 1 }]]]), rangeNow), Live.RANGE_VALUES[3], "history older than 24 hours selects seven days");
 
 const bucket = Live.mergeBucket(null, [{ x: 1, y: 5 }, { x: 2, y: 1 }, { x: 3, y: 9 }, { x: 4, y: 7 }]);
 assert.deepEqual(Live.expandBucket(bucket).map(point => [point.x, point.y]), [[1,5],[2,1],[3,9],[4,7]], "bucket expansion preserves first, minimum, maximum, and last in chronological order");
