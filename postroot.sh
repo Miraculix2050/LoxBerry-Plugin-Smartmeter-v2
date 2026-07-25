@@ -10,6 +10,13 @@ PDIR=$3
 PVERSION=$4
 PTEMPPATH=$6
 
+if [ -r /etc/environment ]; then
+	. /etc/environment
+fi
+# Bridge the original 4.0.0 environment and names used by newer V4 samples.
+LBPCGI=${LBPCGI:-${LBPHTMLAUTH:-}}
+LBPSBIN=${LBPSBIN:-"$LBHOMEDIR/sbin/plugins"}
+
 for required in LBHOMEDIR LBPCONFIG LBPBIN LBPSBIN LBPLOG; do
 	eval "value=\${$required:-}"
 	if [ -z "$value" ]; then
@@ -66,14 +73,19 @@ install_ir_head_udev_rule()
 
 prepare_privileged_helpers()
 {
+	if [ -z "$PTEMPPATH" ] || [ ! -d "$PTEMPPATH/sbin" ]; then
+		echo "<ERROR> Privileged helper source folder is missing from the installation archive."
+		return 1
+	fi
+	mkdir -p "$LBPSBIN/$PDIR"
 	for helper in "$BRIDGE_INSTALLER" "$VZLOGGER_OVERRIDE_INSTALLER"
 	do
-		if [ ! -f "$helper" ]; then
-			echo "<ERROR> Required privileged helper is missing: $helper"
+		source_helper="$PTEMPPATH/sbin/$(basename "$helper")"
+		if [ ! -f "$source_helper" ]; then
+			echo "<ERROR> Required privileged helper is missing: $source_helper"
 			return 1
 		fi
-		chown root:root "$helper"
-		chmod 0755 "$helper"
+		install -o root -g root -m 0755 "$source_helper" "$helper"
 	done
 
 	rm -f "$OLD_BRIDGE_INSTALLER" "$OLD_OVERRIDE_INSTALLER"

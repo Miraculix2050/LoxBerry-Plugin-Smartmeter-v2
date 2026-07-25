@@ -30,6 +30,7 @@ like($preupgrade, qr/\$PTEMPPATH\/smartmeter-upgrade/, "upgrade backup uses argu
 unlike($preupgrade, qr/Backing up existing log|\/log\b/, "upgrade does not back up RAM logs");
 
 my $postroot = read_file("postroot.sh");
+my $postinstall = read_file("postinstall.sh");
 like($postroot, qr/\$LBPSBIN\/\$PDIR\/install_vzlogger_bridge_service\.sh/, "postroot uses the V4 sbin bridge helper");
 like($postroot, qr/Removed obsolete SmartMeter boot daemon/, "postroot removes the obsolete installed daemon");
 
@@ -38,7 +39,10 @@ ok(-e "$FindBin::Bin/../sbin/install_vzlogger_bridge_service.sh", "bridge helper
 ok(-e "$FindBin::Bin/../sbin/install_vzlogger_service_override.sh", "override helper is packaged below sbin");
 
 my $control = read_file("bin/vzlogger_control.pl");
-like($control, qr/\$lbpsbindir/, "runtime control uses native LoxBerry sbin path");
+like($control, qr/\$ENV\{LBPSBIN\}\s*\|\|\s*"\$lbhomedir\/sbin\/plugins"/, "runtime control uses V4 sbin path with a 4.0.0-compatible fallback");
+like($postinstall, qr/LBPCGI=\$\{LBPCGI:-\$\{LBPHTMLAUTH:-\}\}/, "postinstall accepts the original LoxBerry 4.0.0 authenticated web-root name");
+like($postroot, qr/LBPSBIN=\$\{LBPSBIN:-"\$LBHOMEDIR\/sbin\/plugins"\}/, "postroot provides the original LoxBerry 4.0.0 sbin fallback");
+like($postroot, qr/install -o root -g root -m 0755/, "postroot installs privileged helpers from the archive");
 unlike($control, qr{sudo.*?/bin/sh.*?install_vzlogger_}, "runtime does not sudo a writable bin shell script");
 
 my $sudoers = read_file("sudoers/sudoers");

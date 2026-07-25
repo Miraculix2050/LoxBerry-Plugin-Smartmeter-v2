@@ -8,6 +8,13 @@ PDIR=$3
 PVERSION=$4
 PTEMPPATH=$6
 
+if [ -r /etc/environment ]; then
+	. /etc/environment
+fi
+# LoxBerry 4.0.0 exposes the authenticated plugin web root as LBPHTMLAUTH.
+# Newer V4 sample hooks call the same path LBPCGI.
+LBPCGI=${LBPCGI:-${LBPHTMLAUTH:-}}
+
 for required in LBHOMEDIR LBPCONFIG LBPBIN LBPCGI; do
 	eval "value=\${$required:-}"
 	if [ -z "$value" ]; then

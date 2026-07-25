@@ -29,6 +29,9 @@ Expected:
 - The active implementation is `vzlogger`.
 - Connected USB I/R heads are available below `/dev/serial/smartmeter/` before the first reboot.
 - Installation does not request a reboot.
+- The original LoxBerry 4.0.0 `LBPHTMLAUTH` environment name and a missing
+  `LBPSBIN` alias are handled without fixed installation-root paths; the
+  privileged helpers are installed root-owned in the derived plugin `sbin`.
 - The MQTT bridge is disabled.
 - All optional logs and debug logs are disabled.
 

@@ -11,6 +11,7 @@ PVERSION=$4
 if [ -r /etc/environment ]; then
 	. /etc/environment
 fi
+LBPSBIN=${LBPSBIN:-"$LBHOMEDIR/sbin/plugins"}
 for required in LBHOMEDIR LBPCONFIG LBPBIN; do
 	eval "value=\${$required:-}"
 	if [ -z "$value" ]; then
@@ -34,6 +35,7 @@ RUNTIME_DIR="/var/run/shm/$PDIR"
 SOURCE_LIST="/etc/apt/sources.list.d/volkszaehler-volkszaehler-org-project.list"
 KEYRING="/usr/share/keyrings/volkszaehler-volkszaehler-org-project-archive-keyring.gpg"
 OLD_DAEMON="$LBHOMEDIR/system/daemons/plugins/$PSHNAME"
+PLUGIN_SBIN_DIR="$LBPSBIN/$PDIR"
 
 if [ -f "$BRIDGE_UNIT" ]; then
 	echo "<INFO> Removing SmartMeter vzLogger bridge service."
@@ -90,6 +92,12 @@ else
 fi
 
 rm -f "$OLD_DAEMON"
+if [ -d "$PLUGIN_SBIN_DIR" ]; then
+	rm -f \
+		"$PLUGIN_SBIN_DIR/install_vzlogger_bridge_service.sh" \
+		"$PLUGIN_SBIN_DIR/install_vzlogger_service_override.sh"
+	rmdir "$PLUGIN_SBIN_DIR" >/dev/null 2>&1 || true
+fi
 
 if command -v systemctl >/dev/null 2>&1; then
 	systemctl daemon-reload >/dev/null 2>&1 || true
