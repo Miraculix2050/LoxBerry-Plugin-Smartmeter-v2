@@ -341,7 +341,7 @@ sub form_vzlogger
 	my $ui_language = $L{'COMMON.LANGUAGE_CODE'} || "en";
 	$template->param("VZLOGGER_CONFIG_URL" => "./vzlogger_config.cgi?lang=$ui_language");
 	my $visible_config_exists = $expert_mode ? -e expert_config_file() : -e "$lbpconfigdir/vzlogger.conf";
-	$template->param("VZLOGGER_CONFIG_DISABLED" => ($visible_config_exists ? "" : "ui-disabled"));
+	$template->param("VZLOGGER_CONFIG_DISABLED" => ($visible_config_exists ? "" : "is-disabled"));
 	my $runtime_config = read_json("$lbpconfigdir/vzlogger.conf") || {};
 	$template->param("EXPERT_MQTT_ENABLED" => (ref($runtime_config->{mqtt}) eq "HASH" && $runtime_config->{mqtt}->{enabled}) ? 1 : 0);
 	$template->param("VZLOGGER_LIVEURL" => "http://$ENV{HTTP_HOST}:$local_port/");
@@ -370,19 +370,19 @@ sub add_service_template_params
 	$template->param("BRIDGE_SERVICE_STATUS_CLASS" => service_status_class($bridge_state, $bridge_expected_active));
 	$template->param("VZLOGGER_SERVICE_RUNNING" => $vzlogger_state eq "active");
 	$template->param("BRIDGE_SERVICE_RUNNING" => $bridge_state eq "active");
-	$template->param("VZLOGGER_LIVE_DISABLED" => ($vzlogger_state eq "active" ? "" : "ui-disabled"));
+	$template->param("VZLOGGER_LIVE_DISABLED" => ($vzlogger_state eq "active" ? "" : "is-disabled"));
 
 	my $vzlogger_log = "$lbplogdir/vzlogger.log";
 	$template->param("VZLOGGER_LOG_URL" => log_url("plugins/$lbpplugindir/vzlogger.log"));
-	$template->param("VZLOGGER_LOG_DISABLED" => (-e $vzlogger_log ? "" : "ui-disabled"));
+	$template->param("VZLOGGER_LOG_DISABLED" => (-e $vzlogger_log ? "" : "is-disabled"));
 
 	my $bridge_log = latest_plugin_log_name("bridge");
 	$template->param("BRIDGE_LOG_URL" => $bridge_log ? log_url("plugins/$lbpplugindir/$bridge_log") : "#");
-	$template->param("BRIDGE_LOG_DISABLED" => ($bridge_log ? "" : "ui-disabled"));
+	$template->param("BRIDGE_LOG_DISABLED" => ($bridge_log ? "" : "is-disabled"));
 
 	my $control_log = latest_plugin_log_name("control") || latest_plugin_log_name("webui");
 	$template->param("CONTROL_LOG_URL" => $control_log ? log_url("plugins/$lbpplugindir/$control_log") : "#");
-	$template->param("CONTROL_LOG_DISABLED" => ($control_log ? "" : "ui-disabled"));
+	$template->param("CONTROL_LOG_DISABLED" => ($control_log ? "" : "is-disabled"));
 }
 
 sub add_http_cache_template_params
@@ -410,7 +410,7 @@ sub add_http_cache_template_params
 	$template->param("HTTP_CACHE_STATUS" => (@summaries ? join("<br>", @summaries) : html_escape($L{'VZLOGGER.HTTP_CACHE_NO_METERS'})));
 	$template->param("HTTP_CACHE_URL" => "/plugins/$lbpplugindir/index.php");
 	$template->param("HTTP_CACHE_AVAILABLE" => ($has_cache ? "1" : "0"));
-	$template->param("HTTP_CACHE_DISABLED" => ($has_cache ? "" : "ui-disabled"));
+	$template->param("HTTP_CACHE_DISABLED" => ($has_cache ? "" : "is-disabled"));
 }
 
 sub cache_file_summary
@@ -2961,8 +2961,9 @@ sub form_print
 	my $title = $L{'COMMON.PLUGIN_TITLE'} || "Smartmeter v2";
 	LoxBerry::Web::lbheader(
 		"$title V$version",
-		"https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/master/docs/Readme.md",
+		"./help.cgi",
 		"",
+		"nojqm",
 	);
 	print LoxBerry::Log::get_notifications_html($lbpplugindir);
 	print $template->output();

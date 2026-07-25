@@ -1,1 +1,45 @@
-<TMPL_VAR NAME=LEGACY.HELP>
+<link rel="stylesheet" href="./smartmeter-v4.css">
+<div class="lb-content smartmeter-page smartmeter-help">
+	<h2 class="lb-section-title"><TMPL_VAR NAME=HELP.TITLE></h2>
+	<p><TMPL_VAR NAME=HELP.INTRO></p>
+
+	<details class="lb-collapsible" open>
+		<summary><TMPL_VAR NAME=HELP.IMPLEMENTATIONS_TITLE></summary>
+		<div class="lb-collapsible-content">
+			<p><TMPL_VAR NAME=HELP.IMPLEMENTATIONS_TEXT></p>
+		</div>
+	</details>
+
+	<details class="lb-collapsible">
+		<summary><TMPL_VAR NAME=HELP.VZLOGGER_TITLE></summary>
+		<div class="lb-collapsible-content">
+			<p><TMPL_VAR NAME=HELP.VZLOGGER_TEXT></p>
+		</div>
+	</details>
+
+	<details class="lb-collapsible">
+		<summary><TMPL_VAR NAME=HELP.LEGACY_TITLE></summary>
+		<div class="lb-collapsible-content">
+			<p><TMPL_VAR NAME=HELP.LEGACY_TEXT></p>
+		</div>
+	</details>
+
+	<details class="lb-collapsible">
+		<summary><TMPL_VAR NAME=HELP.OBIS_TITLE></summary>
+		<div class="lb-collapsible-content">
+			<p><TMPL_VAR NAME=HELP.OBIS_TEXT></p>
+		</div>
+	</details>
+
+	<details class="lb-collapsible">
+		<summary><TMPL_VAR NAME=HELP.LOGS_TITLE></summary>
+		<div class="lb-collapsible-content">
+			<p><TMPL_VAR NAME=HELP.LOGS_TEXT></p>
+		</div>
+	</details>
+
+	<p class="lb-actions">
+		<a class="lb-btn" href="./index.cgi"><i class="pi pi-arrow-left" aria-hidden="true"></i> <TMPL_VAR NAME=HELP.BACK></a>
+		<a class="lb-btn lb-btn-primary" href="https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/tree/master/docs" target="_blank" rel="noopener"><i class="pi pi-external-link" aria-hidden="true"></i> <TMPL_VAR NAME=HELP.MANUAL></a>
+	</p>
+</div>

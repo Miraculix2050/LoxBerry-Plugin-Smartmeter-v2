@@ -43,6 +43,8 @@ like($control, qr/\$ENV\{LBPSBIN\}\s*\|\|\s*"\$lbhomedir\/sbin\/plugins"/, "runt
 like($postinstall, qr/LBPCGI=\$\{LBPCGI:-\$\{LBPHTMLAUTH:-\}\}/, "postinstall accepts the original LoxBerry 4.0.0 authenticated web-root name");
 like($postroot, qr/LBPSBIN=\$\{LBPSBIN:-"\$LBHOMEDIR\/sbin\/plugins"\}/, "postroot provides the original LoxBerry 4.0.0 sbin fallback");
 like($postroot, qr/install -o root -g root -m 0755/, "postroot installs privileged helpers from the archive");
+like($postroot, qr/chown loxberry:loxberry "\$CONFIG_FILE"/, "postroot repairs smartmeter.cfg ownership");
+like($postroot, qr/chmod 0640 "\$CONFIG_FILE"/, "postroot limits smartmeter.cfg permissions");
 unlike($control, qr{sudo.*?/bin/sh.*?install_vzlogger_}, "runtime does not sudo a writable bin shell script");
 
 my $sudoers = read_file("sudoers/sudoers");

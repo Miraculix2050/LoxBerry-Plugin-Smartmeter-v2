@@ -6,6 +6,8 @@ SmartMeter v2 liest Zählerdaten auf dem LoxBerry. Die Standardimplementierung v
 
 Die Legacy-Implementierung bleibt weiterhin verfügbar. Verwende sie, wenn eine bestehende Installation auf dem alten Reader basiert oder wenn vzLogger eine benötigte Zählerkonfiguration noch nicht abdeckt.
 
+Die vzLogger- und Legacy-Seiten verwenden das native LoxBerry-V4-Design ohne jQuery Mobile. Desktop und Mobilgeräte bieten dieselben Funktionen; Navigation, Formulare, Tabellen, Schalter, aufklappbare Bereiche und Dialoge passen sich der verfügbaren Breite an. Der Hilfe-Link im Seitenkopf öffnet eine lokale deutschsprachige Kurzhilfe. Die ausführliche Dokumentation bleibt von dort aus verlinkt.
+
 ## Voraussetzungen
 
 - LoxBerry 4.0.0 oder neuer mit installiertem SmartMeter v2 Plugin.

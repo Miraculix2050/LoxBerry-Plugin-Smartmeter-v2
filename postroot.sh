@@ -128,6 +128,10 @@ mkdir -p "$RUNTIME_DIR"
 chown loxberry:loxberry "$RUNTIME_DIR"
 chmod 0750 "$RUNTIME_DIR"
 find "$RUNTIME_DIR" -maxdepth 1 -type f -exec chown loxberry:loxberry {} \; -exec chmod 0640 {} \;
+if [ -f "$CONFIG_FILE" ]; then
+	chown loxberry:loxberry "$CONFIG_FILE"
+	chmod 0640 "$CONFIG_FILE"
+fi
 for PRIVATE_FILE in \
 	"$PLUGIN_CONFIG_DIR/vzlogger_channels.json" \
 	"$PLUGIN_CONFIG_DIR/vzlogger_channel_definitions.json" \

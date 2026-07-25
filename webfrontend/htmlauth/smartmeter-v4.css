@@ -1,0 +1,293 @@
+.smartmeter-page {
+	max-width: 1360px;
+	margin: 0 auto;
+	padding: 0;
+	overflow-wrap: anywhere;
+}
+
+.smartmeter-page *,
+.smartmeter-page *::before,
+.smartmeter-page *::after {
+	box-sizing: border-box;
+}
+
+.smartmeter-page .implementation-tabs {
+	display: flex;
+	gap: .65rem;
+	margin: 0 0 1rem;
+	border: 0 !important;
+	border-radius: 0;
+	padding: 0;
+	overflow: visible;
+	background: transparent;
+	box-shadow: none;
+}
+
+.smartmeter-page .implementation-tabs .lb-btn {
+	display: flex;
+	flex: 1 1 0;
+	align-items: center;
+	justify-content: center;
+	gap: .55rem;
+	min-height: 44px;
+	margin: 0 !important;
+	border: 1px solid #c0c0c0 !important;
+	border-radius: .25rem;
+	white-space: normal;
+	text-align: center;
+}
+
+.smartmeter-page .implementation-tabs .lb-btn-active {
+	border-color: #5b9418 !important;
+	background: #70ad21 !important;
+	color: #fff !important;
+}
+
+.smartmeter-page .implementation-tabs .lb-btn-active:hover,
+.smartmeter-page .implementation-tabs .lb-btn-active:focus-visible {
+	background: #62991d !important;
+}
+
+.smartmeter-page .implementation-state {
+	display: inline-flex;
+	flex: 0 0 auto;
+	align-items: center;
+	justify-content: center;
+	width: 1.45rem;
+	height: 1.45rem;
+	border-radius: 50%;
+	background: #777;
+	color: #fff;
+	font-weight: 700;
+}
+
+.smartmeter-page .implementation-state.is-active { background: #2f7d32; }
+.smartmeter-page .implementation-state.is-inactive { background: #777; }
+
+.smartmeter-page .lb-table,
+.smartmeter-page table.settings-table,
+.smartmeter-page .service-panel table {
+	width: 100%;
+	table-layout: fixed;
+}
+
+.smartmeter-page .lb-table td,
+.smartmeter-page .lb-table th,
+.smartmeter-page table.settings-table td,
+.smartmeter-page table.settings-table th,
+.smartmeter-page .service-panel td {
+	vertical-align: top;
+	overflow-wrap: anywhere;
+}
+
+.smartmeter-page input:not([type="checkbox"]):not([type="hidden"]),
+.smartmeter-page select,
+.smartmeter-page textarea {
+	width: 100%;
+	max-width: 100%;
+}
+
+.smartmeter-page .lb-btn,
+.smartmeter-page button {
+	min-height: 40px;
+}
+
+.smartmeter-page .lb-btn > .pi {
+	margin-right: .45rem;
+}
+
+.smartmeter-page .smartmeter-form-row {
+	display: table-row;
+}
+
+.smartmeter-page .smartmeter-form-row > .lb-form-label,
+.smartmeter-page .smartmeter-form-row > .lb-form-field,
+.smartmeter-page .smartmeter-form-row > .lb-form-help {
+	min-width: 0;
+	padding: .3rem;
+	text-align: left;
+}
+
+.smartmeter-page .smartmeter-form-row > .lb-form-help {
+	padding-left: .3rem;
+	margin-top: 0;
+}
+
+.smartmeter-page .lb-btn-row,
+.smartmeter-page .service-action-line,
+.smartmeter-page .generated-config-actions,
+.smartmeter-page .obis-channel-toolbar,
+.smartmeter-page .obis-search-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: .5rem;
+}
+
+.smartmeter-page .lb-toggle {
+	position: relative;
+	display: inline-block;
+	flex: 0 0 auto;
+	width: 3.25rem;
+	height: 1.8rem;
+	vertical-align: middle;
+}
+
+.smartmeter-page .lb-toggle input {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	opacity: 0;
+}
+
+.smartmeter-page .lb-toggle-slider {
+	position: absolute;
+	inset: 0;
+	border-radius: 1rem;
+	background: #aaa;
+	cursor: pointer;
+	transition: background .15s ease;
+}
+
+.smartmeter-page .lb-toggle-slider::before {
+	position: absolute;
+	top: .2rem;
+	left: .2rem;
+	width: 1.4rem;
+	height: 1.4rem;
+	border-radius: 50%;
+	background: #fff;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, .35);
+	content: "";
+	transition: transform .15s ease;
+}
+
+.smartmeter-page .lb-toggle input:checked + .lb-toggle-slider { background: #4b8f20; }
+.smartmeter-page .lb-toggle input:checked + .lb-toggle-slider::before { transform: translateX(1.45rem); }
+.smartmeter-page .lb-toggle input:focus-visible + .lb-toggle-slider { outline: 3px solid rgba(59, 130, 246, .45); }
+.smartmeter-page .lb-toggle[aria-disabled="true"] { opacity: .55; }
+
+.smartmeter-page .is-disabled {
+	pointer-events: none;
+	opacity: .55;
+}
+
+.smartmeter-page details.lb-collapsible {
+	margin: .65rem 0;
+}
+
+.smartmeter-page details.lb-collapsible > summary {
+	border: 1px solid #c7d2bb;
+	border-radius: .35rem;
+	padding: .7rem .85rem;
+	background: #f0f4ec;
+	color: #34442a;
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.smartmeter-page details.lb-collapsible[open] > summary {
+	border-color: #9db883;
+	border-bottom-right-radius: 0;
+	border-bottom-left-radius: 0;
+	background: #e3edd9;
+	color: #31551c;
+}
+
+.smartmeter-page details.lb-collapsible > summary:hover {
+	background: #e8f0e1;
+}
+
+.smartmeter-page .lb-collapsible-content {
+	min-width: 0;
+	overflow: hidden;
+}
+
+.smartmeter-page details.lb-collapsible[open] > .lb-collapsible-content {
+	border: 1px solid #c7d2bb;
+	border-top: 0;
+	border-bottom-right-radius: .35rem;
+	border-bottom-left-radius: .35rem;
+	background: rgba(255, 255, 255, .55);
+}
+
+.smartmeter-page dialog.lb-modal {
+	width: min(92vw, 640px);
+	max-height: 88vh;
+	border: 0;
+	border-radius: .5rem;
+	padding: 0;
+}
+
+.smartmeter-page dialog.lb-modal::backdrop {
+	background: rgba(0, 0, 0, .55);
+}
+
+.smartmeter-page .lb-modal-content {
+	max-height: 88vh;
+	padding: 1.25rem;
+	overflow: auto;
+}
+
+.smartmeter-page .validation-error {
+	margin: 1rem 0;
+	border: 1px solid #b00020;
+	border-radius: .35rem;
+	padding: .75rem;
+	color: #b00020;
+}
+
+@media (max-width: 640px) {
+	.smartmeter-page { width: 100%; }
+
+	.smartmeter-page .implementation-tabs {
+		flex-direction: column;
+	}
+
+	.smartmeter-page .settings-table,
+	.smartmeter-page .settings-table tbody,
+	.smartmeter-page .settings-table tr,
+	.smartmeter-page .settings-table td,
+	.smartmeter-page .service-panel table,
+	.smartmeter-page .service-panel tbody,
+	.smartmeter-page .service-panel tr,
+	.smartmeter-page .service-panel td {
+		display: block;
+		width: 100% !important;
+	}
+
+	.smartmeter-page .settings-table tr,
+	.smartmeter-page .service-panel tr {
+		margin-bottom: .8rem;
+	}
+
+	.smartmeter-page .smartmeter-form-row {
+		display: flex;
+		flex-direction: column;
+		align-items: stretch;
+		gap: .15rem;
+	}
+
+	.smartmeter-page .smartmeter-form-row > .lb-form-label,
+	.smartmeter-page .smartmeter-form-row > .lb-form-field,
+	.smartmeter-page .smartmeter-form-row > .lb-form-help {
+		display: block;
+		width: 100% !important;
+	}
+
+	.smartmeter-page .settings-table td,
+	.smartmeter-page .service-panel td {
+		padding: .2rem 0;
+	}
+
+	.smartmeter-page .settings-table td:empty,
+	.smartmeter-page .service-spacer {
+		display: none;
+	}
+
+	.smartmeter-page .lb-btn-row > *,
+	.smartmeter-page .service-action-line > .lb-btn,
+	.smartmeter-page .generated-config-actions > .lb-btn {
+		flex: 1 1 12rem;
+	}
+}
