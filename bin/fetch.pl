@@ -25,8 +25,12 @@ use Cwd 'abs_path';
 use IO::Socket; # For sending UDP packages
 use Getopt::Long;
 use LoxBerry::System;
+use FindBin;
+use lib $FindBin::Bin;
+use SmartMeterVZLoggerConfig qw(implementation_mode);
+use SmartMeterLegacyRuntime qw(acquire_legacy_fetch_lock vzlogger_service_running);
+umask(0027);
 use File::Path qw(make_path);
-use Fcntl qw(:flock);
 #use warnings;
 #use strict;
 no strict "refs"; # we need it for template system and for contructs like ${"skalar".$i} in loops
@@ -64,11 +68,12 @@ our $udpport;
 our $sendudp;
 our $sendmqtt;
 our $mqtttopic;
+our $implementation;
 my  $udpstring;
 my  @lines;
 my  $i;
 my  $verbose;
-my  $force;
+my  $manual;
 
 ##########################################################################
 # Read Settings
@@ -97,11 +102,12 @@ $udpport        = $plugin_cfg->param("MAIN.UDPPORT");
 $sendudp        = $plugin_cfg->param("MAIN.SENDUDP");
 $sendmqtt       = $plugin_cfg->param("MAIN.SENDMQTT");
 $mqtttopic      = $plugin_cfg->param("MAIN.MQTTTOPIC") || "smartmeter";
+$implementation = implementation_mode($plugin_cfg);
 $cron		= $plugin_cfg->param("MAIN.CRON");
 
 # Commandline options
 GetOptions (    "verbose"          => \$verbose,
-                "force"            => \$force,
+                "manual"           => \$manual,
 );
 
 if ($verbose) {
@@ -117,8 +123,8 @@ if (!-e "$installfolder/log/plugins/$psubfolder/shm") {
 	symlink($runtime_dir, "$installfolder/log/plugins/$psubfolder/shm");
 }
 
-open(my $lock_fh, ">", "$runtime_dir/fetch.lock") or die "Could not open fetch lock: $!";
-if (!flock($lock_fh, LOCK_EX | LOCK_NB)) {
+my ($lock_fh, $lock_error) = acquire_legacy_fetch_lock($runtime_dir);
+if (!$lock_fh) {
 	&LOG("Another meter polling run is already active. Giving up.", "WARN");
 	exit;
 }
@@ -129,7 +135,17 @@ if (-e "$runtime_dir/fetch.log") {
 }
 
 # Check if we should read automatically
-if ( !$plugin_cfg->param("MAIN.READ") && !$force ) {
+if ( $implementation ne "legacy" ) {
+	&LOG ("Legacy meter polling is disabled because Legacy mode is not active.", "INFO");
+	exit;
+}
+
+if ( vzlogger_service_running() ) {
+	&LOG ("Legacy meter polling is disabled while the vzLogger service is running.", "WARN");
+	exit;
+}
+
+if ( !$plugin_cfg->param("MAIN.READ") && !$manual ) {
 	&LOG ("Reading serial devices is currently deactivated. Giving up.", "FAIL");
 	exit;
 }
@@ -141,17 +157,17 @@ while (my ($configname, $configvalue) = each %plugin_config_hash){
 		$name 		=	$plugin_cfg->param("$configvalue.NAME");
 		$serial		=	$plugin_cfg->param("$configvalue.SERIAL");
 		$device		=	$plugin_cfg->param("$configvalue.DEVICE");
-		$meter		=	$plugin_cfg->param("$configvalue.METER");
-		$protocol	=	$plugin_cfg->param("$configvalue.PROTOCOL");
-		$startbaudrate	=	$plugin_cfg->param("$configvalue.STARTBAUDRATE");
-		$baudrate	=	$plugin_cfg->param("$configvalue.BAUDRATE");
-		$timeout	=	$plugin_cfg->param("$configvalue.TIMEOUT");
-		$handshake	=	$plugin_cfg->param("$configvalue.HANDSHAKE");
-		$databits	=	$plugin_cfg->param("$configvalue.DATABITS");
-		$stopbits	=	$plugin_cfg->param("$configvalue.STOPBITS");
-		$parity		=	$plugin_cfg->param("$configvalue.PARITY");
-		$delay 		=	$plugin_cfg->param("$configvalue.DELAY");
-		$crc 		=	$plugin_cfg->param("$configvalue.CRC");
+		$meter		=	legacy_meter_value($configvalue, "METER");
+		$protocol	=	legacy_meter_value($configvalue, "PROTOCOL");
+		$startbaudrate	=	legacy_meter_value($configvalue, "STARTBAUDRATE");
+		$baudrate	=	legacy_meter_value($configvalue, "BAUDRATE");
+		$timeout	=	legacy_meter_value($configvalue, "TIMEOUT");
+		$handshake	=	legacy_meter_value($configvalue, "HANDSHAKE");
+		$databits	=	legacy_meter_value($configvalue, "DATABITS");
+		$stopbits	=	legacy_meter_value($configvalue, "STOPBITS");
+		$parity		=	legacy_meter_value($configvalue, "PARITY");
+		$delay 		=	legacy_meter_value($configvalue, "DELAY");
+		$crc 		=	legacy_meter_value($configvalue, "CRC");
 		&LOG ("$serial: Found configuration for $name", "INFO");
 
 		# Check if head is connected and config is complete
@@ -159,7 +175,7 @@ while (my ($configname, $configvalue) = each %plugin_config_hash){
 			&LOG ("$serial: Device does not exist. Skipping.", "INFO");
 			next;
 		}
-		if ( $plugin_cfg->param("$configvalue.METER") eq "0" ) {
+		if ( ($meter || "0") eq "0" ) {
 			&LOG ("$serial: Configuration for $name is not complete. Skipping.", "INFO");
 			next;
 		}
@@ -277,12 +293,20 @@ while (my ($configname, $configvalue) = each %plugin_config_hash){
 	}
 
 }
-if ($plugin_cfg->param("MAIN.CRON") eq "M" && !$force) {
+if ($plugin_cfg->param("MAIN.CRON") eq "M" && !$manual) {
 	&LOG("$serial: Cronjob is MINIMUM - RERUN", "OK");	
 	sleep(5);
 	goto RERUN;
 	}
 exit;
+
+sub legacy_meter_value
+{
+	my ($section, $field) = @_;
+	my $value = $plugin_cfg->param("$section.LEGACY_$field");
+	return $value if (defined($value));
+	return $plugin_cfg->param("$section.$field");
+}
 
 sub add_option
 {

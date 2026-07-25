@@ -10,7 +10,10 @@ A release means:
 - plugin versions and update metadata are bumped;
 - release notes are prepared in `CHANGELOG.md`;
 - a Git tag is created and pushed;
-- a GitHub Release is created with the release notes.
+- a GitHub Release is created with the release notes;
+- the GitHub Release contains the generated plugin ZIP asset.
+
+Official releases are created exclusively through GitHub. Do not build, rename, or upload a suffixless `Smartmeter-V<version>.zip` from a developer workstation. Local packages follow `docs/local-builds.md` and always contain `-local-` in their filename.
 
 ## Version Locations
 
@@ -37,15 +40,21 @@ Smartmeter-V2.0.0.10
 1. Confirm target version and whether this is a stable release or prerelease.
 2. Check `git status --short`; do not include unrelated local changes.
 3. Update version metadata in the files listed above.
+   - Use the release asset URL for `ARCHIVEURL`, not the automatic GitHub source archive:
+
+```text
+https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/releases/download/Smartmeter-V<version>/Smartmeter-V<version>.zip
+```
+
 4. Confirm user documentation is current for changed behavior, setup, configuration, dependencies, and upgrade steps. Check `docs/Readme.md`, `docs/User-Guide.de.md`, and `docs/User-Guide.en.md` when user-facing behavior changed.
 5. Move the relevant `CHANGELOG.md` entries from `Unreleased` to the target version and date.
 6. Run cheap validation:
-   - `perl -c` for changed Perl files;
+   - `tools/check-perl-syntax.ps1 <file>` for changed Perl files on Windows, or `perl -I .github/ci/perl-lib -c <file>` on Linux/macOS;
    - `php -l` for changed PHP files;
    - shell syntax checks where available;
    - inspect changed release metadata with `git diff`.
 7. Ensure the required GitHub Actions `Perl and PHP syntax` check passes on the release pull request before merging to `master`.
-8. Run a plugin install or upgrade smoke test on LoxBerry when the release changes installation, upgrade, dependencies, services, cron jobs, or core runtime behavior.
+8. Run the relevant lifecycle checks from `docs/lifecycle-test-expectations.md` on LoxBerry when the release changes installation, upgrade, uninstall, dependencies, services, cron jobs, or default configuration behavior.
 9. Commit the release changes.
 10. Push the branch.
 11. Create an annotated tag on the pushed release commit:
@@ -55,13 +64,12 @@ git tag -a Smartmeter-V<version> -m "Smartmeter V<version>"
 git push origin Smartmeter-V<version>
 ```
 
-12. Create the GitHub Release for the tag:
-   - title: `Smartmeter V<version>`;
-   - stable releases must not be marked as prerelease;
-   - prereleases must be marked as prerelease;
-   - paste the matching `CHANGELOG.md` version entry as release notes.
-13. Verify the GitHub Release page and the tag ZIP URL referenced by `release.cfg`.
-14. If a release is broken after publishing, create a new patch release instead of rewriting or deleting the published tag.
+12. Wait for the `Release asset` GitHub Actions workflow to finish. It builds `Smartmeter-V<version>.zip` from the tag with `git archive --worktree-attributes`, verifies `plugin.cfg`, creates a draft GitHub Release with the generated ZIP asset, and publishes it as a prerelease.
+   - The workflow uploads the ZIP while the release is still a draft because published GitHub Releases can be immutable.
+   - If the tag workflow did not run, dispatch `Release asset` manually with the same tag.
+13. Verify the GitHub Release title, prerelease flag, release notes, and uploaded `Smartmeter-V<version>.zip` asset.
+14. Verify the GitHub Release page and the ZIP URL referenced by `release.cfg` or `prerelease.cfg`.
+15. If a release is broken after publishing, create a new patch release instead of rewriting or deleting the published tag.
 
 ## Token-Efficient Codex Guidance
 

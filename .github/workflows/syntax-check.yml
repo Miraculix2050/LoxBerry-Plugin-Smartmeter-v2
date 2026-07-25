@@ -36,88 +36,12 @@ jobs:
             libfile-homedir-perl \
             libhtml-template-perl \
             libjson-perl \
-            libstring-escape-perl \
             php-cli
 
-      - name: Prepare LoxBerry Perl stubs
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          mkdir -p .github/ci/perl-lib/LoxBerry
-
-          cat > .github/ci/perl-lib/LoxBerry/System.pm <<'PERL'
-          package LoxBerry::System;
-          use strict;
-          use warnings;
-
-          our $lbhomedir = '/opt/loxberry';
-          our $lbpplugindir = 'smartmeter';
-          our $lbpbindir = '/opt/loxberry/bin/plugins/smartmeter';
-          our $lbpconfigdir = '/opt/loxberry/config/plugins/smartmeter';
-          our $lbptemplatedir = '/opt/loxberry/templates/plugins/smartmeter';
-          our $lbplogdir = '/opt/loxberry/log/plugins/smartmeter';
-
-          sub import {
-              my $caller = caller;
-              no strict 'refs';
-              *{"${caller}::lbhomedir"} = \$lbhomedir;
-              *{"${caller}::lbpplugindir"} = \$lbpplugindir;
-              *{"${caller}::lbpbindir"} = \$lbpbindir;
-              *{"${caller}::lbpconfigdir"} = \$lbpconfigdir;
-              *{"${caller}::lbptemplatedir"} = \$lbptemplatedir;
-              *{"${caller}::lbplogdir"} = \$lbplogdir;
-          }
-
-          sub pluginversion { return '0.0.0'; }
-          sub readlanguage { return (); }
-
-          1;
-          PERL
-
-          cat > .github/ci/perl-lib/LoxBerry/JSON.pm <<'PERL'
-          package LoxBerry::JSON;
-          use strict;
-          use warnings;
-          1;
-          PERL
-
-          cat > .github/ci/perl-lib/LoxBerry/Log.pm <<'PERL'
-          package LoxBerry::Log;
-          use strict;
-          use warnings;
-
-          our $lbhomedir = '/opt/loxberry';
-          our $lbpplugindir = 'smartmeter';
-          our $lbpbindir = '/opt/loxberry/bin/plugins/smartmeter';
-          our $lbpconfigdir = '/opt/loxberry/config/plugins/smartmeter';
-          our $lbptemplatedir = '/opt/loxberry/templates/plugins/smartmeter';
-          our $lbplogdir = '/opt/loxberry/log/plugins/smartmeter';
-
-          sub import {
-              my $caller = caller;
-              no strict 'refs';
-              *{"${caller}::lbhomedir"} = \$lbhomedir;
-              *{"${caller}::lbpplugindir"} = \$lbpplugindir;
-              *{"${caller}::lbpbindir"} = \$lbpbindir;
-              *{"${caller}::lbpconfigdir"} = \$lbpconfigdir;
-              *{"${caller}::lbptemplatedir"} = \$lbptemplatedir;
-              *{"${caller}::lbplogdir"} = \$lbplogdir;
-          }
-
-          1;
-          PERL
-
-          cat > .github/ci/perl-lib/LoxBerry/Web.pm <<'PERL'
-          package LoxBerry::Web;
-          use strict;
-          use warnings;
-
-          sub lbheader { return; }
-          sub lbfooter { return; }
-
-          1;
-          PERL
+      - name: Set up Node.js for browser-model tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
       - name: Check Perl syntax
         shell: bash
@@ -127,7 +51,7 @@ jobs:
           found=0
           while IFS= read -r -d '' file; do
             found=1
-            perl -I.github/ci/perl-lib -c "$file"
+            perl -I .github/ci/perl-lib -I bin -c "$file"
           done < <(find . -type f \( -name '*.pl' -o -name '*.pm' -o -name '*.cgi' \) -print0)
 
           if [ "$found" -eq 0 ]; then
@@ -148,3 +72,38 @@ jobs:
           if [ "$found" -eq 0 ]; then
             echo "No PHP files found."
           fi
+
+      - name: Check lifecycle shell syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in preinstall.sh postinstall.sh preupgrade.sh postupgrade.sh postroot.sh uninstall.sh; do
+            [ ! -f "$file" ] || sh -n "$file"
+          done
+
+      - name: Run vzLogger configuration tests
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_channels.pl
+          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_generator.pl
+          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_validator.pl
+          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_expert.pl
+          perl tests/test_language_resources.pl
+          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_runtime.pl
+          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_custom_channels.pl
+          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_config_validation.pl
+          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_bridge.pl
+          perl tests/test_bridge_service_lifecycle.pl
+          perl -I .github/ci/perl-lib -I bin tests/test_legacy_runtime.pl
+
+      - name: Test test-device file normalization
+        shell: pwsh
+        run: ./tests/test_deploy_line_endings.ps1
+
+      - name: Test vzLogger live chart model
+        run: node tests/test_vzlogger_live.js
+
+      - name: Verify vendored Chart.js
+        run: sha256sum --check webfrontend/htmlauth/vendor/chart.js/chart.umd.min.js.sha256
