@@ -4,6 +4,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Reduce clutter in vzLogger live charts beyond 15 minutes by plotting exact temporal averages for instantaneous readings and the last energy-counter reading per display interval, while retaining extrema, gaps, resets, and summary peaks.
 - Reduce bridge MQTT load by subscribing to exactly one applied `chnN/agg` or `chnN/raw` topic for each enabled SmartMeter output channel, prefer effective aggregation even when raw values are also published, show the applied source topic in the channel UI, accept scalar raw/aggregate payloads without timestamps, and automatically disable bridge MQTT timestamp publication when source timestamps are unavailable.
 - Add the standard `meters[].aggfixedinterval` control with retained inactive state, label native vzLogger paths throughout the configuration UI, align German and English help with the vzLogger parameter reference, correct the documented SmartMeter bridge update-cycle scope, and widen the Loxone copy-and-paste blocks.
 - Make MQTT the first SmartMeter-bridge output and publish each effective source-channel timestamp immediately as aggregate `Last_UpdateUnix` and `Last_UpdateLoxEpoche` JSON values on the derived `<base-topic>/bridge`; keep Unix seconds in UTC while rendering the Loxone value for `<v.u>` with the LoxBerry timezone offset valid at the measurement time, and inherit the applied vzLogger MQTT connection, TLS, QoS, and retain settings without exposing credentials in process arguments.

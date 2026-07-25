@@ -17,6 +17,12 @@
 		{ name: "1m", bucket: 60 * 1000, from: RANGE_VALUES[1], until: RANGE_VALUES[2] },
 		{ name: "15m", bucket: 15 * 60 * 1000, from: RANGE_VALUES[2], until: RANGE_VALUES[3] }
 	];
+	const CHART_BUCKETS = new Map([
+		[RANGE_VALUES[0], 0],
+		[RANGE_VALUES[1], 30 * 1000],
+		[RANGE_VALUES[2], 5 * 60 * 1000],
+		[RANGE_VALUES[3], 30 * 60 * 1000]
+	]);
 	const POWER_CATEGORIES = new Set(["active_power_total", "active_power_import", "active_power_export"]);
 	const ENERGY_CATEGORIES = new Set(["active_energy_import", "active_energy_export"]);
 	const PALETTE = ["#0072b2", "#d55e00", "#009e73", "#cc79a7", "#e69f00", "#56b4e9", "#6f4e7c", "#555555"];
@@ -192,10 +198,26 @@
 		if (bucket) [bucket.first, bucket.minimum, bucket.maximum, bucket.last].forEach(point => { if (point) candidates.push(point); });
 		values.forEach(point => candidates.push({ x: point.x, y: point.y }));
 		candidates.sort((a, b) => a.x - b.x);
+		const hasBucketStatistics = bucket && Number.isFinite(bucket.sum) && Number.isFinite(bucket.count);
+		let sum = hasBucketStatistics ? bucket.sum : 0;
+		let count = hasBucketStatistics ? bucket.count : 0;
+		if (bucket && !hasBucketStatistics) {
+			const legacy = new Map();
+			[bucket.first, bucket.minimum, bucket.maximum, bucket.last].forEach(point => {
+				if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) legacy.set(point.x + "|" + point.y, point);
+			});
+			legacy.forEach(point => { sum += point.y; count += 1; });
+		}
+		values.forEach(point => {
+			if (Number.isFinite(point.sampleCount)) {
+				if (point.sampleCount > 0 && Number.isFinite(point.sampleSum)) { sum += point.sampleSum; count += point.sampleCount; }
+			} else { sum += point.y; count += 1; }
+		});
 		return {
 			first: candidates[0], last: candidates[candidates.length - 1],
 			minimum: candidates.reduce((best, point) => point.y < best.y ? point : best, candidates[0]),
-			maximum: candidates.reduce((best, point) => point.y > best.y ? point : best, candidates[0])
+			maximum: candidates.reduce((best, point) => point.y > best.y ? point : best, candidates[0]),
+			sum, count
 		};
 	}
 
@@ -205,7 +227,48 @@
 		[bucket.first, bucket.minimum, bucket.maximum, bucket.last].forEach(point => {
 			if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) unique.set(point.x + "|" + point.y, { x: point.x, y: point.y, absolute: point.y, raw: null });
 		});
-		return Array.from(unique.values()).sort((a, b) => a.x - b.x);
+		const expanded = Array.from(unique.values()).sort((a, b) => a.x - b.x);
+		if (Number.isFinite(bucket.sum) && Number.isFinite(bucket.count) && bucket.count > 0 && expanded.length) {
+			expanded.forEach(point => { point.sampleSum = 0; point.sampleCount = 0; });
+			expanded[expanded.length - 1].sampleSum = bucket.sum;
+			expanded[expanded.length - 1].sampleCount = bucket.count;
+		}
+		return expanded;
+	}
+
+	function aggregateChartPoints(points, meta, range) {
+		const bucketSize = CHART_BUCKETS.get(range) || 0;
+		if (!bucketSize) return (points || []).map(point => ({ ...point }));
+		const result = [];
+		let bucket = null;
+		function flush() {
+			if (!bucket) return;
+			if (isEnergy(meta)) result.push({ ...bucket.last });
+			else if (bucket.count > 0) result.push({
+				x: bucket.last.x,
+				y: bucket.sum / bucket.count,
+				absolute: bucket.sum / bucket.count,
+				raw: null
+			});
+			bucket = null;
+		}
+		(points || []).forEach(point => {
+			if (!point || !Number.isFinite(point.x)) return;
+			if (point.y === null) {
+				flush();
+				result.push({ x: point.x, y: null, absolute: null, raw: null });
+				return;
+			}
+			if (!Number.isFinite(point.y)) return;
+			const start = Math.floor(point.x / bucketSize) * bucketSize;
+			if (!bucket || bucket.start !== start) { flush(); bucket = { start, sum: 0, count: 0, last: point }; }
+			bucket.last = point;
+			if (Number.isFinite(point.sampleCount)) {
+				if (point.sampleCount > 0 && Number.isFinite(point.sampleSum)) { bucket.sum += point.sampleSum; bucket.count += point.sampleCount; }
+			} else { bucket.sum += point.y; bucket.count += 1; }
+		});
+		flush();
+		return result;
 	}
 
 	function compactHistory(points, now) {
@@ -215,7 +278,12 @@
 			if (point.y === null) { retained.push({ x: point.x, y: null, absolute: null, raw: null }); return; }
 			const age = now - point.x;
 			const tier = RETENTION_TIERS.find(candidate => age > candidate.from && age <= candidate.until);
-			if (!tier) { retained.push({ x: point.x, y: point.y, absolute: point.y, raw: point.raw ?? null }); return; }
+			if (!tier) {
+				const retainedPoint = { x: point.x, y: point.y, absolute: point.y, raw: point.raw ?? null };
+				if (Number.isFinite(point.sampleCount)) { retainedPoint.sampleCount = point.sampleCount; retainedPoint.sampleSum = point.sampleSum; }
+				retained.push(retainedPoint);
+				return;
+			}
 			const start = Math.floor(point.x / tier.bucket) * tier.bucket;
 			const key = tier.name + "|" + start;
 			buckets.set(key, { tier, start, value: mergeBucket(buckets.get(key) && buckets.get(key).value, [point]) });
@@ -269,11 +337,11 @@
 	}
 
 	return {
-		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, MAX_POLL_INTERVAL, GAP_INTERVAL, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS,
+		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, MAX_POLL_INTERVAL, GAP_INTERVAL, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS, CHART_BUCKETS,
 		numericTimestamp, scaledValue, category, isPower, isEnergy, chartValue,
 		chooseEnergyChannel, choosePowerChannels, defaultSelection, cleanPreferences, rangeForHistory,
 		limitSelection, hasReadingGap, isCounterReset, readingDecision, liveDataSignature, styleFor, balanceText,
-		historySnapshot, cleanHistorySnapshot, channelFingerprint, mergeBucket, expandBucket, compactHistory, pollDelay
+		historySnapshot, cleanHistorySnapshot, channelFingerprint, mergeBucket, expandBucket, compactHistory, aggregateChartPoints, pollDelay
 	};
 }));
 
@@ -770,7 +838,8 @@
 
 	function datasetFor(item) {
 		const cutoff = Date.now() - historyRange;
-		const history = (histories.get(item.uuid) || []).filter(point => point.x >= cutoff), meta = item.meta, style = Live.styleFor(item.uuid);
+		const meta = item.meta, style = Live.styleFor(item.uuid);
+		const history = Live.aggregateChartPoints((histories.get(item.uuid) || []).filter(point => point.x >= cutoff), meta, historyRange);
 		const points = [];
 		const resetStarts = (energySegments.get(String(meta.serial || "unknown")) || []).filter(segment => segment.reset).map(segment => segment.start);
 		let previousX = null, relativeBase = null;
