@@ -4,6 +4,9 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Route vzLogger bridge, service-control, and web-interface action logs through native LoxBerry log sessions so they honor the central plugin logging infrastructure and retention, while retaining the dedicated bridge debug switch and the separate external vzLogger debug log.
+- Use the native `INF` and `DEB` object methods for LoxBerry logging so web actions, service control, and bridge startup do not fail on the target LoxBerry runtime.
+- Use LoxBerry-provided plugin and system directory variables throughout the vzLogger runtime and diagnostics instead of reconstructing LoxBerry paths from the installation root.
 - Add a session-only chart and compact grid-flow summary to the rendered vzLogger live-data page, defaulting to signed active power plus positive import/export energy deltas, grouping at most two units on shared axes, handling overlapping curves and collection gaps, persisting only display preferences, and optionally attempting background collection with an explicit performance and mobile-battery warning. Bundle pinned Chart.js 4.5.1 and its MIT license locally so the page makes no third-party requests.
 - Keep the SmartMeter bridge systemd autostart synchronized with its saved activation so applying a disabled bridge, switching away from vzLogger, removing the last meter, or completing an inactive upgrade cannot restart the bridge after a LoxBerry reboot.
 

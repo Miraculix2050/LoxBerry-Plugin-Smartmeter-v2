@@ -121,7 +121,7 @@ History and session figures exist only in the tab's memory and restart after a r
 
 If the meter does not provide an instantaneous power value, the MQTT bridge additionally calculates `Consumption_CalculatedPower_OBIS_1.99.0` from `1.8.0` and `Delivery_CalculatedPower_OBIS_2.99.0` from `2.8.0` once two different counter readings are available. The unit follows the unit of the received counter value per hour.
 
-The bridge log is `/opt/loxberry/log/plugins/smartmeter-v2/vzlogger_mqtt_bridge.log` and rotates at 2 MB. The control log is `/opt/loxberry/log/plugins/smartmeter-v2/vzlogger_control.log`, rotates at 512 KB, and can be opened through **Show control log** directly below the two service panels. Successful Start, Stop, and Restart actions show a brief green confirmation; warnings and failures remain open with their details in the action dialog. Apply and diagnostic logs are also written to the plugin log directory; the last five `vzlogger_debug_*.log` files are kept. The separate vzLogger debug log `/opt/loxberry/log/plugins/smartmeter-v2/vzlogger.log` is written only when vzLogger debugging is enabled. Normal operation does not write a vzLogger file log.
+Bridge, service-control, and web-interface actions use native timestamped LoxBerry log sessions in the plugin log directory. They appear in the central LoxBerry log manager, which also handles their retention. **Show log** and **Show control log** open the newest matching session when one is available. Successful Start, Stop, and Restart actions show a brief green confirmation; warnings and failures remain open with their details in the action dialog. Diagnostic logs are also written to the plugin log directory; the last five `vzlogger_debug_*.log` files are kept. The separate external vzLogger debug log `/opt/loxberry/log/plugins/smartmeter-v2/vzlogger.log` is written only when vzLogger debugging is enabled. Normal operation does not write a vzLogger file log.
 
 The service name is:
 
@@ -153,7 +153,7 @@ The existing HTTP endpoint continues to serve values from these cache files. The
 
 ## Debug Log
 
-Enable **Debug log** in the bridge row before reproducing a bridge problem. This makes the MQTT bridge log raw MQTT topics, payloads, UUID mapping decisions, parsed cache names, and ignored messages. The separate switch in the vzLogger service row controls vzLogger's own log.
+Enable **Debug log** in the bridge row before reproducing a bridge problem. This raises the current bridge session to debug level and records raw MQTT topics, payloads, UUID mapping decisions, parsed cache names, and ignored messages in its native LoxBerry log. The separate switch in the vzLogger service row controls vzLogger's own external log.
 
 **Create debug log** creates a diagnostic log in the plugin log directory without saving the current form values. A new browser tab immediately shows progress, monitors the entire operation, and switches to the LoxBerry log viewer when the file is ready; the settings page shows no additional overlay and is not reloaded. The server stops creation after 45 seconds if it does not finish normally. Closing the new tab earlier does not necessarily stop the already-started server process, which may continue until that limit. The log includes:
 
