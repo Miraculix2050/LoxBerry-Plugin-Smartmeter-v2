@@ -32,7 +32,7 @@ use Cwd 'abs_path';
 use HTML::Template;
 use File::Path qw(make_path);
 use FindBin;
-use JSON::PP;
+use JSON::PP ();
 use lib $lbpbindir;
 use lib "$FindBin::Bin/../../bin";
 use SmartMeterVZLoggerConfig qw(validate_legacy_general implementation_mode set_implementation_mode);

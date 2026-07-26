@@ -96,16 +96,25 @@ sub read_service_runtime
 	my (@services) = @_;
 	my %runtime = map { $_ => { state => "unknown", pid => "" } } @services;
 	if (open(my $fh, "-|", "systemctl", "show", "--property=Id", "--property=ActiveState", "--property=MainPID", "--no-pager", @services)) {
-		my $current;
+		my %properties;
+		my $apply_properties = sub {
+			(my $service = $properties{Id} || "") =~ s/\.service\z//;
+			return if (!$service || !$runtime{$service});
+			$runtime{$service}->{state} = $properties{ActiveState} if (($properties{ActiveState} || "") ne "");
+			$runtime{$service}->{pid} = $properties{MainPID} if (($properties{MainPID} || "") ne "" && $properties{MainPID} ne "0");
+		};
 		while (my $line = <$fh>) {
 			chomp($line);
+			if ($line eq "") {
+				$apply_properties->();
+				%properties = ();
+				next;
+			}
 			my ($name, $current_value) = split(/=/, $line, 2);
 			next if (!defined($current_value));
-			if ($name eq "Id") { ($current = $current_value) =~ s/\.service\z//; next; }
-			next if (!$current || !$runtime{$current});
-			$runtime{$current}->{state} = $current_value if ($name eq "ActiveState" && $current_value ne "");
-			$runtime{$current}->{pid} = $current_value if ($name eq "MainPID" && $current_value ne "" && $current_value ne "0");
+			$properties{$name} = $current_value;
 		}
+		$apply_properties->() if (%properties);
 		close($fh);
 	}
 	return \%runtime;

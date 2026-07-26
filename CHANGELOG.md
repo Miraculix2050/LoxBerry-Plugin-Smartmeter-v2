@@ -4,6 +4,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Cut recurring web-UI CPU load with lightweight batched service-status and live-data CGI endpoints, ten-second service polling, bounded live-data retry backoff, warning-free Perl imports, read-only GET rendering, lazy meter/channel editors, and cacheable vzLogger UI assets while preserving the two-second live-data resolution and existing endpoint compatibility.
 - Restore passwordless Save/Apply service handling by granting only the four exact install/remove commands for the root-owned vzLogger and bridge systemd helpers; this fixes both bridge activation and deactivation after the LoxBerry V4 helper move.
 - Reduce recurring AJAX work by reading each service's state and PID with one cached systemd query, skipping unchanged live-table and chart renders, and updating aggregation availability without rebuilding every channel card on each input event.
 - Make the disposable test-device deployment's explicit `-Apply` switch work in non-interactive PowerShell hosts while retaining optional `-Confirm` and `-WhatIf` support.
