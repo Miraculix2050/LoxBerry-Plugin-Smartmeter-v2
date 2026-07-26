@@ -8,6 +8,7 @@
 	const STORAGE_KEY = "smartmeter-v2.vzloggerLiveCharts.v1";
 	const HISTORY_STORAGE_KEY = "smartmeter-v2.vzloggerLiveHistory.v1";
 	const POLL_INTERVAL = 2000;
+	const MAX_POLL_INTERVAL = 30000;
 	const GAP_INTERVAL = POLL_INTERVAL * 3;
 	const RANGE_VALUES = [15 * 60 * 1000, 2 * 60 * 60 * 1000, 24 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000];
 	const DEFAULT_RANGE = RANGE_VALUES[2];
@@ -263,12 +264,16 @@
 		return cleaned;
 	}
 
+	function pollDelay(failures) {
+		return failures > 0 ? Math.min(POLL_INTERVAL * Math.pow(2, failures), MAX_POLL_INTERVAL) : POLL_INTERVAL;
+	}
+
 	return {
-		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, GAP_INTERVAL, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS,
+		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, MAX_POLL_INTERVAL, GAP_INTERVAL, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS,
 		numericTimestamp, scaledValue, category, isPower, isEnergy, chartValue,
 		chooseEnergyChannel, choosePowerChannels, defaultSelection, cleanPreferences, rangeForHistory,
 		limitSelection, hasReadingGap, isCounterReset, readingDecision, liveDataSignature, styleFor, balanceText,
-		historySnapshot, cleanHistorySnapshot, channelFingerprint, mergeBucket, expandBucket, compactHistory
+		historySnapshot, cleanHistorySnapshot, channelFingerprint, mergeBucket, expandBucket, compactHistory, pollDelay
 	};
 }));
 
@@ -292,6 +297,7 @@
 	let timer = null;
 	let stopped = false;
 	let refreshing = false;
+	let pollFailures = 0;
 	let chart = null;
 	let focusedDataset = -1;
 	let historyDb = null;
@@ -898,13 +904,15 @@
 		if (stopped || refreshing) return;
 		refreshing = true;
 		try {
-			const response = await fetch("?json=1" + languageQuery, { cache: "no-store" });
+			const response = await fetch("vzlogger_live_data.cgi?" + languageQuery.substring(1), { cache: "no-store" });
 			if (!response.ok) throw new Error(i18n.dataFailed);
 			const version = response.headers.get("X-Smartmeter-Metadata-Version") || "";
 			let metadataChanged = false;
 			if (version && version !== metadataVersion) { await loadMetadata(); metadataChanged = true; }
 			const data = await response.json();
+			if (data && data.error_code) throw new Error(i18n.dataFailed);
 			if (data && data.error) throw new Error(data.error);
+			pollFailures = 0;
 			const firstRender = currentData === null;
 			const signature = Live.liveDataSignature(data);
 			const responseChanged = signature !== lastLiveDataSignature;
@@ -917,6 +925,7 @@
 				document.getElementById("status").textContent = i18n.lastUpdate + ": " + new Date().toLocaleString(locale);
 			}
 		} catch (error) {
+			pollFailures++;
 			if (!document.hidden) {
 				document.getElementById("status").className = "status error";
 				document.getElementById("status").textContent = error.message;
@@ -927,7 +936,7 @@
 	function schedule(immediate) {
 		clearTimeout(timer);
 		if (stopped || (document.hidden && !backgroundCollection)) return;
-		timer = setTimeout(refresh, immediate ? 0 : Live.POLL_INTERVAL);
+		timer = setTimeout(refresh, immediate ? 0 : Live.pollDelay(pollFailures));
 	}
 
 	document.addEventListener("visibilitychange", () => {

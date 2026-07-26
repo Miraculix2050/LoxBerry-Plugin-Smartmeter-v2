@@ -104,7 +104,7 @@ like($vzlogger_cgi_source, qr/rollback_failed_vzlogger_activation\(\$previous_im
 like($vzlogger_cgi_source, qr/SMARTMETER_LEGACY_LOCK_HELD/, "vzLogger activation passes its held Legacy polling guard to the service controller");
 like($vzlogger_cgi_source, qr/\$starting && implementation_mode\(\) ne "vzlogger"/, "service Start and Restart require saved vzLogger mode server-side");
 like($vzlogger_cgi_source, qr/start_obis_discovery_background.*saved_implementation_mode\(\) ne "vzlogger"/s, "OBIS discovery requires saved vzLogger mode server-side");
-like($vzlogger_cgi_source, qr/service-status.*?service_status_response\(details =>/s, "service-status explicitly selects detailed or lightweight snapshots");
+like($vzlogger_cgi_source, qr/service-status.*?exec\(\$\^X, "\$FindBin::Bin\/service_status\.cgi"\)/s, "legacy service-status URL delegates to the lightweight endpoint");
 my ($status_response_source) = $vzlogger_cgi_source =~ /(sub service_status_response.*?)(?=\nsub service_status_data)/s;
 like($status_response_source || "", qr/return \$response if \(!\$details\);.*?generated_config_status\(\)/s, "lightweight service status returns before full configuration validation");
 my ($runtime_status_source) = $vzlogger_cgi_source =~ /(sub service_runtime_status.*?)(?=\nsub service_state)/s;
@@ -131,7 +131,8 @@ local $/;
 my $vzlogger_template = <$vzlogger_template_fh>;
 close($vzlogger_template_fh);
 like($vzlogger_template, qr/action == "apply" && response\.ok/, "failed vzLogger apply keeps the saved tab and activation state unchanged");
-like($vzlogger_template, qr/!last_service_snapshot \? "&details=1" : ""/, "only the first status poll requests full details");
+like($vzlogger_template, qr/service_status\.cgi\?details=" \+ \(!last_service_snapshot \? "1" : "0"\)/, "only the first status poll requests full details from the lightweight endpoint");
+like($vzlogger_template, qr/setTimeout\(poll_service_status, 10000\)/, "lightweight service polling uses the ten-second interval");
 like($vzlogger_template, qr/if \(response\.config\) last_service_snapshot\.config = response\.config/, "lightweight polls preserve detailed configuration state");
 like($vzlogger_template, qr/close_configuration_action_overlay\(\);\s*show_action_success\(obis_text\("configuration_action_apply_success_text"\)\)/s, "successful Apply closes immediately and shows brief feedback");
 unlike($vzlogger_template, qr/start_configuration_action_countdown|CONFIG_ACTION_AUTOCLOSE/, "Apply no longer waits for an auto-close countdown");

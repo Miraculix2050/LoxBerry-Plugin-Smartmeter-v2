@@ -31,7 +31,6 @@ use JSON::PP;
 use LoxBerry::Log;
 use LoxBerry::System;
 #use LoxBerry::Web;
-use LoxBerry::JSON; # Available with LoxBerry 2.0
 use POSIX qw(:sys_wait_h setsid);
 use warnings;
 use strict;
@@ -129,8 +128,8 @@ if( $q->{ajax} ) {
 		} elsif ($action eq "obis-cancel") {
 			$response = cancel_obis_discovery($q->{job_id});
 		} elsif ($action eq "service-status") {
-			load_service_ajax_config();
-			$response = service_status_response(details => (($q->{details} || "") eq "1" ? 1 : 0));
+			exec($^X, "$FindBin::Bin/service_status.cgi");
+			die "Could not start service status endpoint: $!";
 		} elsif ($action eq "service-action") {
 			die $L{'VZLOGGER.UI_SERVICE_ACTION_POST'} if (($ENV{REQUEST_METHOD} || "") ne "POST");
 			load_service_ajax_config();
