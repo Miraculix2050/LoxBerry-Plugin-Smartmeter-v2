@@ -82,17 +82,18 @@ $runtime_dir = "/var/run/shm/$psubfolder";
 $plugin_cfg 	= new Config::Simple("$installfolder/config/plugins/$psubfolder/smartmeter.cfg") or die $plugin_cfg->error();
 $plugin_cfg->param("MAIN.SENDMQTT", "0") if (!defined $plugin_cfg->param("MAIN.SENDMQTT"));
 $plugin_cfg->param("MAIN.MQTTTOPIC", "smartmeter") if (!$plugin_cfg->param("MAIN.MQTTTOPIC"));
+my $is_post = ($ENV{REQUEST_METHOD} || "GET") eq "POST";
 
 $template_title = "SmartMeter v2 V$version";
 
-# Create temp folder if not already exist
-if (!-d $runtime_dir) {
-	make_path($runtime_dir);
-}
-chmod(0750, $runtime_dir);
-# Check for temporary log folder
-if (!-e "$installfolder/log/plugins/$psubfolder/shm") {
-	symlink($runtime_dir, "$installfolder/log/plugins/$psubfolder/shm");
+# Runtime setup is needed only for an explicit mutating request. Ordinary GET
+# page loads must not create directories, links, or configuration files.
+if ($is_post) {
+	make_path($runtime_dir) if (!-d $runtime_dir);
+	chmod(0750, $runtime_dir);
+	if (!-e "$installfolder/log/plugins/$psubfolder/shm") {
+		symlink($runtime_dir, "$installfolder/log/plugins/$psubfolder/shm");
+	}
 }
 
 # Detect connected and already configured IR heads.
@@ -104,11 +105,13 @@ while (my ($configname, $configvalue) = each %plugin_config_hash_for_heads) {
 }
 my @heads = sort keys %head_paths;
 
-{
+if ($is_post) {
 	my ($initialization_lock, $lock_error) = acquire_config_lock($runtime_dir);
 	die "$lock_error\n" if (!$initialization_lock);
 	local $ENV{SMARTMETER_CONFIG_LOCK_HELD} = "1";
 	$plugin_cfg->save if (initialize_legacy_heads($plugin_cfg, @heads));
+} else {
+	initialize_legacy_heads($plugin_cfg, @heads);
 }
 
 # Set parameters coming in - get over post
@@ -116,7 +119,6 @@ my $requested_lang = $cgi->param('lang');
 $lang = $requested_lang if (defined($requested_lang));
 $lang =~ tr/a-z//cd;
 $lang = substr($lang, 0, 2) || "en";
-my $is_post = ($ENV{REQUEST_METHOD} || "GET") eq "POST";
 $saveformdata = $is_post && ($cgi->param('saveformdata') || "") eq "1";
 $clearcache = $is_post && ($cgi->param('action') || "") eq "clearcache";
 

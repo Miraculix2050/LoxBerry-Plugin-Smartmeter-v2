@@ -116,7 +116,7 @@ if( $q->{ajax} ) {
 			ensure_vzlogger_defaults();
 			die $L{'VZLOGGER.UI_SAVE_VZLOGGER_FIRST'} if (implementation_mode() ne "vzlogger");
 			my @heads = detect_heads();
-			ensure_head_defaults(@heads);
+			ensure_head_defaults(1, @heads);
 			# Apply the submitted fields only to the in-memory Config::Simple object.
 			# OBIS discovery must use the current draft without persisting normal
 			# settings or committing staged meter removals.
@@ -193,14 +193,21 @@ sub form_vzlogger
 	$plugin_cfg = Config::Simple->new($config_file) or die "Could not read $config_file";
 
 	my @heads = detect_heads();
-	{
-		# Initial defaulting and one-time channel migration may write configuration.
+	my $is_post = ($ENV{REQUEST_METHOD} || "GET") eq "POST";
+	my $persist_initialization = $is_post && $q->{saveformdata};
+	if ($persist_initialization) {
 		my ($initialization_lock, $lock_error) = acquire_config_lock("/var/run/shm/$lbpplugindir");
 		die "$lock_error\n" if (!$initialization_lock);
-		ensure_vzlogger_defaults();
-		ensure_head_defaults(@heads);
-		ensure_legacy_meter_state(@heads);
-		load_or_migrate_channel_document(@heads);
+		ensure_vzlogger_defaults(1);
+		ensure_head_defaults(1, @heads);
+		ensure_legacy_meter_state(1, @heads);
+		load_or_migrate_channel_document(1, @heads);
+	} else {
+		# GET builds the same complete view model without locking or persisting it.
+		ensure_vzlogger_defaults(0);
+		ensure_head_defaults(0, @heads);
+		ensure_legacy_meter_state(0, @heads);
+		load_or_migrate_channel_document(0, @heads);
 	}
 	if ($initial_request && implementation_mode() eq "legacy") {
 		print $cgi->redirect(-url => "./index_legacy.cgi?form=legacy");
@@ -208,6 +215,7 @@ sub form_vzlogger
 	}
 
 	if ($q->{saveformdata}) {
+		die "Configuration changes require POST.\n" if (!$is_post);
 		my ($form_lock, $lock_error) = acquire_config_lock("/var/run/shm/$lbpplugindir");
 		die "$lock_error\n" if (!$form_lock);
 		local $ENV{SMARTMETER_CONFIG_LOCK_HELD} = "1";
@@ -274,7 +282,7 @@ sub form_vzlogger
 		}
 		$plugin_cfg = Config::Simple->new($config_file) or die "Could not reload $config_file";
 		@heads = detect_heads();
-		load_or_migrate_channel_document(@heads);
+		load_or_migrate_channel_document(0, @heads);
 	}
 
 	my @rows = build_head_rows(@heads);
@@ -693,8 +701,8 @@ sub run_form_ajax_action
 	return run_draft_validation_ajax() if ($action eq "validate");
 
 	my @heads = detect_heads();
-	ensure_head_defaults(@heads);
-	ensure_legacy_meter_state(@heads);
+	ensure_head_defaults(1, @heads);
+	ensure_legacy_meter_state(1, @heads);
 	my $implementation_before_save = implementation_mode();
 	my $replace_expert_runtime = !expert_mode_enabled() && expert_configuration_applied();
 	my $legacy_transition_lock = guard_vzlogger_activation($implementation_before_save);
@@ -758,8 +766,8 @@ sub run_draft_validation_ajax
 		$plugin_cfg = Config::Simple->new($draft_config) or die $L{'VZLOGGER.UI_DRAFT_READ_FAILED'};
 		ensure_vzlogger_defaults();
 		my @heads = detect_heads();
-		ensure_head_defaults(@heads);
-		ensure_legacy_meter_state(@heads);
+		ensure_head_defaults(1, @heads);
+		ensure_legacy_meter_state(1, @heads);
 		save_vzlogger_form("__draft__", @heads);
 		my $draft_channels = submitted_channel_document(@heads);
 		write_json_atomic("$draft_dir/vzlogger_channel_definitions.json", $draft_channels) if ($draft_channels);
@@ -929,6 +937,8 @@ sub load_meter_templates
 
 sub ensure_vzlogger_defaults
 {
+	my ($persist) = @_;
+	$persist = 1 if (!defined($persist));
 	my $changed = 0;
 	my $set_default = sub {
 		my ($key, $value, $empty_is_missing) = @_;
@@ -957,7 +967,7 @@ sub ensure_vzlogger_defaults
 		$set_default->($entry->[0], $entry->[1], 0);
 	}
 	$set_default->("VZLOGGER.LOCALPORT", "18080", 1);
-	$plugin_cfg->save if ($changed);
+	$plugin_cfg->save if ($changed && $persist);
 }
 
 sub expert_mode_enabled
@@ -1110,7 +1120,7 @@ sub detect_heads
 {
 	my %connected = map { $_ => 1 } glob("/dev/serial/smartmeter/*");
 	my %removed = map { $_ => 1 } config_list_values("VZLOGGER.REMOVEDHEADS");
-	if (($q->{rescan} || "") eq "1") {
+	if (($q->{rescan} || "") eq "1" && ($ENV{REQUEST_METHOD} || "GET") eq "POST") {
 		my $changed = 0;
 		foreach my $device (keys %connected) {
 			my $serial = $device;
@@ -1160,7 +1170,7 @@ sub scan_ir_heads_ajax
 	# Reuse the regular defaults so a newly discovered or explicitly restored
 	# reader behaves exactly like one found by the former full-page rescan.
 	my @visible_heads = detect_heads();
-	ensure_head_defaults(@visible_heads);
+	ensure_head_defaults(1, @visible_heads);
 	foreach my $device (@new_devices) {
 		my $serial = $device;
 		$serial =~ s%/dev/serial/smartmeter/%%g;
@@ -1203,7 +1213,8 @@ sub scan_ir_heads_ajax
 
 sub ensure_head_defaults
 {
-	my (@heads) = @_;
+	my ($persist, @heads) = @_;
+	$persist = 1 if (!defined($persist));
 	my $changed = 0;
 	foreach my $device (@heads) {
 		my $serial = $device;
@@ -1243,14 +1254,15 @@ sub ensure_head_defaults
 		$plugin_cfg->param("$serial.OBISCUSTOM", "");
 		$changed = 1;
 	}
-	$plugin_cfg->save if ($changed);
+	$plugin_cfg->save if ($changed && $persist);
 }
 
 sub ensure_legacy_meter_state
 {
-	my (@heads) = @_;
+	my ($persist, @heads) = @_;
+	$persist = 1 if (!defined($persist));
 	my $changed = initialize_legacy_heads($plugin_cfg, @heads);
-	$plugin_cfg->save if ($changed);
+	$plugin_cfg->save if ($changed && $persist);
 }
 
 sub save_vzlogger_form
@@ -1502,7 +1514,8 @@ sub submitted_channel_document
 
 sub load_or_migrate_channel_document
 {
-	my (@heads) = @_;
+	my ($persist, @heads) = @_;
+	$persist = 1 if (!defined($persist));
 	my $file = "$lbpconfigdir/vzlogger_channel_definitions.json";
 	$channel_document = read_json($file);
 	die "Invalid channel definitions JSON: $file\n" if (-e $file && !defined($channel_document));
@@ -1550,7 +1563,7 @@ sub load_or_migrate_channel_document
 			$changed = 1;
 		}
 	}
-	write_json_atomic($file, $channel_document) if ($changed);
+	write_json_atomic($file, $channel_document) if ($changed && $persist);
 }
 
 sub remove_meter_artifacts
