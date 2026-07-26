@@ -102,6 +102,18 @@ open(my $vzlogger_cgi_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/index.cgi"
 local $/;
 my $vzlogger_cgi_source = <$vzlogger_cgi_fh>;
 close($vzlogger_cgi_fh);
+open(my $status_cgi_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/service_status.cgi") or die $!;
+my $status_cgi_source = do { local $/; <$status_cgi_fh> };
+close($status_cgi_fh);
+unlike($status_cgi_source, qr/LoxBerry::(?:Web|JSON)|HTML::Template/, "lightweight status CGI does not load the full web/template stack");
+like($status_cgi_source, qr/systemctl.*?show.*?\@services/s, "lightweight status CGI batches both systemd services");
+like($status_cgi_source, qr/my %properties;.*?if \(\$line eq ""\).*?\$apply_properties->\(\)/s, "batched systemd status is assigned per complete unit block");
+like($status_cgi_source, qr/if \(\$details\).*?generated_config_status/s, "configuration validation runs only for detailed status");
+open(my $live_data_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/vzlogger_live_data.cgi") or die $!;
+my $live_data_source = do { local $/; <$live_data_fh> };
+close($live_data_fh);
+unlike($live_data_source, qr/LoxBerry::|HTML::Template|load_catalog/, "lightweight live-data CGI avoids templates, language loading, and catalogs");
+like($live_data_source, qr/X-Smartmeter-Metadata-Version/, "lightweight live-data CGI preserves the metadata version header");
 like($vzlogger_cgi_source, qr/rollback_failed_vzlogger_activation\(\$previous_implementation\)/, "failed vzLogger activation restores the preceding implementation mode");
 like($vzlogger_cgi_source, qr/else \{\s*# GET builds.*?ensure_vzlogger_defaults\(0\).*?ensure_head_defaults\(0, \@heads\).*?load_or_migrate_channel_document\(0, \@heads\)/s, "vzLogger GET builds defaults and migrations without persistence");
 like($vzlogger_cgi_source, qr/write_json_atomic\(\$file, \$channel_document\) if \(\$changed && \$persist\)/, "channel migration writes only on an explicit persistent path");

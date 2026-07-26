@@ -14,6 +14,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+BEGIN {
+	my %query = map {
+		my ($key, $value) = split(/=/, $_, 2);
+		defined($key) ? ($key => (defined($value) ? $value : "")) : ();
+	} split(/&/, $ENV{QUERY_STRING} || "");
+	if (($ENV{REQUEST_METHOD} || "GET") eq "GET"
+		&& ($query{ajax} || "") eq "1"
+		&& ($query{ajaxaction} || "") eq "service-status") {
+		require FindBin;
+		$ENV{QUERY_STRING} = "details=1";
+		exec $^X, "$FindBin::Bin/service_status.cgi";
+		die "Cannot delegate service status request: $!";
+	}
+}
+
 
 ##########################################################################
 # Modules
@@ -27,7 +42,7 @@ use File::Copy qw(copy);
 use File::Path qw(make_path);
 use File::Temp qw(tempdir);
 use FindBin;
-use JSON::PP;
+use JSON::PP ();
 use LoxBerry::Log;
 use LoxBerry::System;
 #use LoxBerry::Web;
@@ -352,7 +367,8 @@ sub form_vzlogger
 	$template->param("VZLOGGER_CONFIG_DISABLED" => ($visible_config_exists ? "" : "is-disabled"));
 	my $runtime_config = read_json("$lbpconfigdir/vzlogger.conf") || {};
 	$template->param("EXPERT_MQTT_ENABLED" => (ref($runtime_config->{mqtt}) eq "HASH" && $runtime_config->{mqtt}->{enabled}) ? 1 : 0);
-	$template->param("VZLOGGER_LIVEURL" => "http://$ENV{HTTP_HOST}:$local_port/");
+	my $http_host = $ENV{HTTP_HOST} || "localhost";
+	$template->param("VZLOGGER_LIVEURL" => "http://$http_host:$local_port/");
 	$template->param("VZLOGGER_RENDERED_URL" => "./vzlogger_live.cgi?lang=$ui_language");
 	$template->param("METER_TEMPLATES_JSON" => JSON::PP->new->utf8->canonical->encode(load_meter_templates()));
 	$template->param("CHANNEL_DEFINITIONS_JSON" => JSON::PP->new->utf8->canonical->encode($channel_document || new_document()));

@@ -23,6 +23,8 @@ my %sources = map { $_ => read_file($_) } qw(
 	webfrontend/htmlauth/index_legacy.cgi
 	webfrontend/htmlauth/smartmeter-ui.js
 	webfrontend/htmlauth/smartmeter-v4.css
+	webfrontend/htmlauth/smartmeter-vzlogger.css
+	webfrontend/htmlauth/smartmeter-vzlogger.js
 	webfrontend/htmlauth/vzlogger_live.js
 );
 
@@ -73,7 +75,7 @@ like($shared, qr/\blb-form-label\b/, "shared UI applies LoxBerry form-label clas
 like($shared, qr/\blb-form-field\b/, "shared UI applies LoxBerry form-field classes");
 like($shared, qr/\bpi-save\b/, "shared UI applies PrimeIcons to primary actions");
 
-my $styles = $sources{'webfrontend/htmlauth/smartmeter-v4.css'};
+my $styles = $sources{'webfrontend/htmlauth/smartmeter-v4.css'} . $sources{'webfrontend/htmlauth/smartmeter-vzlogger.css'};
 like($styles, qr/implementation-tabs \.lb-btn-active/, "active implementation tab has an explicit V4 state");
 like($styles, qr/implementation-tabs\s*\{[^}]*border:\s*0\s*!important/s, "implementation tab group has no redundant outer border");
 like($styles, qr/implementation-tabs \.lb-btn\s*\{[^}]*margin:\s*0\s*!important/s, "implementation tabs do not retain framework margins that clip the last border");
@@ -81,11 +83,15 @@ like($styles, qr/implementation-tabs \.lb-btn\s*\{[^}]*border:\s*1px\s+solid/s, 
 like($styles, qr/input:checked \+ \.lb-toggle-slider::before/, "toggle knob has an explicit checked position");
 like($styles, qr/details\.lb-collapsible\[open\] > summary/, "open collapsible headers have a distinct state");
 unlike($vzlogger . $shared, qr/\blb-btn-danger\b/, "removal actions use a restrained secondary style");
-like($vzlogger, qr/input\.obis-number-spinner\s*\{[^}]*height:\s*40px/s, "storage input uses the standard action height");
-like($vzlogger, qr/obis-storage-clear\.lb-btn\s*\{[^}]*height:\s*40px/s, "storage clear button matches the input height");
-like($vzlogger, qr/smartmeter-vzlogger-channel-details:/, "channel collapsible state uses a dedicated local storage namespace");
+like($styles, qr/input\.obis-number-spinner\s*\{[^}]*height:\s*40px/s, "storage input uses the standard action height");
+like($styles, qr/obis-storage-clear\.lb-btn\s*\{[^}]*height:\s*40px/s, "storage clear button matches the input height");
+like($sources{'webfrontend/htmlauth/smartmeter-vzlogger.js'}, qr/PREFIX\s*=\s*"smartmeter-vzlogger"/, "channel collapsible state uses a dedicated local storage namespace");
 like($vzlogger, qr/channel_details_storage_key\(serial,\s*uuid\)/, "channel collapsible state is keyed by meter and channel UUID");
-like($vzlogger, qr/channel_details\.addEventListener\(['"]toggle['"]/, "channel collapsible changes are persisted through the native toggle event");
+like($vzlogger, qr/container\.addEventListener\('toggle'.*?persist_channel_details/s, "channel collapsible changes are persisted through delegated toggle events");
+like($vzlogger, qr/data-lazy="1"/, "channel detail controls use a lazy-rendering placeholder");
+like($vzlogger, qr/delete grid\.dataset\.lazy/, "rendered channel details clear their lazy placeholder state");
+like($vzlogger, qr/if\(open\) render_channel_details/, "only restored open channel details render immediately");
+like($vzlogger, qr/initializeDeferredPanel/, "closed meter panels defer their initialization");
 my ($aggtime_input) = $vzlogger =~ /([^\r\n]*id="<TMPL_VAR NAME=SERIAL>_aggtime"[^\r\n]*)/;
 like($aggtime_input || "", qr/update_meter_enabled/, "aggtime updates channel availability immediately");
 unlike($aggtime_input || "", qr/render_channel_editor/, "aggtime input does not rebuild every channel card");

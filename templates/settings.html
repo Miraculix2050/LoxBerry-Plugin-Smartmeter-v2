@@ -1,5 +1,7 @@
 <link rel="stylesheet" href="./smartmeter-v4.css">
+<link rel="stylesheet" href="./smartmeter-vzlogger.css">
 <script src="./smartmeter-ui.js"></script>
+<script src="./smartmeter-vzlogger.js"></script>
 <div class="lb-content smartmeter-page">
 <style>
 	.listtable td
@@ -43,63 +45,6 @@
 	.mqtttable_headrow {
 	
 	}
-	.service-status {
-		display: inline-block;
-		padding: 3px 7px;
-		border-radius: 4px;
-		font-size: 13.5px;
-		line-height: 1.3;
-		font-weight: bold;
-	}
-	.service-status-idle { background: #e0e0e0; color: #333; }
-	.service-status-ok { background: #d7f0d2; color: #245b1d; }
-	.service-status-warning { background: #ffe0b2; color: #7a4100; }
-	.service-status-error { background: #f5c6cb; color: #721c24; }
-	.service-action-feedback { display: none; margin: 0 0 10px 0; padding: 8px 10px; background: #d7f0d2; border: 1px solid #8fbd87; color: #245b1d; }
-	.service-action-feedback.is-visible { display: block; }
-	.service-action-feedback.is-error { background: #f8d7da; border-color: #b00020; color: #721c24; }
-	.service-control-log { margin: -3px 0 14px 0; text-align: right; }
-	.service-action-reason { color: #8a5a00; font-size: 85%; margin-top: .25em; }
-	.service-action-reason:empty { display: none; }
-	.obis-channel-option { display: block; }
-	.obis-channel-label { font-size: 13px; line-height: 1.35; }
-	.obis-channel-new { display: block; color: #8a5a00; font-size: 85%; margin: .15em 0 .35em 2em; }
-	.obis-editor { display: grid; gap: 8px; margin-top: 8px; }
-	.obis-channel-card { border: 1px solid #bbb; border-radius: 5px; padding: 8px; background: rgba(255,255,255,.65); }
-	.channel-json-state { display: none !important; }
-	.obis-channel-summary { display: grid; grid-template-columns: 2.2em 5.8em minmax(10em,1.3fr) minmax(12em,2fr) minmax(18em,2fr); gap: 8px; align-items: center; }
-	.obis-channel-summary code { overflow-wrap: anywhere; }
-	.obis-channel-number, .obis-channel-uuid { color: #68737d; font-size: 82%; font-weight: normal; }
-	.obis-channel-uuid { margin-left: .45em; overflow-wrap: anywhere; }
-	.obis-channel-status { color: #555; font-size: 85%; overflow-wrap: anywhere; }
-	.obis-channel-details { margin-top: 7px; }
-	.obis-channel-grid { display: grid; grid-template-columns: repeat(2,minmax(15em,1fr)); gap: 7px 12px; margin-top: 8px; }
-	.obis-channel-details[open] > .obis-channel-grid { padding: 10px; background: #fffbed; border: 1px solid #eadfa6; border-radius: 4px; }
-	.obis-channel-field label { display: block; font-weight: bold; }
-	.channel-select-api .lb-select .lb-btn,
-	.channel-select-aggregation .lb-select .lb-btn { min-height: 0; padding: 5px 30px 5px 8px; font-size: 13px; line-height: 1.25; font-weight: normal; text-align: left; }
-	#vzlogger_form input.obis-number-spinner { flex: 0 1 8em; width: 8em; max-width: 100%; height: 40px; min-height: 40px; margin: 0; box-sizing: border-box; padding: 5px 6px; border: 1px solid #aaa; border-radius: 4px; background: #fff; font-size: 13px; line-height: 1.35; appearance: auto; }
-	.obis-number-spinner::-webkit-inner-spin-button { opacity: 1; -webkit-appearance: inner-spin-button; }
-	.obis-number-spinner:disabled { background: #eee; color: #777; }
-	.obis-storage-control { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
-	.obis-storage-clear.lb-btn { height: 40px; min-height: 40px; margin: 0; padding: 5px 8px; border: 1px solid #aaa; border-radius: 4px; background: #f6f6f6; color: #333; font-size: 12px; line-height: 1.35; cursor: pointer; }
-	.obis-storage-clear.is-active { border-color: #4985a8; background: #e6f1f8; font-weight: bold; }
-	.obis-storage-clear:disabled { background: #eee; color: #777; cursor: default; }
-	.obis-channel-help { display: block; margin-top: .22em; color: #5f6872; font-size: 82%; line-height: 1.3; font-weight: normal; }
-	.obis-channel-info { grid-column: 1 / -1; padding: 7px; background: #eef4f8; border-left: 3px solid #4985a8; }
-	.obis-api-fields { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2,minmax(15em,1fr)); gap: 7px 12px; }
-	.obis-output-fields { grid-column: 1 / -1; border-top: 1px solid #ccc; padding-top: 7px; }
-	.obis-channel-remove { grid-column: 1 / -1; border-top: 1px solid #ddd; padding-top: 8px; }
-	.obis-channel-remove-button.lb-btn,
-	.meter-remove-button.lb-btn { border-color: #d6a7ae !important; background: #fff1f3 !important; color: #8f2534 !important; }
-	.obis-channel-remove-button.lb-btn:hover,
-	.obis-channel-remove-button.lb-btn:focus-visible,
-	.meter-remove-button.lb-btn:hover,
-	.meter-remove-button.lb-btn:focus-visible { border-color: #c98690 !important; background: #f7dce1 !important; color: #721c2a !important; }
-	.obis-channel-toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
-	.obis-channel-toolbar-title { margin-right: auto; font-weight: bold; }
-	.meter-obis-settings > td { width: auto !important; }
-	@media (max-width: 800px) { .obis-channel-summary,.obis-channel-grid,.obis-api-fields { grid-template-columns: 1fr; } }
 	.activation-unsaved { display: block; color: #8a5a00; font-size: 85%; margin-top: .2em; }
 	.activation-unsaved[hidden] { display: none; }
 	.obis-runtime-action-reason { display: block; color: #8a5a00; font-size: 85%; margin: .25em 0; }
@@ -1516,20 +1461,15 @@
 			input.setCustomValidity(/^[A-Za-z0-9 _#|()\[\]\/\'%$!.*-]{1,64}$/.test(input.value)?"":channel_labels.outputKeyFormat);
 		}
 		function channel_details_storage_key(serial, uuid) {
-			return "smartmeter-vzlogger-channel-details:" + window.location.pathname + ":" + serial + ":" + uuid;
+			return SmartMeterVZLoggerUi.storageKey("channel-details", serial + ":" + uuid);
 		}
 		function channel_details_open(serial, uuid, fallback) {
 			if (!uuid) return !!fallback;
-			try {
-				var state = window.localStorage.getItem(channel_details_storage_key(serial, uuid));
-				if (state == "open") return true;
-				if (state == "closed") return false;
-			} catch (error) {}
-			return !!fallback;
+			return SmartMeterVZLoggerUi.readOpen("channel-details", serial + ":" + uuid, fallback);
 		}
 		function persist_channel_details(serial, uuid, open) {
 			if (!uuid) return;
-			try { window.localStorage.setItem(channel_details_storage_key(serial, uuid), open ? "open" : "closed"); } catch (error) {}
+			SmartMeterVZLoggerUi.writeOpen("channel-details", serial + ":" + uuid, open);
 		}
 		function sync_channel_definitions() { document.getElementById("channel_definitions_json").value = JSON.stringify(channel_definitions); }
 		function api_option_fields(api, options) {
@@ -1543,37 +1483,40 @@
 			channel_definitions.meters = channel_definitions.meters || {};
 			var channels = channel_definitions.meters[serial] || (channel_definitions.meters[serial] = []);
 			var container = document.getElementById(serial + "_obis_channels"); if (!container) return;
-			var protocol = container.getAttribute("data-protocol") || "";
-			var aggtime = Number((document.getElementById(serial + "_aggtime") || {}).value || 0);
 			var open_by_uuid = {};
 			container.querySelectorAll('.obis-channel-card').forEach(function(card) { var existing=channels[Number(card.getAttribute('data-index'))], details=card.querySelector('details.obis-channel-details'); if(existing && existing.uuid && details && details.open) open_by_uuid[existing.uuid]=true; });
 			container.innerHTML = "";
 			channels.forEach(function(channel, index) {
-				channel.api_options = channel.api_options || {volkszaehler:{},influxdb:{},mysmartgrid:{}}; channel.plugin_output=channel.plugin_output||{enabled:true,key:""}; if(channel.storage==null || channel.storage==="" || String(channel.storage)==="255") channel.storage=null;
-				var info=catalog_info(full_obis(channel)), title=channel.display_name||info.short, api=channel.api||"null", options=channel.api_options[api]||{};
-				var source=channel.origin==='manual'?channel_labels.originManual:channel_labels.originFound;
-				var api_target=api==='null'?channel_labels.apiNone:api;
-				var summary_status=channel_labels.source+': '+source+' · '+channel_labels.apiTarget+': '+api_target+' · '+channel_labels.bridgeOutput+': '+(channel.plugin_output.enabled?channel_labels.enabledState:channel_labels.disabledState);
-				var channel_open=channel_details_open(serial,channel.uuid,!!open_by_uuid[channel.uuid]);
-				var applied_index=runtime_channel_indices[String(channel.uuid||'').toLowerCase()], has_applied_index=Number.isInteger(applied_index), channel_number=has_applied_index?channel_labels.channelNumber.replace('{number}',applied_index):channel_labels.channelUnassigned;
-				var remove_html=channel.origin==='manual'?'<div class="obis-channel-remove"><button class="ch-remove obis-channel-remove-button lb-btn lb-compact" type="button"><i class="pi pi-trash" aria-hidden="true"></i>'+html_text(channel_labels.remove)+'</button>'+channel_help_html(channel_labels.removeHelp)+'</div>':'';
-				var card=document.createElement("div"); card.className="obis-channel-card"; card.setAttribute("data-index",index);
-				card.innerHTML='<div class="obis-channel-summary"><input class="ch-enabled" type="checkbox" '+(channel.enabled?'checked':'')+' title="'+html_text(channel_labels.active)+'"><span class="obis-channel-number" title="'+html_text(has_applied_index?channel_labels.channelNumberHelp:channel_labels.channelUnassignedHelp)+'">'+html_text(channel_number)+'</span><code>'+html_text(full_obis(channel))+'</code><span title="'+html_text(info.long+(info.unit?' ['+info.unit+']':''))+'">'+html_text(title)+'</span><span class="obis-channel-status">'+html_text(summary_status)+'</span></div>'+
-				'<details class="obis-channel-details" '+(channel_open?'open':'')+'><summary>'+html_text(channel_labels.details)+'<span class="obis-channel-uuid">· UUID: '+html_text(channel.uuid||'–')+'</span></summary><div class="obis-channel-grid"><div class="obis-channel-info"><strong>'+html_text(info.short)+'</strong>'+(info.unit?' · '+html_text(info.unit):'')+'<br>'+html_text(info.long)+(info.warning?'<br>'+html_text(info.warning):'')+'</div>'+
-				'<div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.identifier)+'</label><input class="ch-obis lb-input" required value="'+html_text(channel.obis)+'">'+channel_help_html(channel_help.identifier)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.storage)+'</label><div class="obis-storage-control"><input class="ch-storage obis-number-spinner lb-input" type="number" min="0" max="254" step="1" inputmode="numeric" '+(protocol==='oms'?'disabled title="'+html_text(channel_labels.storageOms)+'"':'')+' value="'+html_text(channel.storage==null?'':channel.storage)+'"><button class="ch-storage-clear obis-storage-clear lb-btn '+(channel.storage==null?'is-active':'')+'" type="button" aria-pressed="'+(channel.storage==null?'true':'false')+'" '+(protocol==='oms'?'disabled ':'')+'title="'+html_text(channel_labels.storageClear)+'">'+html_text(channel_labels.storageClear)+'</button></div>'+channel_help_html(protocol==='oms'?channel_labels.storageOms:channel_help.storage)+'</div>'+
-				'<div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.display)+'</label><input class="ch-display lb-input" value="'+html_text(channel.display_name||'')+'">'+channel_help_html(channel_help.display)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.api)+'</label><div class="channel-select-api"><select class="ch-api lb-select"><option value="null">'+html_text(channel_labels.apiNoneOption)+'</option><option value="volkszaehler">volkszaehler</option><option value="influxdb">influxdb</option><option value="mysmartgrid">mysmartgrid</option></select></div>'+channel_help_html(channel_help.api)+'</div>'+
-				'<div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.aggregation)+'</label><div class="channel-select-aggregation"><select class="ch-agg lb-select" '+(aggtime>0?'':'disabled')+'><option value="none">none</option><option value="avg">avg</option><option value="max">max</option><option value="sum">sum</option></select></div>'+channel_help_html(channel_help.aggregation)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.duplicates)+'</label><input class="ch-duplicates lb-input" type="number" min="0" '+((api==='volkszaehler'||api==='influxdb')?'':'disabled')+' value="'+html_text(channel.duplicates||0)+'">'+channel_help_html(channel_help.duplicates)+'</div>'+
-				'<div class="obis-api-fields"><strong>'+html_text(channel_labels.apiOptions)+'</strong>'+api_option_fields(api,options)+'</div><div class="obis-output-fields"><label><input class="ch-output" type="checkbox" '+(channel.plugin_output.enabled?'checked':'')+'> '+html_text(channel_labels.output)+'</label>'+channel_help_html(channel_help.output)+'<div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.outputKey)+'</label><input class="ch-output-key lb-input" maxlength="64" title="'+html_text(channel_labels.outputKeyFormat)+'" '+(channel.plugin_output.enabled?'required':'disabled')+' value="'+html_text(channel.plugin_output.key||'')+'">'+channel_help_html(channel_help.outputKey)+'</div></div>'+remove_html+'</div></details>';
-				container.appendChild(card); card.querySelector('select.ch-api').value=api; card.querySelector('select.ch-agg').value=aggtime>0?(channel.aggmode||'none'):'none';
-				var channel_details=card.querySelector('details.obis-channel-details');
-				channel_details.addEventListener('toggle',function(){ persist_channel_details(serial,channel.uuid,channel_details.open); });
-				var output_key_input=card.querySelector('input.ch-output-key'); validate_output_key_input(output_key_input); output_key_input.addEventListener('input',function(){validate_output_key_input(this);});
-				card.querySelector('button.ch-storage-clear').addEventListener('click',function(){ var input=card.querySelector('input.ch-storage'); input.value=''; update_channel_card(serial,index,card,protocol,aggtime); this.classList.add('is-active'); this.setAttribute('aria-pressed','true'); });
-				var remove_button=card.querySelector('button.ch-remove'); if(remove_button) remove_button.addEventListener('click',function(){ remove_manual_channel(serial,index,channel_number); });
-				card.addEventListener('change',function(event){ update_channel_card(serial,index,card,protocol,aggtime); var refresh=['ch-api','ch-output','ch-obis','ch-storage','ch-display'].some(function(name){return event.target.classList.contains(name);}); if(refresh) render_channel_editor(serial); if(refresh) update_meter_enabled(serial); });
-				card.addEventListener('input',function(event){ update_channel_card(serial,index,card,protocol,aggtime); if(event.target.classList.contains('ch-storage')) { var clear=card.querySelector('button.ch-storage-clear'), unspecified=event.target.value===''; clear.classList.toggle('is-active',unspecified); clear.setAttribute('aria-pressed',unspecified?'true':'false'); } });
+				container.appendChild(create_channel_card(serial,index,!!open_by_uuid[channel.uuid]));
 			});
+			initialize_channel_editor_events(container,serial);
 			var empty=document.getElementById(serial+'_obis_empty'); if(empty) empty.hidden=channels.length>0; sync_channel_definitions();
+		}
+		function create_channel_card(serial,index,was_open) {
+			var channel=channel_definitions.meters[serial][index], container=document.getElementById(serial+'_obis_channels');
+			channel.api_options=channel.api_options||{volkszaehler:{},influxdb:{},mysmartgrid:{}}; channel.plugin_output=channel.plugin_output||{enabled:true,key:""}; if(channel.storage==null||channel.storage===""||String(channel.storage)==="255") channel.storage=null;
+			var info=catalog_info(full_obis(channel)),title=channel.display_name||info.short,api=channel.api||'null',source=channel.origin==='manual'?channel_labels.originManual:channel_labels.originFound;
+			var status=channel_labels.source+': '+source+' · '+channel_labels.apiTarget+': '+(api==='null'?channel_labels.apiNone:api)+' · '+channel_labels.bridgeOutput+': '+(channel.plugin_output.enabled?channel_labels.enabledState:channel_labels.disabledState);
+			var applied=runtime_channel_indices[String(channel.uuid||'').toLowerCase()],assigned=Number.isInteger(applied),number=assigned?channel_labels.channelNumber.replace('{number}',applied):channel_labels.channelUnassigned;
+			var open=channel_details_open(serial,channel.uuid,was_open),card=document.createElement('div'); card.className='obis-channel-card'; card.dataset.index=index;
+			card.innerHTML='<div class="obis-channel-summary"><input class="ch-enabled" type="checkbox" '+(channel.enabled?'checked':'')+' title="'+html_text(channel_labels.active)+'"><span class="obis-channel-number" title="'+html_text(assigned?channel_labels.channelNumberHelp:channel_labels.channelUnassignedHelp)+'">'+html_text(number)+'</span><code>'+html_text(full_obis(channel))+'</code><span title="'+html_text(info.long+(info.unit?' ['+info.unit+']':''))+'">'+html_text(title)+'</span><span class="obis-channel-status">'+html_text(status)+'</span></div><details class="obis-channel-details" '+(open?'open':'')+'><summary>'+html_text(channel_labels.details)+'<span class="obis-channel-uuid">· UUID: '+html_text(channel.uuid||'–')+'</span></summary><div class="obis-channel-grid" data-lazy="1"></div></details>';
+			if(open) render_channel_details(serial,index,card);
+			return card;
+		}
+		function render_channel_details(serial,index,card) {
+			var grid=card.querySelector('.obis-channel-grid'); if(!grid||grid.dataset.rendered==='1') return;
+			var channel=channel_definitions.meters[serial][index],container=document.getElementById(serial+'_obis_channels'),protocol=container.getAttribute('data-protocol')||'',aggtime=Number((document.getElementById(serial+'_aggtime')||{}).value||0),api=channel.api||'null',options=channel.api_options[api]||{},info=catalog_info(full_obis(channel));
+			var remove=channel.origin==='manual'?'<div class="obis-channel-remove"><button class="ch-remove obis-channel-remove-button lb-btn lb-compact" type="button"><i class="pi pi-trash" aria-hidden="true"></i>'+html_text(channel_labels.remove)+'</button>'+channel_help_html(channel_labels.removeHelp)+'</div>':'';
+			grid.innerHTML='<div class="obis-channel-info"><strong>'+html_text(info.short)+'</strong>'+(info.unit?' · '+html_text(info.unit):'')+'<br>'+html_text(info.long)+(info.warning?'<br>'+html_text(info.warning):'')+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.identifier)+'</label><input class="ch-obis lb-input" required value="'+html_text(channel.obis)+'">'+channel_help_html(channel_help.identifier)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.storage)+'</label><div class="obis-storage-control"><input class="ch-storage obis-number-spinner lb-input" type="number" min="0" max="254" step="1" inputmode="numeric" '+(protocol==='oms'?'disabled title="'+html_text(channel_labels.storageOms)+'"':'')+' value="'+html_text(channel.storage==null?'':channel.storage)+'"><button class="ch-storage-clear obis-storage-clear lb-btn '+(channel.storage==null?'is-active':'')+'" type="button" aria-pressed="'+(channel.storage==null?'true':'false')+'" '+(protocol==='oms'?'disabled ':'')+'title="'+html_text(channel_labels.storageClear)+'">'+html_text(channel_labels.storageClear)+'</button></div>'+channel_help_html(protocol==='oms'?channel_labels.storageOms:channel_help.storage)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.display)+'</label><input class="ch-display lb-input" value="'+html_text(channel.display_name||'')+'">'+channel_help_html(channel_help.display)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.api)+'</label><select class="ch-api lb-select"><option value="null">'+html_text(channel_labels.apiNoneOption)+'</option><option value="volkszaehler">volkszaehler</option><option value="influxdb">influxdb</option><option value="mysmartgrid">mysmartgrid</option></select>'+channel_help_html(channel_help.api)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.aggregation)+'</label><select class="ch-agg lb-select" '+(aggtime>0?'':'disabled')+'><option value="none">none</option><option value="avg">avg</option><option value="max">max</option><option value="sum">sum</option></select>'+channel_help_html(channel_help.aggregation)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.duplicates)+'</label><input class="ch-duplicates lb-input" type="number" min="0" '+((api==='volkszaehler'||api==='influxdb')?'':'disabled')+' value="'+html_text(channel.duplicates||0)+'">'+channel_help_html(channel_help.duplicates)+'</div><div class="obis-api-fields"><strong>'+html_text(channel_labels.apiOptions)+'</strong>'+api_option_fields(api,options)+'</div><div class="obis-output-fields"><label><input class="ch-output" type="checkbox" '+(channel.plugin_output.enabled?'checked':'')+'> '+html_text(channel_labels.output)+'</label>'+channel_help_html(channel_help.output)+'<div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.outputKey)+'</label><input class="ch-output-key lb-input" maxlength="64" title="'+html_text(channel_labels.outputKeyFormat)+'" '+(channel.plugin_output.enabled?'required':'disabled')+' value="'+html_text(channel.plugin_output.key||'')+'">'+channel_help_html(channel_help.outputKey)+'</div></div>'+remove;
+			grid.dataset.rendered='1'; delete grid.dataset.lazy; grid.querySelector('select.ch-api').value=api; grid.querySelector('select.ch-agg').value=aggtime>0?(channel.aggmode||'none'):'none'; validate_output_key_input(grid.querySelector('input.ch-output-key'));
+		}
+		function replace_channel_card(serial,index,card) { var details=card.querySelector('details'); card.replaceWith(create_channel_card(serial,index,details&&details.open)); update_meter_enabled(serial); }
+		function initialize_channel_editor_events(container,serial) {
+			if(container.dataset.eventsReady==='1') return; container.dataset.eventsReady='1';
+			container.addEventListener('toggle',function(event){if(!event.target.matches('details.obis-channel-details'))return;var card=event.target.closest('.obis-channel-card'),index=Number(card.dataset.index),channel=channel_definitions.meters[serial][index];if(event.target.open){render_channel_details(serial,index,card);update_meter_enabled(serial);}persist_channel_details(serial,channel.uuid,event.target.open);},true);
+			container.addEventListener('click',function(event){var card=event.target.closest('.obis-channel-card');if(!card)return;var index=Number(card.dataset.index);if(event.target.closest('.ch-remove')){remove_manual_channel(serial,index,(card.querySelector('.obis-channel-number')||{}).textContent||'');return;}var clear=event.target.closest('.ch-storage-clear');if(clear){var input=card.querySelector('.ch-storage');input.value='';update_channel_card(serial,index,card,container.getAttribute('data-protocol')||'',Number((document.getElementById(serial+'_aggtime')||{}).value||0));replace_channel_card(serial,index,card);}});
+			container.addEventListener('change',function(event){var card=event.target.closest('.obis-channel-card');if(!card)return;var index=Number(card.dataset.index),channel=channel_definitions.meters[serial][index];if(event.target.classList.contains('ch-enabled')){channel.enabled=event.target.checked;sync_channel_definitions();update_meter_enabled(serial);return;}update_channel_card(serial,index,card,container.getAttribute('data-protocol')||'',Number((document.getElementById(serial+'_aggtime')||{}).value||0));if(['ch-api','ch-output','ch-obis','ch-storage','ch-display'].some(function(name){return event.target.classList.contains(name);}))replace_channel_card(serial,index,card);});
+			container.addEventListener('input',function(event){var card=event.target.closest('.obis-channel-card');if(!card||!card.querySelector('[data-rendered="1"]'))return;var index=Number(card.dataset.index);update_channel_card(serial,index,card,container.getAttribute('data-protocol')||'',Number((document.getElementById(serial+'_aggtime')||{}).value||0));if(event.target.classList.contains('ch-output-key'))validate_output_key_input(event.target);});
 		}
 		function update_channel_card(serial,index,card,protocol,aggtime) {
 			var ch=channel_definitions.meters[serial][index], parsed=parse_obis_ui(card.querySelector('input.ch-obis').value); if(parsed) ch.obis=parsed.base;
@@ -1593,7 +1536,7 @@
 			var info=catalog_info(value), aggtime=Number((document.getElementById(serial+'_aggtime')||{}).value||0), key=unique_output_key_ui(serial,default_output_key_ui(parsed,info));
 			(channel_definitions.meters[serial]||(channel_definitions.meters[serial]=[])).push({uuid:channel_uuid(),enabled:true,origin:'manual',obis:parsed.base,storage:parsed.f,display_name:'',api:'null',aggmode:aggtime>0?info.recommended_aggmode:'none',duplicates:0,api_options:{volkszaehler:{},influxdb:{},mysmartgrid:{}},plugin_output:{enabled:true,key:key.substring(0,64)}}); render_channel_editor(serial);
 		}
-		document.querySelectorAll('.obis-editor').forEach(function(container){ render_channel_editor(container.id.replace(/_obis_channels$/,'')); });
+		document.querySelectorAll('.meter-panel[open] .obis-editor').forEach(function(container){ render_channel_editor(container.id.replace(/_obis_channels$/,'')); });
 
 		function start_obis_discovery(serial) {
 			var form = document.getElementById("vzlogger_form");
@@ -2129,6 +2072,9 @@
 
 		function initialize_meter_panel(panel, enhance) {
 			if (!panel) return;
+			if (enhance) restore_collapsible_state(panel);
+			if (SmartMeterVZLoggerUi.initializeDeferredPanel(panel, function (target) { initialize_meter_panel(target, false); })) return;
+			panel.dataset.deferredInitialization = "0";
 			var serial = panel.id.substring("meter_".length);
 			var values = {
 				meter: panel.getAttribute("data-current-mode") || "0",
@@ -2147,7 +2093,6 @@
 			});
 			smartmeterInitializeToggles(panel);
 			update_meter_protocol(serial);
-			if (enhance) restore_collapsible_state(panel);
 		}
 
 		$(".meter-panel").each(function () { initialize_meter_panel(this, false); });
