@@ -35,6 +35,9 @@ assert.equal(Live.cleanPreferences({ schema: 2, channels: ["total"], historyRang
 assert.deepEqual(Array.from(Live.limitSelection(channels, new Set(["total", "import", "voltage"]), 2)), ["total", "import"], "restored preferences are limited to two unit groups");
 assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL + 1), true, "a delayed reading creates a chart gap");
 assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL), false, "the accepted polling window remains connected");
+assert.equal(Live.pollDelay(0), 2000, "successful live polling retains the two-second interval");
+assert.equal(Live.pollDelay(1), 4000, "the first live polling failure backs off");
+assert.equal(Live.pollDelay(20), 30000, "live polling backoff is capped at thirty seconds");
 assert.equal(Live.isCounterReset({ category: "active_energy_export" }, 20, 19), true, "a decreasing energy counter starts a new baseline");
 assert.equal(Live.isCounterReset({ category: "active_power_total" }, 20, 19), false, "ordinary power changes are not counter resets");
 

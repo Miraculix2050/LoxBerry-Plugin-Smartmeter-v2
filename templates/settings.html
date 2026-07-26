@@ -782,6 +782,8 @@
 			<span id="service_reason_config" hidden><TMPL_VAR NAME=VZLOGGER.SERVICE_REASON_CONFIG></span>
 			<span id="service_reason_mqtt" hidden><TMPL_VAR NAME=VZLOGGER.SERVICE_REASON_MQTT></span>
 			<span id="service_reason_busy" hidden><TMPL_VAR NAME=VZLOGGER.SERVICE_REASON_BUSY></span>
+			<span id="service_installed_text" hidden><TMPL_VAR NAME=VZLOGGER.UI_INSTALLED></span>
+			<span id="service_not_installed_text" hidden><TMPL_VAR NAME=VZLOGGER.UI_NOT_INSTALLED></span>
 		</div>
 	</dialog>
 	<dialog id="service_action_overlay" class="lb-modal" aria-labelledby="service_action_title" aria-describedby="service_action_overlay_message">
@@ -893,7 +895,10 @@
 		function render_service_status(name, status) {
 			if (!status) return;
 			var element = $("#" + name + "_service_status");
-			element.text(status.status_text || status.state || "unknown");
+			var service = name == "bridge" ? "smartmeter-v2-vzlogger-bridge" : "vzlogger";
+			var installed = status.installed ? obis_text("service_installed_text") : obis_text("service_not_installed_text");
+			var fallback = (status.state || "unknown") + " | PID: " + (status.pid || "-") + " | Service: " + service + " | " + installed;
+			element.text(status.status_text || fallback);
 			element.removeClass("service-status-idle service-status-ok service-status-warning service-status-error");
 			element.addClass(status.status_class || "service-status-error");
 		}
@@ -914,7 +919,7 @@
 		function schedule_service_poll() {
 			if (service_poll_timer) window.clearTimeout(service_poll_timer);
 			service_poll_timer = null;
-			if (!document.hidden && !service_action_running && !configuration_action_running) service_poll_timer = window.setTimeout(poll_service_status, 3000);
+			if (!document.hidden && !service_action_running && !configuration_action_running) service_poll_timer = window.setTimeout(poll_service_status, 10000);
 		}
 
 		function poll_service_status() {
@@ -923,7 +928,7 @@
 				return;
 			}
 			service_poll_in_flight = true;
-			var status_url = service_ajax_url("service-status") + (!last_service_snapshot ? "&details=1" : "");
+			var status_url = "./service_status.cgi?details=" + (!last_service_snapshot ? "1" : "0") + "&lang=" + encodeURIComponent(ui_language) + "&_=" + Date.now();
 			fetch(status_url, { credentials: "same-origin", cache: "no-store" })
 				.then(function (response) {
 					if (!response.ok) throw new Error("HTTP " + response.status);

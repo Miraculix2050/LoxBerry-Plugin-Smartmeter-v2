@@ -3,13 +3,12 @@ use strict;
 use warnings;
 use CGI;
 use Config::Simple;
+use HTML::Template;
 use IO::Socket::INET;
 use JSON::PP;
 use LoxBerry::System;
 use lib $lbpbindir;
 use SmartMeterVZLoggerChannels qw(load_catalog lookup_obis);
-
-require LoxBerry::Web;
 
 my $cgi = CGI->new;
 my $template = HTML::Template->new(
