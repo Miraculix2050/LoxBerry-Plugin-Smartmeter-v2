@@ -90,6 +90,8 @@ like(
 	"installed Legacy CGI loads shared modules from the LoxBerry plugin bin directory",
 );
 like($legacy_source, qr/initialize_legacy_heads\(\$plugin_cfg, \@heads\)/, "Legacy page uses shared head migration");
+like($legacy_source, qr/if \(\$is_post\).*?\$plugin_cfg->save if \(initialize_legacy_heads.*?else \{\s*initialize_legacy_heads/s, "Legacy GET applies defaults in memory without saving them");
+like($legacy_source, qr/if \(\$is_post\) \{\s*make_path\(\$runtime_dir\)/s, "Legacy runtime setup is protected by the POST guard");
 like($legacy_source, qr/\$clearcache = \$is_post.*action.*clearcache/s, "Legacy cache action is POST-only");
 unlike($legacy_source, qr/url_param\('clearcache'\)/, "Legacy cache action is not accepted from the query string");
 unlike($legacy_source, qr/print\s+["']Content-type:/i, "LoxBerry header owns the Legacy CGI HTTP response header");
@@ -101,6 +103,8 @@ local $/;
 my $vzlogger_cgi_source = <$vzlogger_cgi_fh>;
 close($vzlogger_cgi_fh);
 like($vzlogger_cgi_source, qr/rollback_failed_vzlogger_activation\(\$previous_implementation\)/, "failed vzLogger activation restores the preceding implementation mode");
+like($vzlogger_cgi_source, qr/else \{\s*# GET builds.*?ensure_vzlogger_defaults\(0\).*?ensure_head_defaults\(0, \@heads\).*?load_or_migrate_channel_document\(0, \@heads\)/s, "vzLogger GET builds defaults and migrations without persistence");
+like($vzlogger_cgi_source, qr/write_json_atomic\(\$file, \$channel_document\) if \(\$changed && \$persist\)/, "channel migration writes only on an explicit persistent path");
 like($vzlogger_cgi_source, qr/SMARTMETER_LEGACY_LOCK_HELD/, "vzLogger activation passes its held Legacy polling guard to the service controller");
 like($vzlogger_cgi_source, qr/\$starting && implementation_mode\(\) ne "vzlogger"/, "service Start and Restart require saved vzLogger mode server-side");
 like($vzlogger_cgi_source, qr/start_obis_discovery_background.*saved_implementation_mode\(\) ne "vzlogger"/s, "OBIS discovery requires saved vzLogger mode server-side");
