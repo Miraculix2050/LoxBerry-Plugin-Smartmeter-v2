@@ -120,6 +120,7 @@ my %values_by_serial;
 my %dirty_serials;
 my %bridge_timestamps;
 my %timestamp_warning_by_serial;
+my %output_timestamp_warning_by_serial;
 my $last_update_cycle = 0;
 
 while (my $line = <$mqtt_fh>) {
@@ -137,8 +138,9 @@ while (my $line = <$mqtt_fh>) {
 	}
 	debug_line("MQTT parsed serial=$reading->{serial} name=$reading->{name} uuid=$reading->{uuid} value=$reading->{value}") if ($debug_enabled);
 
-	update_timestamp($reading, $values_by_serial{$reading->{serial}});
-	publish_bridge_timestamp($reading, \%bridge_timestamps) if ($bridge_mqtt_enabled);
+	my $source_epoch = timestamp_epoch($reading->{timestamp});
+	publish_bridge_timestamp($reading, $source_epoch, \%bridge_timestamps) if ($bridge_mqtt_enabled);
+	update_timestamp($reading, $source_epoch, $values_by_serial{$reading->{serial}});
 	my $cache_value = normalize_cache_value($reading);
 	$values_by_serial{$reading->{serial}}->{$reading->{name}} = $cache_value;
 	update_calculated_power($reading, $values_by_serial{$reading->{serial}});
@@ -184,30 +186,45 @@ sub flush_cache
 
 sub update_timestamp
 {
-	my ($reading, $values) = @_;
-	my $epoch = timestamp_epoch($reading->{timestamp});
+	my ($reading, $source_epoch, $values) = @_;
+	my $epoch = $source_epoch;
 	$epoch = time() if (!defined($epoch));
 
 	my ($sec, $min, $hour, $mday, $mon, $year) = localtime($epoch);
 	$values->{Last_Update} = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $year + 1900, $mon + 1, $mday, $hour, $min, $sec);
-	$values->{Last_UpdateLoxEpoche} = loxone_timestamp($epoch);
+	my $loxone_value = loxone_timestamp($epoch);
+	if (defined($loxone_value)) {
+		$values->{Last_UpdateLoxEpoche} = $loxone_value;
+		delete($output_timestamp_warning_by_serial{$reading->{serial}});
+	} elsif (!$output_timestamp_warning_by_serial{$reading->{serial}}) {
+		log_line("Local Loxone timestamp conversion failed for serial=$reading->{serial}; cache and UDP keep the previous timestamp value.");
+		$output_timestamp_warning_by_serial{$reading->{serial}} = 1;
+	}
 }
 
 sub publish_bridge_timestamp
 {
-	my ($reading, $timestamps) = @_;
+	my ($reading, $epoch, $timestamps) = @_;
 	my $serial = $reading->{serial} || return;
-	my $timestamp_values = bridge_timestamp_values($reading->{timestamp});
-	if (!$timestamp_values) {
-		if (!$timestamp_warning_by_serial{$serial}) {
+	if (!defined($epoch)) {
+		if (($timestamp_warning_by_serial{$serial} || "") ne "invalid") {
 			log_line("MQTT bridge timestamp skipped for serial=$serial because the source reading has no valid timestamp; the retained bridge timestamp remains unchanged.");
-			$timestamp_warning_by_serial{$serial} = 1;
+			$timestamp_warning_by_serial{$serial} = "invalid";
+		}
+		return;
+	}
+	return if (exists($timestamps->{$serial}) && $timestamps->{$serial}->{Last_UpdateUnix} == $epoch);
+
+	my $timestamp_values = bridge_timestamp_values($epoch);
+	if (!$timestamp_values) {
+		if (($timestamp_warning_by_serial{$serial} || "") ne "timezone") {
+			log_line("MQTT bridge timestamp skipped for serial=$serial because the local UTC offset could not be calculated; the retained bridge timestamp remains unchanged.");
+			$timestamp_warning_by_serial{$serial} = "timezone";
 		}
 		return;
 	}
 	delete($timestamp_warning_by_serial{$serial});
 	my $unix_timestamp = $timestamp_values->{Last_UpdateUnix};
-	return if (exists($timestamps->{$serial}) && $timestamps->{$serial}->{Last_UpdateUnix} == $unix_timestamp);
 
 	my $loxone_value = $timestamp_values->{Last_UpdateLoxEpoche};
 	$timestamps->{$serial} = $timestamp_values;

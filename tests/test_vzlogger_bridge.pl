@@ -4,9 +4,11 @@ use strict;
 use warnings;
 use FindBin;
 use JSON::PP;
+use POSIX ();
 use Test::More;
+use Time::Local qw(timegm);
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
+use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
 
 my $uuid = "11111111-2222-3333-4444-555555555555";
 my $second = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -17,16 +19,26 @@ my $mapping = {
 
 is(timestamp_epoch(1785264660064), 1785264660, "millisecond timestamp is converted to Unix seconds");
 is(timestamp_epoch(1785264660), 1785264660, "second timestamp remains unchanged");
-is(loxone_timestamp(1785264660064), 554496660, "millisecond timestamp is converted with the UTC Loxone epoch");
+is(loxone_timestamp(1785264660064, 7200), 554503860, "summer timestamp includes the local CEST offset");
+is(loxone_timestamp(1785264660064, 3600), 554500260, "winter offset is applied independently of the source setting");
+is(loxone_timestamp(1785264660064, 0), 554496660, "UTC timezone adds no local offset");
 is_deeply(
-	bridge_timestamp_values(1785264660064),
-	{ Last_UpdateUnix => 1785264660, Last_UpdateLoxEpoche => 554496660 },
-	"bridge output contains Unix seconds and the matching Loxone timestamp",
+	bridge_timestamp_values(1785264660064, 7200),
+	{ Last_UpdateUnix => 1785264660, Last_UpdateLoxEpoche => 554503860 },
+	"bridge output contains UTC Unix seconds and the matching local Loxone timestamp",
 );
-foreach my $timezone (qw(UTC Europe/Berlin America/New_York)) {
-	local $ENV{TZ} = $timezone;
-	is(loxone_timestamp(1785264660064), 554496660, "Loxone conversion is independent of timezone $timezone");
+SKIP: {
+	skip "IANA timezone switching is verified on the Linux target", 6 if ($^O eq "MSWin32");
+	local $ENV{TZ} = "Europe/Berlin";
+	POSIX::tzset();
+	is(local_utc_offset(1785264660), 7200, "Europe/Berlin summer timestamp uses CEST");
+	is(local_utc_offset(timegm(0, 0, 12, 15, 0, 126)), 3600, "Europe/Berlin winter timestamp uses CET");
+	is(local_utc_offset(timegm(59, 59, 0, 29, 2, 126)), 3600, "spring transition uses CET immediately before the change");
+	is(local_utc_offset(timegm(0, 0, 1, 29, 2, 126)), 7200, "spring transition uses CEST immediately after the change");
+	is(local_utc_offset(timegm(59, 59, 0, 25, 9, 126)), 7200, "autumn transition uses CEST immediately before the change");
+	is(local_utc_offset(timegm(0, 0, 1, 25, 9, 126)), 3600, "autumn transition uses CET immediately after the change");
 }
+POSIX::tzset() if ($^O ne "MSWin32");
 ok(!defined(timestamp_epoch("invalid")), "invalid timestamp is rejected");
 ok(!defined(bridge_timestamp_values("invalid")), "invalid timestamp produces no bridge values");
 is(bridge_topic("smartmeter/vzlogger"), "smartmeter/bridge", "standard bridge topic is a sibling of vzLogger");

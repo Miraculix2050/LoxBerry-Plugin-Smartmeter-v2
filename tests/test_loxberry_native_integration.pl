@@ -47,8 +47,10 @@ like($bridge, qr/my \$source_timestamps_enabled = \$runtime_mqtt->\{timestamp\} 
 unlike($bridge, qr/clean_boolean\(\$runtime_mqtt->\{timestamp\}/, "bridge does not pass decoded JSON booleans through the scalar configuration cleaner");
 like($bridge, qr/Last_UpdateUnix/, "bridge MQTT payload includes normalized Unix seconds");
 like($bridge, qr/source reading has no valid timestamp; the retained bridge timestamp remains unchanged/, "invalid source timestamps leave retained output untouched");
-like($bridge, qr/Last_UpdateLoxEpoche\} = loxone_timestamp\(\$epoch\)/, "HTTP cache and UDP values use the shared UTC Loxone conversion");
-unlike($bridge, qr/1230764400/, "bridge contains no local-time Loxone offset");
+like($bridge, qr/Last_UpdateLoxEpoche\} = \$loxone_value/, "HTTP cache and UDP values use the shared local Loxone conversion");
+like($bridge, qr/return if \(exists\(\$timestamps->\{\$serial\}\).*?== \$epoch\);\s+\n\s*my \$timestamp_values = bridge_timestamp_values\(\$epoch\)/s, "MQTT deduplicates per meter before local timezone conversion");
+like($bridge, qr/local UTC offset could not be calculated; the retained bridge timestamp remains unchanged/, "timezone failures leave retained MQTT output untouched");
+unlike($bridge, qr/1230764400/, "bridge contains no fixed CET epoch shortcut");
 
 my $web = read_source("webfrontend/htmlauth/index.cgi");
 like($web, qr/use LoxBerry::Log;/, "web interface uses native LoxBerry logging");
