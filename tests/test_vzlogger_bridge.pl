@@ -3,9 +3,10 @@
 use strict;
 use warnings;
 use FindBin;
+use JSON::PP;
 use Test::More;
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys validate_channel_announcement send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
+use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
 
 my $uuid = "11111111-2222-3333-4444-555555555555";
 my $second = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -40,10 +41,14 @@ my @debug;
 my $reading = parse_reading("smartmeter/vzlogger/chn0/raw", "123.5", $mapping, \%channels, sub { push @debug, @_ });
 is($reading->{uuid}, $uuid, "raw chnN topic resolves through channel mapping");
 is($reading->{value}, "123.5", "numeric scalar payload is retained");
+$reading = parse_reading("smartmeter/vzlogger/chn0/agg", "122.75", $mapping, \%channels);
+is($reading->{uuid}, $uuid, "aggregate chnN topic resolves through channel mapping without a timestamp");
+is($reading->{value}, "122.75", "aggregate numeric scalar payload is retained");
 $reading = parse_reading("smartmeter/vzlogger/$uuid", '{"uuid":"' . $uuid . '","value":42,"timestamp":1700000000}', $mapping, \%channels);
 is($reading->{timestamp}, 1700000000, "JSON timestamp is parsed");
 is($reading->{value}, 42, "JSON value is parsed");
 ok(!parse_reading("smartmeter/vzlogger/chn9/raw", "12", $mapping, \%channels, sub { push @debug, @_ }), "unknown channel is ignored");
+ok(!parse_reading("smartmeter/vzlogger/chn9/agg", "12", $mapping, \%channels), "unknown aggregate channel is ignored");
 like(join("\n", @debug), qr/no uuid/i, "ignored message explains mapping failure");
 is(clean_scalar_payload('"1-0:1.8.0"'), "1-0:1.8.0", "JSON string payload is unwrapped");
 
@@ -82,6 +87,37 @@ my ($duplicate_mapping, $duplicate_error) = normalize_mapping_keys({
 });
 ok(!$duplicate_mapping, "case-insensitive duplicate mapping is rejected");
 like($duplicate_error, qr/Duplicate channel mapping UUID/, "duplicate mapping error is actionable");
+
+my $topic_mapping = {
+	$uuid => { %{$mapping->{$uuid}}, managed_output => JSON::PP::true, channel => "chn0" },
+	$second => { %{$mapping->{$second}}, managed_output => JSON::PP::true, channel_index => 1 },
+};
+my $runtime_config = {
+	mqtt => { topic => "smartmeter/vzlogger", rawAndAgg => JSON::PP::true, timestamp => JSON::PP::false },
+	meters => [
+		{ aggtime => 60, channels => [
+			{ uuid => $uuid, aggmode => "avg" },
+			{ uuid => $second, aggmode => "none" },
+		] },
+	],
+};
+my ($effective_topics, $topic_errors) = effective_channel_topics($runtime_config, $topic_mapping);
+is_deeply($topic_errors, [], "effective channel topics are derived without errors");
+is_deeply(
+	[map { $_->{topic} } @$effective_topics],
+	["smartmeter/vzlogger/chn0/agg", "smartmeter/vzlogger/chn1/raw"],
+	"aggregation is preferred per channel while rawAndAgg does not add a second subscription",
+);
+my $one_output_mapping = { %$topic_mapping };
+$one_output_mapping->{$second} = { %{$one_output_mapping->{$second}}, managed_output => JSON::PP::false };
+($effective_topics, $topic_errors) = effective_channel_topics($runtime_config, $one_output_mapping);
+is_deeply([map { $_->{topic} } @$effective_topics], ["smartmeter/vzlogger/chn0/agg"], "disabled SmartMeter outputs are not subscribed");
+my $no_agg_config = { %$runtime_config, meters => [{ channels => [{ uuid => $uuid, aggmode => "avg" }, { uuid => $second, aggmode => "none" }] }] };
+($effective_topics, $topic_errors) = effective_channel_topics($no_agg_config, $one_output_mapping);
+is_deeply([map { $_->{topic} } @$effective_topics], ["smartmeter/vzlogger/chn0/raw"], "aggmode without an active aggregation interval uses raw");
+my $bad_mapping = { %$one_output_mapping, $uuid => { %{$one_output_mapping->{$uuid}}, channel => "chn9" } };
+($effective_topics, $topic_errors) = effective_channel_topics($runtime_config, $bad_mapping);
+like(join("\n", @$topic_errors), qr/does not match applied channel chn0/, "inconsistent output mapping is rejected without a fallback topic");
 
 {
 	package TestUdpSocket;

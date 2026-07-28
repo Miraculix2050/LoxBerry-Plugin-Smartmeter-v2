@@ -39,6 +39,12 @@ unlike($bridge, qr/push \@command, \("-P"/, "bridge does not expose the MQTT pas
 like($bridge, qr/\["-u", \$settings->\{user\}\], \["-P", \$settings->\{pass\}\]/, "protected Mosquitto configs carry authentication outside the process arguments");
 like($bridge, qr/flush_cache\([^\n]+if \(\$http_cache_enabled\)/, "HTTP cache writes are conditional");
 like($bridge, qr/publish_bridge_timestamp\(\$reading/, "bridge publishes converted timestamps from parsed source readings");
+like($bridge, qr/effective_channel_topics\(\$runtime_config, \$mapping\)/, "bridge derives exact subscriptions from the applied output mapping");
+like($bridge, qr/push \@command, map \{ \("-t", \$_\) \} \@subscribe_topics/, "bridge passes one exact subscription per SmartMeter output channel");
+unlike($bridge, qr/\$source_topic\/#/, "bridge does not subscribe to the vzLogger wildcard tree");
+like($bridge, qr/\$bridge_mqtt_configured && \$source_timestamps_enabled/, "bridge MQTT timestamp publisher is defensively gated by source timestamps");
+like($bridge, qr/my \$source_timestamps_enabled = \$runtime_mqtt->\{timestamp\} \? 1 : 0;/, "bridge evaluates the decoded JSON timestamp boolean directly");
+unlike($bridge, qr/clean_boolean\(\$runtime_mqtt->\{timestamp\}/, "bridge does not pass decoded JSON booleans through the scalar configuration cleaner");
 like($bridge, qr/Last_UpdateUnix/, "bridge MQTT payload includes normalized Unix seconds");
 like($bridge, qr/source reading has no valid timestamp; the retained bridge timestamp remains unchanged/, "invalid source timestamps leave retained output untouched");
 like($bridge, qr/Last_UpdateLoxEpoche\} = loxone_timestamp\(\$epoch\)/, "HTTP cache and UDP values use the shared UTC Loxone conversion");

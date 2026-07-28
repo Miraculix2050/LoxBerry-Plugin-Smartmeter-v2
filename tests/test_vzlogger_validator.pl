@@ -196,7 +196,8 @@ like($output, qr/MQTT, HTTP cache, and UDP outputs are all disabled/, "enabled b
 ($config, $mapping, $definitions) = base_case();
 $config->{mqtt}->{timestamp} = JSON::PP::false;
 ($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, read=>1, bridge_mqtt=>1, http_cache=>0);
-like($output, qr/MQTT output requires vzLogger MQTT timestamps/, "bridge MQTT output requires source timestamps");
+like($output, qr/timestamp output is configured but disabled/i, "configured bridge MQTT timestamps are effectively disabled without source timestamps");
+like($output, qr/MQTT, HTTP cache, and UDP outputs are all disabled/, "timestamp gating participates in the effective bridge output validation");
 
 ($config, $mapping, $definitions) = base_case();
 $config->{meters}->[0]->{vendor_extension} = "preserved";
