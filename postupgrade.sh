@@ -98,6 +98,21 @@ EOF
 			fi
 		done
 	fi
+
+	if ! grep -q '^CACHEUDPINTERVAL=' "$configfile"; then
+		old_interval=$(sed -n 's/^UDPINTERVAL=//p' "$configfile" | head -n 1)
+		[ -n "$old_interval" ] || old_interval=5
+		sed -i "/^\[VZLOGGER\]/a CACHEUDPINTERVAL=$old_interval" "$configfile"
+		echo "<INFO> Migrated the shared HTTP-cache/UDP interval"
+	fi
+	if ! grep -q '^HTTPCACHEENABLED=' "$configfile"; then
+		sed -i '/^\[VZLOGGER\]/a HTTPCACHEENABLED=1' "$configfile"
+		echo "<INFO> Preserved the existing HTTP cache output"
+	fi
+	if ! grep -q '^BRIDGEMQTTENABLED=' "$configfile"; then
+		sed -i '/^\[VZLOGGER\]/a BRIDGEMQTTENABLED=0' "$configfile"
+		echo "<INFO> Added the optional bridge MQTT output without enabling a new upgrade output"
+	fi
 }
 
 echo "<INFO> Restoring persistent SmartMeter configuration."

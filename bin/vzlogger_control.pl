@@ -110,6 +110,10 @@ if ($action eq "restart-bridge") {
 		print "MQTT is disabled in the generated vzLogger configuration. Use Save and apply first.\n";
 		exit 1;
 	}
+	if (bridge_mqtt_output_enabled() && !generated_mqtt_timestamp_enabled()) {
+		print "Bridge MQTT output requires timestamps in the generated vzLogger configuration. Use Save and apply first.\n";
+		exit 1;
+	}
 	exit restart_bridge();
 }
 
@@ -132,6 +136,10 @@ if ($action eq "start-bridge") {
 	exit $rc if ($rc != 0);
 	if (!generated_mqtt_enabled()) {
 		print "MQTT is disabled in the generated vzLogger configuration. Use Save and apply first.\n";
+		exit 1;
+	}
+	if (bridge_mqtt_output_enabled() && !generated_mqtt_timestamp_enabled()) {
+		print "Bridge MQTT output requires timestamps in the generated vzLogger configuration. Use Save and apply first.\n";
 		exit 1;
 	}
 	exit start_bridge();
@@ -773,9 +781,21 @@ sub bridge_enabled
 	return 0 if (!vzlogger_mode_enabled() || !read_enabled());
 	my $cfg = Config::Simple->new($plugin_config_file);
 	return 0 if (!$cfg);
+	my $mqtt_output = ($cfg->param("VZLOGGER.BRIDGEMQTTENABLED") || "0") eq "1";
+	my $cache_setting = $cfg->param("VZLOGGER.HTTPCACHEENABLED");
+	my $http_cache = !defined($cache_setting) || $cache_setting eq "1";
+	my $udp_output = ($cfg->param("MAIN.SENDUDP") || "0") eq "1";
+	return 0 if (!$mqtt_output && !$http_cache && !$udp_output);
 	return generated_mqtt_enabled() if (($cfg->param("VZLOGGER.EXPERTMODE") || "0") eq "1");
 	my $mqtt_enabled = $cfg->param("VZLOGGER.MQTTENABLED");
 	return !defined($mqtt_enabled) || $mqtt_enabled eq "1";
+}
+
+sub bridge_mqtt_output_enabled
+{
+	my $cfg = Config::Simple->new($plugin_config_file);
+	return 0 if (!$cfg);
+	return ($cfg->param("VZLOGGER.BRIDGEMQTTENABLED") || "0") eq "1";
 }
 
 sub generated_mqtt_enabled
@@ -788,6 +808,18 @@ sub generated_mqtt_enabled
 	my $config = eval { JSON::PP->new->utf8->decode($json) };
 	return 0 if ($@ || ref($config) ne "HASH" || ref($config->{mqtt}) ne "HASH");
 	return $config->{mqtt}->{enabled} ? 1 : 0;
+}
+
+sub generated_mqtt_timestamp_enabled
+{
+	return 0 if (!-e $config_file);
+	open(my $fh, "<", $config_file) or return 0;
+	local $/;
+	my $json = <$fh>;
+	close($fh);
+	my $config = eval { JSON::PP->new->utf8->decode($json) };
+	return 0 if ($@ || ref($config) ne "HASH" || ref($config->{mqtt}) ne "HASH");
+	return $config->{mqtt}->{timestamp} ? 1 : 0;
 }
 
 sub recover_services

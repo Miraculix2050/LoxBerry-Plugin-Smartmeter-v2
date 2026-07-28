@@ -65,16 +65,19 @@ This document records the product and engineering contracts that must remain tru
 
 ## 6. MQTT, Cache, HTTP, And UDP
 
-- vzLogger publishes below `<base-topic>/vzlogger`; the bridge subscribes to `<base-topic>/vzlogger/#`.
+- vzLogger publishes below `<base-topic>/vzlogger`; the bridge subscribes to the effective topic from the applied `vzlogger.conf`, including arbitrary Expert-mode topics.
+- The bridge MQTT output is the first output option. It inherits the applied vzLogger broker, port, authentication, TLS, QoS, and retain settings and publishes one aggregate JSON payload on the sibling topic `<base-topic>/bridge`. Each meter serial contains `Last_UpdateUnix` in whole UTC seconds and `Last_UpdateLoxEpoche`, calculated from the same source value by subtracting the fixed UTC offset `1230768000`. MQTT publication is event-driven and does not wait for the cache/UDP update cycle.
 - Bridge mapping resolves UUID/`chnN` first. Identifier fallback is allowed only when it is unambiguous. Scaling and calculated-power recognition use structured OBIS identifiers, not display or output names.
 - Cache and UDP output start with `Last_Update` and `Last_UpdateLoxEpoche`, followed by configured outputs in ascending `chnN` order and then unmapped values alphabetically. HTTP and UDP expose the same ordered value set.
+- Timestamp conversion never applies a local timezone or daylight-saving offset. Meter `use_local_time` selects the timestamp source inside vzLogger but does not change bridge conversion. Missing or invalid source timestamps do not overwrite retained bridge MQTT timestamps.
 - Electrical SML energy counters are displayed in kWh when vzLogger supplies Wh. Calculated consumption/delivery power continues to use counter deltas when the meter provides no instantaneous power channel.
-- The bridge update cycle controls cache writes and UDP sends. Avoid writing cache files for every MQTT message.
-- The web UI intentionally shows cache availability, last update, and a link to the cache endpoint. It does not need to duplicate the complete cached value list inline.
+- HTTP cache output is optional. When disabled, the bridge removes existing `.data` files and performs no further cache writes; the HTTP endpoint reports that the cache is disabled. The runtime cache path remains RAM-backed below `/var/run/shm`.
+- The bridge update cycle controls only enabled HTTP-cache writes and UDP sends. MQTT timestamp publication is independent of this cycle.
+- When HTTP cache is enabled, the web UI shows cache availability, last update, and a link to the cache endpoint. It does not need to duplicate the complete cached value list inline.
 - MQTT passwords, private-key passwords, tokens, and similar secrets must never appear in rendered HTML, unmasked diagnostics, process listings, or logs.
 - Recovery tokens are generated with at least 256 bits of entropy, stored only as a hash, and accepted only in the dedicated HTTP header. An optional exact source-IP allow-list may add defense in depth without trusting proxy headers.
 - The recovery UI mirrors Loxone's hierarchy: one virtual output shows the unauthenticated base addresses using LoxBerry's configured HTTP/HTTPS ports, while separate virtual output commands show the ON command path, token header, empty body, and POST method. LoxBerry credentials must not be embedded because the recovery token is the endpoint authentication.
-- The bridge remains optional and disabled on a fresh installation. vzLogger can run independently when the bridge is disabled.
+- The bridge remains optional and disabled on a fresh installation. Its new-install output defaults are MQTT enabled, HTTP cache disabled, and UDP disabled; they take effect only after the bridge itself is enabled. Upgrades preserve the former behavior by leaving bridge MQTT disabled and HTTP cache enabled until the user changes them.
 
 ## 7. Expert Mode
 

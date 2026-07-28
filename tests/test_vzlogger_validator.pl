@@ -67,7 +67,11 @@ sub run_validator
 	write_json("$dir/vzlogger_channel_definitions.json", $args{definitions});
 	open(my $cfg, ">", "$dir/smartmeter.cfg") or die $!;
 	print $cfg "[MAIN]\nIMPLEMENTATION=" . ($args{implementation} || "vzlogger") . "\nREAD=" . ($args{read} || 0) . "\n";
-	print $cfg "[VZLOGGER]\nEXPERTMODE=1\n" if ($args{expert});
+	print $cfg "SENDUDP=" . ($args{sendudp} || 0) . "\n";
+	print $cfg "[VZLOGGER]\n";
+	print $cfg "EXPERTMODE=1\n" if ($args{expert});
+	print $cfg "BRIDGEMQTTENABLED=$args{bridge_mqtt}\n" if (defined($args{bridge_mqtt}));
+	print $cfg "HTTPCACHEENABLED=$args{http_cache}\n" if (defined($args{http_cache}));
 	close($cfg);
 
 	local $ENV{SMARTMETER_CONFIG_DIR} = $dir;
@@ -184,6 +188,15 @@ $definitions->{meters}->{reader}->[0]->{plugin_output}->{enabled} = JSON::PP::fa
 $mapping = {};
 ($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, read=>1);
 like($output, qr/bridge is enabled but no active plugin output/i, "enabled bridge requires an output channel");
+
+($config, $mapping, $definitions) = base_case();
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, read=>1, bridge_mqtt=>0, http_cache=>0, sendudp=>0);
+like($output, qr/MQTT, HTTP cache, and UDP outputs are all disabled/, "enabled bridge requires at least one output");
+
+($config, $mapping, $definitions) = base_case();
+$config->{mqtt}->{timestamp} = JSON::PP::false;
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, read=>1, bridge_mqtt=>1, http_cache=>0);
+like($output, qr/MQTT output requires vzLogger MQTT timestamps/, "bridge MQTT output requires source timestamps");
 
 ($config, $mapping, $definitions) = base_case();
 $config->{meters}->[0]->{vendor_extension} = "preserved";

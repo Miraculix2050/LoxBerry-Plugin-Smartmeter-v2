@@ -13,8 +13,8 @@ use LoxBerry::Log;
 use LoxBerry::System;
 use lib $FindBin::Bin;
 use SmartMeterVZLoggerChannels qw(output_order_mapping ordered_output_names read_json);
-use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping normalize_mapping_keys validate_channel_announcement send_udp_cycle);
-use SmartMeterVZLoggerConfig qw(clean_number clean_qos sanitize_topic);
+use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping normalize_mapping_keys validate_channel_announcement send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
+use SmartMeterVZLoggerConfig qw(clean_boolean clean_number clean_qos sanitize_topic);
 
 my $home = $lbhomedir;
 my $psubfolder = $lbpplugindir;
@@ -24,8 +24,10 @@ my $vzlogger_config_file = "$lbpconfigdir/vzlogger.conf";
 my $runtime_dir = "/var/run/shm/$psubfolder";
 my $plugin_log_dir = $lbplogdir;
 my $pid_file = "$runtime_dir/vzlogger_mqtt_bridge.pid";
+my $mqtt_client_config_dir = "$runtime_dir/mosquitto-clients";
 my $foreground = grep { $_ eq "--foreground" } @ARGV;
 my $bridge_log;
+my $mqtt_pub_fh;
 
 make_path($runtime_dir) if (!-d $runtime_dir);
 make_path($plugin_log_dir) if (!-d $plugin_log_dir);
@@ -62,17 +64,21 @@ $SIG{INT} = sub {
 	unlink($pid_file);
 	exit 0;
 };
+$SIG{PIPE} = "IGNORE";
 
 my $plugin_cfg = Config::Simple->new($config_file) or die "Could not read $config_file: " . Config::Simple->error() . "\n";
 my $loaded_mapping = read_json($mapping_file) || {};
 my ($mapping, $mapping_error) = normalize_mapping_keys($loaded_mapping);
 die "$mapping_error\n" if (!$mapping);
-my $expert_config = (($plugin_cfg->param("VZLOGGER.EXPERTMODE") || "0") eq "1") ? read_json($vzlogger_config_file) : undef;
-my $expert_mqtt = ref($expert_config) eq "HASH" && ref($expert_config->{mqtt}) eq "HASH" ? $expert_config->{mqtt} : undef;
-my $base_topic = sanitize_topic(ref($expert_mqtt) eq "HASH" ? ($expert_mqtt->{topic} || "smartmeter") : ($plugin_cfg->param("MAIN.MQTTTOPIC") || "smartmeter"));
-my $subscribe_topic = "$base_topic/vzlogger/#";
-my $update_interval = clean_number($plugin_cfg->param("VZLOGGER.UDPINTERVAL"), 5);
+my $runtime_config = read_json($vzlogger_config_file) || {};
+my $runtime_mqtt = ref($runtime_config->{mqtt}) eq "HASH" ? $runtime_config->{mqtt} : {};
+my $source_topic = sanitize_topic($runtime_mqtt->{topic} || (($plugin_cfg->param("MAIN.MQTTTOPIC") || "smartmeter") . "/vzlogger"));
+my $subscribe_topic = "$source_topic/#";
+my $bridge_topic = bridge_topic($source_topic);
+my $update_interval = clean_number($plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL"), clean_number($plugin_cfg->param("VZLOGGER.UDPINTERVAL"), 5));
 my $send_udp = $plugin_cfg->param("MAIN.SENDUDP") ? 1 : 0;
+my $http_cache_enabled = clean_boolean($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED"), 1);
+my $bridge_mqtt_enabled = clean_boolean($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED"), 0);
 my $debug_enabled = ($plugin_cfg->param("VZLOGGER.DEBUG") || "0") eq "1";
 my $udp_port = clean_number($plugin_cfg->param("MAIN.UDPPORT"), 7000);
 my $mqtt = read_mqtt_settings();
@@ -83,30 +89,32 @@ my @udp_targets = $send_udp ? miniserver_targets() : ();
 
 $bridge_log->loglevel(7) if ($debug_enabled);
 my $debug_callback = $debug_enabled ? \&debug_line : undef;
-log_line("Starting MQTT bridge. Topic=$subscribe_topic Host=$mqtt->{host}:$mqtt->{port}");
+log_line("Starting MQTT bridge. Source=$subscribe_topic BridgeTopic=" . ($bridge_mqtt_enabled ? $bridge_topic : "disabled") . " Host=$mqtt->{host}:$mqtt->{port}");
 log_line("Debug logging is enabled.") if ($debug_enabled);
 debug_line("UDP output is disabled in plugin config.") if (!$send_udp);
+debug_line("HTTP cache output is disabled in plugin config.") if (!$http_cache_enabled);
+
+remove_cache_files() if (!$http_cache_enabled);
+write_mosquitto_client_configs($mqtt);
+$mqtt_pub_fh = start_mqtt_publisher() if ($bridge_mqtt_enabled);
 
 my @command = (
 	"mosquitto_sub",
-	"-h", $mqtt->{host},
-	"-p", $mqtt->{port},
 	"-t", $subscribe_topic,
 	"-F", "%t %p",
 	"-q", $mqtt->{qos},
 );
-push @command, ("-k", $mqtt->{keepalive}) if ($mqtt->{keepalive} > 0);
-push @command, ("--cafile", $mqtt->{cafile}) if ($mqtt->{cafile});
-push @command, ("--capath", $mqtt->{capath}) if ($mqtt->{capath});
-push @command, ("--cert", $mqtt->{certfile}) if ($mqtt->{certfile});
-push @command, ("--key", $mqtt->{keyfile}) if ($mqtt->{keyfile});
-push @command, ("-u", $mqtt->{user}) if ($mqtt->{user});
-push @command, ("-P", $mqtt->{pass}) if ($mqtt->{pass});
 
-open(my $mqtt_fh, "-|", @command) or die "Could not start mosquitto_sub: $!\n";
+my $mqtt_fh;
+{
+	local $ENV{XDG_CONFIG_HOME} = $mqtt_client_config_dir;
+	open($mqtt_fh, "-|", @command) or die "Could not start mosquitto_sub: $!\n";
+}
 
 my %values_by_serial;
 my %dirty_serials;
+my %bridge_timestamps;
+my %timestamp_warning_by_serial;
 my $last_update_cycle = 0;
 
 while (my $line = <$mqtt_fh>) {
@@ -138,13 +146,14 @@ while (my $line = <$mqtt_fh>) {
 	debug_line("MQTT parsed serial=$reading->{serial} name=$reading->{name} uuid=$reading->{uuid} value=$reading->{value}") if ($debug_enabled);
 
 	update_timestamp($reading, $values_by_serial{$reading->{serial}});
+	publish_bridge_timestamp($reading, \%bridge_timestamps) if ($bridge_mqtt_enabled);
 	my $cache_value = normalize_cache_value($reading);
 	$values_by_serial{$reading->{serial}}->{$reading->{name}} = $cache_value;
 	update_calculated_power($reading, $values_by_serial{$reading->{serial}});
 	$dirty_serials{$reading->{serial}} = 1;
 
 	if (time() - $last_update_cycle >= $update_interval) {
-		flush_cache(\%values_by_serial, \%dirty_serials, $output_order_by_serial);
+		flush_cache(\%values_by_serial, \%dirty_serials, $output_order_by_serial) if ($http_cache_enabled);
 		send_udp_cycle(\%values_by_serial, $udp_port, $output_order_by_serial, \@udp_targets, \&create_udp_socket, \&log_line, $debug_callback) if ($send_udp);
 		$last_update_cycle = time();
 	}
@@ -189,16 +198,38 @@ sub update_timestamp
 
 	my ($sec, $min, $hour, $mday, $mon, $year) = localtime($epoch);
 	$values->{Last_Update} = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $year + 1900, $mon + 1, $mday, $hour, $min, $sec);
-	$values->{Last_UpdateLoxEpoche} = $epoch - 1230764400;
+	$values->{Last_UpdateLoxEpoche} = loxone_timestamp($epoch);
 }
 
-sub timestamp_epoch
+sub publish_bridge_timestamp
 {
-	my ($timestamp) = @_;
-	return undef if (!defined($timestamp) || $timestamp !~ /\A\d+(?:\.\d+)?\z/);
-	$timestamp = int($timestamp);
-	$timestamp = int($timestamp / 1000) if ($timestamp > 9999999999);
-	return $timestamp;
+	my ($reading, $timestamps) = @_;
+	my $serial = $reading->{serial} || return;
+	my $timestamp_values = bridge_timestamp_values($reading->{timestamp});
+	if (!$timestamp_values) {
+		if (!$timestamp_warning_by_serial{$serial}) {
+			log_line("MQTT bridge timestamp skipped for serial=$serial because the source reading has no valid timestamp; the retained bridge timestamp remains unchanged.");
+			$timestamp_warning_by_serial{$serial} = 1;
+		}
+		return;
+	}
+	delete($timestamp_warning_by_serial{$serial});
+	my $unix_timestamp = $timestamp_values->{Last_UpdateUnix};
+	return if (exists($timestamps->{$serial}) && $timestamps->{$serial}->{Last_UpdateUnix} == $unix_timestamp);
+
+	my $loxone_value = $timestamp_values->{Last_UpdateLoxEpoche};
+	$timestamps->{$serial} = $timestamp_values;
+	my $payload = JSON::PP->new->utf8->canonical->encode($timestamps);
+	if (!$mqtt_pub_fh || !print($mqtt_pub_fh "$payload\n")) {
+		log_line("MQTT bridge publisher connection was interrupted; reconnecting.");
+		close($mqtt_pub_fh) if ($mqtt_pub_fh);
+		$mqtt_pub_fh = start_mqtt_publisher();
+		if (!$mqtt_pub_fh || !print($mqtt_pub_fh "$payload\n")) {
+			log_line("Could not publish the converted Loxone timestamp.");
+			return;
+		}
+	}
+	debug_line("Published bridge timestamps topic=$bridge_topic serial=$serial unix=$unix_timestamp loxone=$loxone_value");
 }
 
 sub normalize_cache_value
@@ -316,20 +347,80 @@ sub miniserver_targets
 
 sub read_mqtt_settings
 {
-	my %settings = %{SmartMeterVZLoggerConfig::read_mqtt_settings($home, $plugin_cfg)};
-	$settings{qos} = clean_qos($plugin_cfg->param("VZLOGGER.MQTTQOS"), 0);
-	$settings{keepalive} = clean_number($plugin_cfg->param("VZLOGGER.MQTTKEEPALIVE"), 30);
-	if (ref($expert_mqtt) eq "HASH") {
-		foreach my $key (qw(host user pass cafile capath certfile keyfile)) {
-			$settings{$key} = "$expert_mqtt->{$key}" if (defined($expert_mqtt->{$key}) && !ref($expert_mqtt->{$key}));
-		}
-		$settings{port} = clean_number($expert_mqtt->{port}, $settings{port});
-		$settings{qos} = clean_qos($expert_mqtt->{qos}, $settings{qos});
-		$settings{keepalive} = clean_number($expert_mqtt->{keepalive}, $settings{keepalive});
-		return \%settings;
+	my $fallback = SmartMeterVZLoggerConfig::read_mqtt_settings($home, $plugin_cfg);
+	my %settings = (
+		host => mqtt_scalar("host", $fallback->{host} || "127.0.0.1"),
+		port => clean_number($runtime_mqtt->{port}, $fallback->{port} || 1883),
+		keepalive => clean_number($runtime_mqtt->{keepalive}, 30),
+		qos => clean_qos($runtime_mqtt->{qos}, 0),
+		retain => clean_boolean($runtime_mqtt->{retain}, 0),
+	);
+	foreach my $key (qw(user pass cafile capath certfile keyfile)) {
+		$settings{$key} = mqtt_scalar($key, $fallback->{$key} || "");
 	}
-
 	return \%settings;
+}
+
+sub mqtt_scalar
+{
+	my ($key, $fallback) = @_;
+	my $value = $runtime_mqtt->{$key};
+	return $fallback if (!defined($value) || ref($value));
+	return "$value";
+}
+
+sub write_mosquitto_client_configs
+{
+	my ($settings) = @_;
+	make_path($mqtt_client_config_dir) if (!-d $mqtt_client_config_dir);
+	my @options = (
+		["-h", $settings->{host}], ["-p", $settings->{port}],
+		["-k", $settings->{keepalive}], ["-u", $settings->{user}], ["-P", $settings->{pass}],
+		["--cafile", $settings->{cafile}], ["--capath", $settings->{capath}],
+		["--cert", $settings->{certfile}], ["--key", $settings->{keyfile}],
+	);
+	foreach my $client (qw(mosquitto_sub mosquitto_pub)) {
+		my $path = "$mqtt_client_config_dir/$client";
+		open(my $fh, ">", $path) or die "Could not write protected MQTT client config $path: $!\n";
+		foreach my $option (@options) {
+			my ($name, $value) = @{$option};
+			next if (!defined($value) || $value eq "");
+			die "MQTT setting for $name contains an invalid line break.\n" if ($value =~ /[\r\n]/);
+			print $fh "$name $value\n";
+		}
+		close($fh) or die "Could not close protected MQTT client config $path: $!\n";
+		chmod(0600, $path) or die "Could not protect MQTT client config $path: $!\n";
+	}
+}
+
+sub start_mqtt_publisher
+{
+	return undef if (!$bridge_topic);
+	my @command = ("mosquitto_pub", "-t", $bridge_topic, "-l", "-q", $mqtt->{qos});
+	push @command, "-r" if ($mqtt->{retain});
+	my $fh;
+	{
+		local $ENV{XDG_CONFIG_HOME} = $mqtt_client_config_dir;
+		open($fh, "|-", @command) or do {
+			log_line("Could not start mosquitto_pub: $!");
+			return undef;
+		};
+	}
+	my $selected = select($fh);
+	$| = 1;
+	select($selected);
+	return $fh;
+}
+
+sub remove_cache_files
+{
+	return if (!-d $runtime_dir);
+	opendir(my $dh, $runtime_dir) or do { log_line("Could not inspect HTTP cache directory $runtime_dir: $!"); return; };
+	my @files = grep { /\.data\z/ && -f "$runtime_dir/$_" } readdir($dh);
+	closedir($dh);
+	foreach my $file (@files) {
+		unlink("$runtime_dir/$file") or log_line("Could not remove disabled HTTP cache file $runtime_dir/$file: $!");
+	}
 }
 
 sub bridge_running
@@ -372,5 +463,8 @@ sub debug_line
 }
 
 END {
+	close($mqtt_pub_fh) if ($mqtt_pub_fh);
+	unlink("$mqtt_client_config_dir/mosquitto_sub", "$mqtt_client_config_dir/mosquitto_pub");
+	rmdir($mqtt_client_config_dir) if (-d $mqtt_client_config_dir);
 	$bridge_log->LOGEND("MQTT bridge stopped") if ($bridge_log);
 }

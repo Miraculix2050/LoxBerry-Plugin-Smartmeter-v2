@@ -56,6 +56,7 @@ umask(0027);
 use lib $lbpbindir;
 use lib "$FindBin::Bin/../../bin";
 use SmartMeterVZLoggerChannels qw(parse_obis compose_obis normalize_obis default_output_key stable_uuid read_json write_json_atomic load_catalog lookup_obis new_document migrate_legacy_meter validate_document localize_validation_errors);
+use SmartMeterVZLoggerBridge qw(bridge_topic);
 use SmartMeterVZLoggerExpert qw(read_text write_text_atomic validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping update_expert_log_settings expert_configs_equal);
 use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
 use SmartMeterVZLoggerConfig qw(protocol_for_meter normalized_meter_mode serial_mode clean_qos set_implementation_mode read_webserver_settings);
@@ -347,6 +348,8 @@ sub form_vzlogger
 	$template->param("CRON" => $plugin_cfg->param("MAIN.CRON") || 5);
 	$template->param("SENDUDP" => $plugin_cfg->param("MAIN.SENDUDP") || 0);
 	$template->param("UDPPORT" => $plugin_cfg->param("MAIN.UDPPORT") || 7000);
+	$template->param("BRIDGE_MQTT_ENABLED" => clean_boolean($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED"), 0));
+	$template->param("HTTP_CACHE_ENABLED" => clean_boolean($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED"), 1));
 	$template->param("MQTTTOPIC" => $mqtttopic);
 	$template->param("VZLOGGER_LOCALENABLED" => $local_enabled);
 	$template->param("VZLOGGER_LOCALPORT" => $local_port);
@@ -354,9 +357,9 @@ sub form_vzlogger
 	$template->param("VZLOGGER_LOCALTIMEOUT" => $local_timeout);
 	$template->param("VZLOGGER_LOCALBUFFER" => $local_buffer);
 	$template->param("VZLOGGER_RETRY" => $retry);
-	my $udp_interval = clean_udp_interval($plugin_cfg->param("VZLOGGER.UDPINTERVAL"), "5");
-	$template->param("VZLOGGER_UDPINTERVAL" => $udp_interval);
-	$template->param("VZLOGGER_UDPINTERVAL_OPTIONS" => udp_interval_options($udp_interval));
+	my $cache_udp_interval = clean_udp_interval($plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL") || $plugin_cfg->param("VZLOGGER.UDPINTERVAL"), "5");
+	$template->param("VZLOGGER_CACHEUDPINTERVAL" => $cache_udp_interval);
+	$template->param("VZLOGGER_CACHEUDPINTERVAL_OPTIONS" => udp_interval_options($cache_udp_interval));
 	$template->param("VZLOGGER_DEBUG" => $plugin_cfg->param("VZLOGGER.DEBUG") || 0);
 	$template->param("VZLOGGER_SERVICE_DEBUG" => $plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG") || 0);
 	$template->param("VZLOGGER_LOGLEVEL" => clean_log_level($plugin_cfg->param("VZLOGGER.LOGLEVEL"), "0"));
@@ -388,6 +391,8 @@ sub form_vzlogger
 	$template->param("VZLOGGER_CONFIG_DISABLED" => ($visible_config_exists ? "" : "is-disabled"));
 	my $runtime_config = read_json("$lbpconfigdir/vzlogger.conf") || {};
 	$template->param("EXPERT_MQTT_ENABLED" => (ref($runtime_config->{mqtt}) eq "HASH" && $runtime_config->{mqtt}->{enabled}) ? 1 : 0);
+	my $applied_mqtt_topic = ref($runtime_config->{mqtt}) eq "HASH" ? ($runtime_config->{mqtt}->{topic} || "") : "";
+	$template->param("BRIDGE_MQTT_TOPIC" => bridge_topic($applied_mqtt_topic || "$mqtttopic/vzlogger"));
 	my $http_host = $ENV{HTTP_HOST} || "localhost";
 	$template->param("VZLOGGER_LIVEURL" => "http://$http_host:$local_port/");
 	$template->param("VZLOGGER_RENDERED_URL" => "./vzlogger_live.cgi?lang=$ui_language");
@@ -535,8 +540,16 @@ sub generate_recovery_token
 sub add_http_cache_template_params
 {
 	my (@rows) = @_;
+	my $enabled = clean_boolean($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED"), 1);
 	my @summaries;
 	my $has_cache = 0;
+	if (!$enabled) {
+		$template->param("HTTP_CACHE_STATUS" => html_escape($L{'VZLOGGER.HTTP_CACHE_DISABLED_STATUS'} || "HTTP cache disabled"));
+		$template->param("HTTP_CACHE_URL" => "/plugins/$lbpplugindir/index.php");
+		$template->param("HTTP_CACHE_AVAILABLE" => "0");
+		$template->param("HTTP_CACHE_DISABLED" => "is-disabled");
+		return;
+	}
 
 	foreach my $row (@rows) {
 		my $serial = $row->{SERIAL} || next;
@@ -578,6 +591,17 @@ sub cache_file_summary
 	}
 
 	return ($last_update, $value_count);
+}
+
+sub remove_disabled_http_cache
+{
+	return if (clean_boolean($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED"), 1));
+	my $directory = "/var/run/shm/$lbpplugindir";
+	return if (!-d $directory);
+	opendir(my $dh, $directory) or return;
+	my @files = grep { /\.data\z/ && -f "$directory/$_" } readdir($dh);
+	closedir($dh);
+	unlink("$directory/$_") foreach @files;
 }
 
 sub html_escape
@@ -1095,7 +1119,9 @@ sub ensure_vzlogger_defaults
 	foreach my $entry (
 		["VZLOGGER.EXPERTMODE", "0"], ["VZLOGGER.RETRY", "30"], ["VZLOGGER.LOCALENABLED", "1"],
 		["VZLOGGER.LOCALINDEX", "1"], ["VZLOGGER.LOCALTIMEOUT", "30"], ["VZLOGGER.LOCALBUFFER", "-1"],
-		["VZLOGGER.UDPINTERVAL", "5"], ["VZLOGGER.DEBUG", "0"], ["VZLOGGER.VZLOGGERDEBUG", "0"],
+		["VZLOGGER.UDPINTERVAL", "5"], ["VZLOGGER.CACHEUDPINTERVAL", "5"],
+		["VZLOGGER.BRIDGEMQTTENABLED", "1"], ["VZLOGGER.HTTPCACHEENABLED", "0"],
+		["VZLOGGER.DEBUG", "0"], ["VZLOGGER.VZLOGGERDEBUG", "0"],
 		["VZLOGGER.LOGLEVEL", "0"], ["VZLOGGER.MQTTENABLED", "1"], ["VZLOGGER.MQTTHOST", ""],
 		["VZLOGGER.MQTTPORT", ""], ["VZLOGGER.MQTTCAFILE", ""], ["VZLOGGER.MQTTCAPATH", ""],
 		["VZLOGGER.MQTTCERTFILE", ""], ["VZLOGGER.MQTTKEYFILE", ""], ["VZLOGGER.MQTTKEYPASS", ""],
@@ -1236,11 +1262,14 @@ sub save_expert_allowed_form
 	$plugin_cfg->param("MAIN.READ", clean_config_value($q->{read}, qr/\A[01]\z/, $plugin_cfg->param("MAIN.READ") || "0"));
 	$plugin_cfg->param("MAIN.SENDUDP", clean_config_value($q->{sendudp}, qr/\A[01]\z/, $plugin_cfg->param("MAIN.SENDUDP") || "0"));
 	$plugin_cfg->param("MAIN.UDPPORT", clean_config_value($q->{udpport}, qr/\A\d+\z/, $plugin_cfg->param("MAIN.UDPPORT") || "7000"));
-	$plugin_cfg->param("VZLOGGER.UDPINTERVAL", clean_udp_interval($q->{vzlogger_udpinterval}, $plugin_cfg->param("VZLOGGER.UDPINTERVAL") || "5"));
+	$plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED", clean_config_value($q->{bridge_mqtt_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED")) ? $plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED") : "0"));
+	$plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED", clean_config_value($q->{http_cache_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED")) ? $plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED") : "1"));
+	$plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL", clean_udp_interval($q->{vzlogger_cacheudpinterval}, $plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL") || $plugin_cfg->param("VZLOGGER.UDPINTERVAL") || "5"));
 	$plugin_cfg->param("VZLOGGER.DEBUG", clean_config_value($q->{vzlogger_debug}, qr/\A[01]\z/, $plugin_cfg->param("VZLOGGER.DEBUG") || "0"));
 	$plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG", clean_config_value($q->{vzlogger_service_debug}, qr/\A[01]\z/, $plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG") || "0"));
 	$plugin_cfg->param("VZLOGGER.LOGLEVEL", clean_log_level($q->{vzlogger_loglevel}, $plugin_cfg->param("VZLOGGER.LOGLEVEL") || "0"));
 	$plugin_cfg->save;
+	remove_disabled_http_cache();
 
 	my $text = read_text(expert_config_file());
 	my $debug = ($plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG") || "0") eq "1";
@@ -1440,7 +1469,9 @@ sub save_vzlogger_form
 	$plugin_cfg->param("VZLOGGER.LOCALINDEX", clean_config_value($q->{vzlogger_localindex}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.LOCALINDEX")) ? $plugin_cfg->param("VZLOGGER.LOCALINDEX") : "1"));
 	$plugin_cfg->param("VZLOGGER.LOCALTIMEOUT", clean_config_value($q->{vzlogger_localtimeout}, qr/\A\d+\z/, defined($plugin_cfg->param("VZLOGGER.LOCALTIMEOUT")) ? $plugin_cfg->param("VZLOGGER.LOCALTIMEOUT") : "30"));
 	$plugin_cfg->param("VZLOGGER.LOCALBUFFER", clean_config_value($q->{vzlogger_localbuffer}, qr/\A-?\d+\z/, defined($plugin_cfg->param("VZLOGGER.LOCALBUFFER")) ? $plugin_cfg->param("VZLOGGER.LOCALBUFFER") : "-1"));
-	$plugin_cfg->param("VZLOGGER.UDPINTERVAL", clean_udp_interval($q->{vzlogger_udpinterval}, $plugin_cfg->param("VZLOGGER.UDPINTERVAL") || "5"));
+	$plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED", clean_config_value($q->{bridge_mqtt_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED")) ? $plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED") : "0"));
+	$plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED", clean_config_value($q->{http_cache_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED")) ? $plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED") : "1"));
+	$plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL", clean_udp_interval($q->{vzlogger_cacheudpinterval}, $plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL") || $plugin_cfg->param("VZLOGGER.UDPINTERVAL") || "5"));
 	$plugin_cfg->param("VZLOGGER.DEBUG", clean_config_value($q->{vzlogger_debug}, qr/\A[01]\z/, $plugin_cfg->param("VZLOGGER.DEBUG") || "0"));
 	$plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG", clean_config_value($q->{vzlogger_service_debug}, qr/\A[01]\z/, $plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG") || "0"));
 	$plugin_cfg->param("VZLOGGER.LOGLEVEL", clean_log_level($q->{vzlogger_loglevel}, $plugin_cfg->param("VZLOGGER.LOGLEVEL") || "0"));
@@ -1527,6 +1558,7 @@ sub save_vzlogger_form
 		$plugin_cfg->param("VZLOGGER.REMOVEDHEADS", join(",", sort keys %removed_heads));
 	}
 	$plugin_cfg->save if (!$draft_only);
+	remove_disabled_http_cache() if (!$draft_only);
 	if ($submitted_channels && !$draft_only) {
 		$channel_document = $submitted_channels;
 		write_json_atomic("$lbpconfigdir/vzlogger_channel_definitions.json", $channel_document);
@@ -1556,8 +1588,14 @@ sub validate_submitted_vzlogger_form
 		push @errors, "$field must be at least $minimum" if (defined($minimum) && $q->{$field} < $minimum);
 		push @errors, "$field must not exceed $maximum" if (defined($maximum) && $q->{$field} > $maximum);
 	}
-	foreach my $field (qw(read sendudp vzlogger_localenabled vzlogger_localindex vzlogger_debug vzlogger_service_debug vzlogger_mqttenabled vzlogger_mqttretain vzlogger_mqttrawandagg vzlogger_mqtttimestamp)) {
+	foreach my $field (qw(read sendudp bridge_mqtt_enabled http_cache_enabled vzlogger_localenabled vzlogger_localindex vzlogger_debug vzlogger_service_debug vzlogger_mqttenabled vzlogger_mqttretain vzlogger_mqttrawandagg vzlogger_mqtttimestamp)) {
 		push @errors, "$field must be 0 or 1" if (defined($q->{$field}) && $q->{$field} !~ /\A[01]\z/);
+	}
+	if (($q->{read} || "0") eq "1") {
+		push @errors, $L{'VZLOGGER.UI_BRIDGE_OUTPUT_REQUIRED'}
+			if (($q->{bridge_mqtt_enabled} || "0") ne "1" && ($q->{http_cache_enabled} || "0") ne "1" && ($q->{sendudp} || "0") ne "1");
+		push @errors, $L{'VZLOGGER.UI_BRIDGE_TIMESTAMP_REQUIRED'}
+			if (($q->{bridge_mqtt_enabled} || "0") eq "1" && ($q->{vzlogger_mqtttimestamp} || "0") ne "1");
 	}
 	push @errors, "vzlogger_mqttqos must be 0 or 1" if (defined($q->{vzlogger_mqttqos}) && $q->{vzlogger_mqttqos} !~ /\A[01]\z/);
 	push @errors, "vzlogger_loglevel must be 0, 1, 3, 5, 10 or 15"

@@ -4,6 +4,8 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Make MQTT the first SmartMeter-bridge output and publish each source channel timestamp immediately as aggregate `Last_UpdateUnix` and `Last_UpdateLoxEpoche` JSON values on the derived `<base-topic>/bridge`, using whole UTC seconds and the fixed UTC Loxone offset `1230768000` without timezone or daylight-saving adjustment; inherit the applied vzLogger MQTT connection, TLS, QoS, and retain settings without exposing credentials in process arguments.
+- Make the bridge HTTP cache optional, remove its `.data` files and stop cache updates while disabled, and scope the shared update interval to HTTP-cache writes and UDP sends instead of MQTT publication; fresh installations default to bridge MQTT on and HTTP cache off while upgrades preserve the previous output behavior.
 - Render service, I/R-head, and OBIS actions as one correctly sized native modal instead of a bordered inner panel inside a wider dialog, and target the OBIS spinner without affecting the I/R scan overlay.
 - Avoid misleading `reset-failed` errors while applying a deliberately disabled optional bridge; failed-state cleanup now runs only for services that systemd actually reports as failed.
 - Add an optional token-protected Loxone recovery endpoint for vzLogger, the MQTT bridge, or both, with per-service cooldown, an optional source-IP allow-list, correctly encoded localized AJAX feedback, a collapsible settings panel, and Loxone-specific copy-and-paste fields using LoxBerry's configured HTTP/HTTPS ports for one virtual output plus three virtual output commands; deliberately stopped, disabled, unconfigured, and optional-disabled services remain untouched.

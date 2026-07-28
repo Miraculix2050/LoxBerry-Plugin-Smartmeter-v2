@@ -6,10 +6,48 @@ use Exporter qw(import);
 use JSON::PP;
 use SmartMeterVZLoggerChannels qw(ordered_output_names);
 
-our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys validate_channel_announcement send_udp_cycle);
+our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys validate_channel_announcement send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
 
 my $json_decoder = JSON::PP->new->utf8;
 my $uuid_pattern = qr/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
+my $loxone_epoch = 1230768000;
+
+sub timestamp_epoch
+{
+	my ($timestamp) = @_;
+	return undef if (!defined($timestamp) || ref($timestamp) || $timestamp !~ /\A\d+(?:\.\d+)?\z/);
+	$timestamp = int($timestamp);
+	$timestamp = int($timestamp / 1000) if ($timestamp > 9999999999);
+	return $timestamp;
+}
+
+sub loxone_timestamp
+{
+	my ($timestamp) = @_;
+	my $epoch = timestamp_epoch($timestamp);
+	return undef if (!defined($epoch));
+	return $epoch - $loxone_epoch;
+}
+
+sub bridge_timestamp_values
+{
+	my ($timestamp) = @_;
+	my $epoch = timestamp_epoch($timestamp);
+	return undef if (!defined($epoch));
+	return {
+		Last_UpdateUnix => $epoch,
+		Last_UpdateLoxEpoche => loxone_timestamp($epoch),
+	};
+}
+
+sub bridge_topic
+{
+	my ($source_topic) = @_;
+	return "" if (!defined($source_topic) || ref($source_topic));
+	$source_topic =~ s{\A/+|/+$}{}g;
+	return "" if ($source_topic eq "");
+	return $source_topic =~ m{/vzlogger\z} ? substr($source_topic, 0, -9) . "/bridge" : "$source_topic/bridge";
+}
 
 sub normalize_mapping_keys
 {
