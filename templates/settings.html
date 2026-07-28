@@ -324,6 +324,7 @@
 	<input type="hidden" id="obis_serial" name="obis_serial" value="">
 	<textarea id="channel_definitions_json" name="channel_definitions_json" class="channel-json-state" hidden aria-hidden="true" tabindex="-1"><TMPL_VAR NAME=CHANNEL_DEFINITIONS_JSON ESCAPE=HTML></textarea>
 	<textarea id="channel_indices_json" class="channel-json-state" hidden aria-hidden="true" tabindex="-1"><TMPL_VAR NAME=CHANNEL_INDICES_JSON ESCAPE=HTML></textarea>
+	<textarea id="channel_topics_json" class="channel-json-state" hidden aria-hidden="true" tabindex="-1"><TMPL_VAR NAME=CHANNEL_TOPICS_JSON ESCAPE=HTML></textarea>
 	<textarea id="obis_catalog_json" class="channel-json-state" hidden aria-hidden="true" tabindex="-1"><TMPL_VAR NAME=OBIS_CATALOG_JSON ESCAPE=HTML></textarea>
 
 	<div id="service_action_feedback" class="service-action-feedback" role="status" aria-live="polite"></div>
@@ -605,7 +606,7 @@
 				</tr>
 				<tr>
 					<td><label for="vzlogger_mqtttimestamp"><TMPL_VAR NAME=VZLOGGER.MQTT_TIMESTAMP></label><span class="config-key"><code>mqtt.timestamp</code></span></td>
-					<td><input id="vzlogger_mqtttimestamp_value" name="vzlogger_mqtttimestamp" type="hidden" value="<TMPL_VAR VZLOGGER_MQTTTIMESTAMP>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.MQTT_TIMESTAMP>"><input id="vzlogger_mqtttimestamp" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
+					<td><input id="vzlogger_mqtttimestamp_value" name="vzlogger_mqtttimestamp" type="hidden" value="<TMPL_VAR VZLOGGER_MQTTTIMESTAMP>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.MQTT_TIMESTAMP>"><input id="vzlogger_mqtttimestamp" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); handle_source_timestamp_change();"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_TIMESTAMP_HELP></font></td>
 				</tr>
 				<tr><td colspan="4"><h4><TMPL_VAR NAME=VZLOGGER.MQTT_USER_AUTH></h4></td></tr>
@@ -729,7 +730,7 @@
 					<td width="20%"><label for="bridge_mqtt_enabled"><TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_ENABLED></label></td>
 					<td width="55%"><input id="bridge_mqtt_enabled_value" name="bridge_mqtt_enabled" type="hidden" value="<TMPL_VAR BRIDGE_MQTT_ENABLED>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_ENABLED>"><input id="bridge_mqtt_enabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); update_bridge_output_controls();"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td width="5%">&nbsp;</td>
-					<td width="20%"><font size="-1"><TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_ENABLED_HELP></font></td>
+					<td width="20%"><font size="-1"><TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_ENABLED_HELP><span id="bridge_mqtt_timestamp_unavailable" hidden><br><TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_TIMESTAMP_UNAVAILABLE></span></font></td>
 				</tr>
 				<tr id="bridge_mqtt_topic_row">
 					<td><TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_TOPIC></td>
@@ -1003,7 +1004,13 @@
 			last_service_snapshot.services = response.services;
 			if (response.applied) last_service_snapshot.applied = response.applied;
 			if (response.config) last_service_snapshot.config = response.config;
-			if (response.config) expert_runtime_applied = !!response.config.expert_applied;
+			if (response.config) {
+				expert_runtime_applied = !!response.config.expert_applied;
+				if (expert_mode_active) {
+					expert_mqtt_enabled = !!response.config.mqtt_enabled;
+					expert_mqtt_timestamp = !!response.config.mqtt_timestamp;
+				}
+			}
 			render_service_status("vzlogger", response.services.vzlogger);
 			render_service_status("bridge", response.services.bridge);
 			update_all_control_states();
@@ -1306,6 +1313,8 @@
 						if (response.ok && response.channel_indices) {
 							runtime_channel_indices = response.channel_indices;
 							document.getElementById("channel_indices_json").value = JSON.stringify(runtime_channel_indices);
+							runtime_channel_topics = response.channel_topics || {};
+							document.getElementById("channel_topics_json").value = JSON.stringify(runtime_channel_topics);
 							document.querySelectorAll('.obis-editor').forEach(function(container){ render_channel_editor(container.id.replace(/_obis_channels$/,'')); });
 						}
 					}
@@ -1528,6 +1537,10 @@
 			try { return JSON.parse(document.getElementById("channel_indices_json").value || "{}"); }
 			catch (error) { return {}; }
 		})();
+		var runtime_channel_topics = (function () {
+			try { return JSON.parse(document.getElementById("channel_topics_json").value || "{}"); }
+			catch (error) { return {}; }
+		})();
 		var obis_catalog = (function () {
 			try { return JSON.parse(document.getElementById("obis_catalog_json").value || "{}"); }
 			catch (error) { return { entries: [], rules: [] }; }
@@ -1543,6 +1556,7 @@
 			identifier: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_IDENTIFIER ESCAPE=JS>", api: "API", unknown: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_UNKNOWN ESCAPE=JS>",
 			channelNumber: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_NUMBER ESCAPE=JS>", channelUnassigned: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_NUMBER_UNASSIGNED ESCAPE=JS>",
 			channelNumberHelp: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_NUMBER_HELP ESCAPE=JS>", channelUnassignedHelp: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_NUMBER_UNASSIGNED_HELP ESCAPE=JS>",
+			mqttPath: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_MQTT_PATH ESCAPE=JS>", mqttPathUnavailable: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_MQTT_PATH_UNAVAILABLE ESCAPE=JS>",
 			remove: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_REMOVE ESCAPE=JS>", removeHelp: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_REMOVE_HELP ESCAPE=JS>", removeConfirm: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_REMOVE_CONFIRM ESCAPE=JS>",
 			manualPrompt: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_MANUAL_PROMPT ESCAPE=JS>", storageOms: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_STORAGE_OMS ESCAPE=JS>",
 			apiOptions: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_OPTIONS ESCAPE=JS>", registrationName: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_MSG_NAME ESCAPE=JS>"
@@ -1645,7 +1659,8 @@
 			var channel=channel_definitions.meters[serial][index], container=document.getElementById(serial+'_obis_channels');
 			channel.api_options=channel.api_options||{volkszaehler:{},influxdb:{},mysmartgrid:{}}; channel.plugin_output=channel.plugin_output||{enabled:true,key:""}; if(channel.storage==null||channel.storage===""||String(channel.storage)==="255") channel.storage=null;
 			var info=catalog_info(full_obis(channel)),title=channel.display_name||info.short,api=channel.api||'null',source=channel.origin==='manual'?channel_labels.originManual:channel_labels.originFound;
-			var status=channel_labels.source+': '+source+' · '+channel_labels.apiTarget+': '+(api==='null'?channel_labels.apiNone:api)+' · '+channel_labels.bridgeOutput+': '+(channel.plugin_output.enabled?channel_labels.enabledState:channel_labels.disabledState);
+			var effectiveTopic=runtime_channel_topics[String(channel.uuid||'').toLowerCase()]||channel_labels.mqttPathUnavailable;
+			var status=channel_labels.source+': '+source+' · '+channel_labels.apiTarget+': '+(api==='null'?channel_labels.apiNone:api)+' · '+channel_labels.bridgeOutput+': '+(channel.plugin_output.enabled?channel_labels.enabledState:channel_labels.disabledState)+' · '+channel_labels.mqttPath+': '+effectiveTopic;
 			var applied=runtime_channel_indices[String(channel.uuid||'').toLowerCase()],assigned=Number.isInteger(applied),number=assigned?channel_labels.channelNumber.replace('{number}',applied):channel_labels.channelUnassigned;
 			var open=channel_details_open(serial,channel.uuid,was_open),card=document.createElement('div'); card.className='obis-channel-card'; card.dataset.index=index;
 			card.innerHTML='<div class="obis-channel-summary"><input class="ch-enabled" type="checkbox" '+(channel.enabled?'checked':'')+' title="'+html_text(channel_labels.active)+'"><span class="obis-channel-number" title="'+html_text(assigned?channel_labels.channelNumberHelp:channel_labels.channelUnassignedHelp)+'">'+html_text(number)+'</span><code>'+html_text(full_obis(channel))+'</code><span title="'+html_text(info.long+(info.unit?' ['+info.unit+']':''))+'">'+html_text(title)+'</span><span class="obis-channel-status">'+html_text(status)+'</span></div><details class="obis-channel-details" '+(open?'open':'')+'><summary>'+html_text(channel_labels.details)+'<span class="obis-channel-uuid">· UUID: '+html_text(channel.uuid||'–')+'</span></summary><div class="obis-channel-grid" data-lazy="1"></div></details>';
@@ -1815,6 +1830,7 @@
 		var expert_source_present = "<TMPL_VAR VZLOGGER_EXPERT_SOURCE_PRESENT>" == "1";
 		var expert_runtime_applied = "<TMPL_VAR VZLOGGER_EXPERT_APPLIED>" == "1";
 		var expert_mqtt_enabled = "<TMPL_VAR EXPERT_MQTT_ENABLED>" == "1";
+		var expert_mqtt_timestamp = "<TMPL_VAR EXPERT_MQTT_TIMESTAMP>" == "1";
 		smartmeterSetToggleValue("read", initial_read_value);
 		smartmeterSetToggleValue("implementation", initial_implementation_value);
 		smartmeterSetToggleValue("expert_mode", expert_mode_active ? "1" : "0");
@@ -1919,8 +1935,13 @@
 				bridge_switch: smartmeterToggleValue("read") == "1",
 				bridge_mqtt: smartmeterToggleValue("bridge_mqtt_enabled") == "1",
 				http_cache: smartmeterToggleValue("http_cache_enabled") == "1",
-				udp: smartmeterToggleValue("sendudp") == "1"
+				udp: smartmeterToggleValue("sendudp") == "1",
+				source_timestamp: expert_mode_active ? expert_mqtt_timestamp : smartmeterToggleValue("vzlogger_mqtttimestamp") == "1"
 			};
+			if (!ui.source_timestamp && ui.bridge_mqtt) {
+				smartmeterSetToggleValue("bridge_mqtt_enabled", "0");
+				ui.bridge_mqtt = false;
+			}
 			ui.bridge_available = ui.vzlogger && ui.mqtt;
 			ui.bridge = ui.bridge_available && ui.bridge_switch;
 
@@ -1937,7 +1958,9 @@
 
 			set_control_disabled("#read", !ui.bridge_available);
 			$("#bridge_configuration_section").toggleClass("configuration-disabled", !ui.bridge);
-			set_control_disabled("#vzlogger_debug, #bridge_mqtt_enabled, #http_cache_enabled, #sendudp", !ui.bridge);
+			set_control_disabled("#vzlogger_debug, #http_cache_enabled, #sendudp", !ui.bridge);
+			set_control_disabled("#bridge_mqtt_enabled", !ui.bridge || !ui.source_timestamp);
+			$("#bridge_mqtt_timestamp_unavailable").prop("hidden", !!ui.source_timestamp);
 			$("#bridge_settings_panel > p").toggleClass("setting-disabled-inline", !ui.bridge);
 			$("#bridge_settings_panel h4").closest("tr").toggleClass("setting-disabled", !ui.bridge);
 			$("#bridge_mqtt_topic_row").toggleClass("setting-disabled", !ui.bridge || !ui.bridge_mqtt);
@@ -1957,6 +1980,11 @@
 			update_service_action_states(ui);
 		}
 
+		function handle_source_timestamp_change() {
+			if (smartmeterToggleValue("vzlogger_mqtttimestamp") != "1") smartmeterSetToggleValue("bridge_mqtt_enabled", "0");
+			update_all_control_states();
+		}
+
 		function set_expert_mode(value) {
 			var control = $("#expert_mode");
 			control.prop("disabled", true).addClass("is-disabled");
@@ -1973,6 +2001,7 @@
 					expert_source_present = expert_source_present || expert_mode_active;
 					expert_runtime_applied = !!response.expert_applied;
 					expert_mqtt_enabled = !!response.mqtt_enabled;
+					expert_mqtt_timestamp = !!response.mqtt_timestamp;
 					smartmeterSetToggleValue("expert_mode", expert_mode_active ? "1" : "0");
 					smartmeterSetToggleDisabled("expert_mode", false);
 					control.removeClass("is-disabled");
@@ -2023,7 +2052,8 @@
 				.then(function (response) {
 					if (!response.ok) throw new Error(response.message || obis_text("reset_expert_config_failed_text"));
 					expert_source_present = true;
-					expert_mqtt_enabled = !!response.mqtt_enabled;
+				expert_mqtt_enabled = !!response.mqtt_enabled;
+				expert_mqtt_timestamp = !!response.mqtt_timestamp;
 					if (last_service_snapshot && last_service_snapshot.config) {
 						last_service_snapshot.config.expert_valid = !!response.expert_valid;
 						last_service_snapshot.config.expert_applied = !!response.expert_applied;

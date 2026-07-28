@@ -10,6 +10,7 @@ use JSON::PP;
 use LoxBerry::System;
 use lib $FindBin::Bin;
 use SmartMeterVZLoggerChannels qw(compose_obis parse_obis validate_document valid_output_key output_key_format);
+use SmartMeterVZLoggerBridge qw(effective_channel_topics);
 use SmartMeterVZLoggerExpert qw(read_text validate_expert_text format_expert_validation);
 
 my $plugin_config_dir = $ENV{SMARTMETER_CONFIG_DIR} || $lbpconfigdir;
@@ -36,7 +37,7 @@ my $native_channels = [];
 
 $native_channels = validate_config($config, $mapping) if ($config);
 push @errors, validate_document($definitions) if ($definitions);
-validate_mapping($mapping, $native_channels, $definitions) if ($mapping);
+validate_mapping($mapping, $native_channels, $definitions, $config) if ($mapping);
 
 if (@errors) {
 	print "<FAIL> $_\n" foreach @errors;
@@ -335,7 +336,7 @@ sub validate_native_channel
 
 sub validate_mapping
 {
-	my ($mapping, $native, $definitions) = @_;
+	my ($mapping, $native, $definitions, $config) = @_;
 	if (ref($mapping) ne "HASH") {
 		push @errors, "Channel mapping must be a JSON object.";
 		return;
@@ -370,6 +371,8 @@ sub validate_mapping
 		push @errors, "Mapping channel index $entry->{channel_index} is duplicated."
 			if (is_integer($entry->{channel_index}) && $mapping_indices{$entry->{channel_index}}++);
 	}
+	my ($effective_topics, $topic_errors) = effective_channel_topics($config, $mapping);
+	push @errors, @$topic_errors;
 
 	return if (ref($definitions) ne "HASH" || ref($definitions->{meters}) ne "HASH");
 	foreach my $serial (keys %{$definitions->{meters}}) {
@@ -401,15 +404,16 @@ sub validate_mapping
 		my $plugin = read_plugin_config();
 		my $mqtt_output_key = "VZLOGGER.BRIDGEMQTTENABLED";
 		my $http_cache_key = "VZLOGGER.HTTPCACHEENABLED";
-		my $mqtt_output = ($plugin->{$mqtt_output_key} || "0") eq "1";
+		my $mqtt_output_configured = ($plugin->{$mqtt_output_key} || "0") eq "1";
+		my $source_timestamps = ref($config->{mqtt}) eq "HASH" && $config->{mqtt}->{timestamp};
+		my $mqtt_output = $mqtt_output_configured && $source_timestamps;
 		my $http_cache = !defined($plugin->{$http_cache_key}) || $plugin->{$http_cache_key} eq "1";
 		my $udp_output = ($plugin->{"MAIN.SENDUDP"} || "0") eq "1";
 		push @errors, "The SmartMeter bridge is enabled but MQTT, HTTP cache, and UDP outputs are all disabled."
 			if (!$mqtt_output && !$http_cache && !$udp_output);
-		push @errors, "The SmartMeter bridge MQTT output requires vzLogger MQTT timestamps."
-			if ($mqtt_output && ref($config->{mqtt}) eq "HASH" && !$config->{mqtt}->{timestamp});
-		my $managed_count = grep { ref($_) eq "HASH" && $_->{managed_output} } values %$mapping;
-		push @errors, "The SmartMeter bridge is enabled but no active plugin output channel is configured." if (!$managed_count);
+		push @warnings, "The SmartMeter bridge MQTT timestamp output is configured but disabled because vzLogger MQTT timestamps are unavailable."
+			if ($mqtt_output_configured && !$source_timestamps);
+		push @errors, "The SmartMeter bridge is enabled but no active plugin output channel is configured." if (!@$effective_topics);
 	}
 }
 

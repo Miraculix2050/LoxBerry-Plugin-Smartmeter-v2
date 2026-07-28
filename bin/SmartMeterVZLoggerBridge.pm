@@ -6,7 +6,7 @@ use Exporter qw(import);
 use JSON::PP;
 use SmartMeterVZLoggerChannels qw(ordered_output_names);
 
-our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys validate_channel_announcement send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
+our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
 
 my $json_decoder = JSON::PP->new->utf8;
 my $uuid_pattern = qr/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
@@ -63,6 +63,77 @@ sub normalize_mapping_keys
 	return (\%normalized, "");
 }
 
+sub effective_channel_topics
+{
+	my ($config, $mapping) = @_;
+	my (@topics, @errors);
+	if (ref($config) ne "HASH" || ref($config->{mqtt}) ne "HASH" || ref($config->{meters}) ne "ARRAY") {
+		return (\@topics, ["The applied vzLogger configuration cannot be used to derive MQTT channel topics."]);
+	}
+	if (ref($mapping) ne "HASH") {
+		return (\@topics, ["The SmartMeter channel mapping cannot be used to derive MQTT channel topics."]);
+	}
+
+	my $source_topic = $config->{mqtt}->{topic};
+	$source_topic = "" if (!defined($source_topic) || ref($source_topic));
+	$source_topic =~ s{\A/+|/+$}{}g;
+	push @errors, "The applied vzLogger MQTT source topic is empty." if ($source_topic eq "");
+
+	my (%native_by_uuid, %index_by_uuid);
+	my $index = 0;
+	foreach my $meter (@{$config->{meters}}) {
+		if (ref($meter) ne "HASH" || ref($meter->{channels}) ne "ARRAY") {
+			push @errors, "The applied vzLogger meter configuration contains an invalid channel list.";
+			next;
+		}
+		my $aggregating = !ref($meter->{aggtime}) && defined($meter->{aggtime}) && $meter->{aggtime} =~ /\A\d+(?:\.\d+)?\z/ && $meter->{aggtime} > 0;
+		foreach my $channel (@{$meter->{channels}}) {
+			my $uuid = ref($channel) eq "HASH" && defined($channel->{uuid}) && !ref($channel->{uuid}) ? lc($channel->{uuid}) : "";
+			if ($uuid ne "") {
+				if (exists($native_by_uuid{$uuid})) {
+					push @errors, "The applied vzLogger configuration contains duplicate channel UUID $uuid.";
+				} else {
+					$native_by_uuid{$uuid} = { channel => $channel, aggregating => $aggregating };
+					$index_by_uuid{$uuid} = $index;
+				}
+			}
+			$index++;
+		}
+	}
+
+	my %seen_topics;
+	foreach my $uuid (sort {
+		my $a_index = ref($mapping->{$a}) eq "HASH" ? ($mapping->{$a}->{channel_index} || 0) : 0;
+		my $b_index = ref($mapping->{$b}) eq "HASH" ? ($mapping->{$b}->{channel_index} || 0) : 0;
+		$a_index <=> $b_index;
+	} keys %$mapping) {
+		my $entry = $mapping->{$uuid};
+		next if (ref($entry) ne "HASH" || !$entry->{managed_output});
+		my $canonical = lc($uuid);
+		my $native = $native_by_uuid{$canonical};
+		if (!$native) {
+			push @errors, "SmartMeter output mapping $uuid does not reference an applied vzLogger channel.";
+			next;
+		}
+		my $expected_index = $index_by_uuid{$canonical};
+		my $expected_channel = "chn$expected_index";
+		if (!defined($entry->{channel_index}) || ref($entry->{channel_index}) || $entry->{channel_index} !~ /\A\d+\z/ || $entry->{channel_index} != $expected_index || ($entry->{channel} || "") ne $expected_channel) {
+			push @errors, "SmartMeter output mapping $uuid does not match applied channel $expected_channel.";
+			next;
+		}
+		my $aggmode = $native->{channel}->{aggmode};
+		$aggmode = "" if (!defined($aggmode) || ref($aggmode));
+		my $kind = $native->{aggregating} && lc($aggmode) ne "" && lc($aggmode) ne "none" ? "agg" : "raw";
+		my $topic = "$source_topic/$expected_channel/$kind";
+		if ($seen_topics{$topic}++) {
+			push @errors, "The effective MQTT channel topic $topic is duplicated.";
+			next;
+		}
+		push @topics, { uuid => $canonical, channel => $expected_channel, kind => $kind, topic => $topic };
+	}
+	return (\@topics, \@errors);
+}
+
 sub parse_reading
 {
 	my ($topic, $payload, $mapping, $uuid_by_channel, $debug) = @_;
@@ -76,7 +147,7 @@ sub parse_reading
 	}
 	$uuid = lc($uuid) if ($uuid);
 	$uuid = $uuid_by_channel->{$uuid} if ($uuid && !exists($mapping->{$uuid}) && $uuid_by_channel->{$uuid});
-	$uuid = $uuid_by_channel->{$1} if (!$uuid && $topic =~ m{/([^/]+)/raw\z} && $uuid_by_channel->{$1});
+	$uuid = $uuid_by_channel->{$1} if (!$uuid && $topic =~ m{/([^/]+)/(?:raw|agg)\z} && $uuid_by_channel->{$1});
 	if (!$uuid) {
 		my ($candidate) = $topic =~ m{(?:\A|/)($uuid_pattern)(?:/|\z)};
 		$candidate = lc($candidate) if ($candidate);
