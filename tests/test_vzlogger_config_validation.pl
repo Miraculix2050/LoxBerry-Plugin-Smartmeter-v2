@@ -3,9 +3,11 @@
 use strict;
 use warnings;
 use FindBin;
+use File::Temp qw(tempdir);
+use JSON::PP;
 use Test::More;
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerConfig qw(validate_legacy_general normalized_meter_mode protocol_for_meter serial_mode sanitize_topic clean_qos implementation_mode set_implementation_mode);
+use SmartMeterVZLoggerConfig qw(validate_legacy_general normalized_meter_mode protocol_for_meter serial_mode sanitize_topic clean_qos implementation_mode set_implementation_mode read_webserver_settings);
 
 {
 	package TestConfig;
@@ -24,6 +26,30 @@ is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "legacy", "MAIN.
 is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "vzlogger", "MAIN.READ" => 1)), "vzlogger", "explicit vzLogger mode is retained independently of READ");
 is(implementation_mode(TestConfig->new("MAIN.READ" => 1)), "legacy", "missing mode infers Legacy from enabled reads");
 is(implementation_mode(TestConfig->new("MAIN.READ" => 0)), "vzlogger", "missing mode infers vzLogger from disabled Legacy reads");
+
+my $webserver_test_dir = tempdir(CLEANUP => 1);
+my $general_json = "$webserver_test_dir/general.json";
+open(my $general_fh, ">", $general_json) or die $!;
+print {$general_fh} JSON::PP->new->encode({ Webserver => { Port => "8080", Sslenabled => "true", Sslport => "8443" } });
+close($general_fh);
+is_deeply(
+	read_webserver_settings($general_json),
+	{ http_port => 8080, https_enabled => 1, https_port => 8443 },
+	"LoxBerry webserver ports and enabled HTTPS are read from general.json",
+);
+open($general_fh, ">", $general_json) or die $!;
+print {$general_fh} JSON::PP->new->encode({ Webserver => { Port => "0", Sslenabled => "false", Sslport => "70000" } });
+close($general_fh);
+is_deeply(
+	read_webserver_settings($general_json),
+	{ http_port => 80, https_enabled => 0, https_port => 443 },
+	"invalid ports fall back safely and the string false does not enable HTTPS",
+);
+is_deeply(
+	read_webserver_settings("$webserver_test_dir/missing.json"),
+	{ http_port => 80, https_enabled => 0, https_port => 443 },
+	"missing LoxBerry webserver configuration uses standard defaults",
+);
 
 foreach my $transition (
 	[legacy => "vzlogger"], [legacy => "none"],

@@ -135,6 +135,7 @@ fi
 for PRIVATE_FILE in \
 	"$PLUGIN_CONFIG_DIR/vzlogger_channels.json" \
 	"$PLUGIN_CONFIG_DIR/vzlogger_channel_definitions.json" \
+	"$PLUGIN_CONFIG_DIR/smartmeter_recovery.json" \
 	"$PLUGIN_CONFIG_DIR"/vzlogger_user_channel_uuids_*.json \
 	"$PLUGIN_CONFIG_DIR"/vzlogger_meter_*.jsonc
 do

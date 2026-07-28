@@ -38,6 +38,8 @@ BEGIN {
 # use CGI::Carp qw(fatalsToBrowser);
 use CGI;
 use Config::Simple;
+use Digest::SHA qw(sha256_hex);
+use Encode qw(decode FB_CROAK);
 use File::Copy qw(copy);
 use File::Path qw(make_path);
 use File::Temp qw(tempdir);
@@ -47,6 +49,7 @@ use LoxBerry::Log;
 use LoxBerry::System;
 #use LoxBerry::Web;
 use POSIX qw(:sys_wait_h setsid);
+use Socket qw(AF_INET AF_INET6 inet_pton);
 use warnings;
 use strict;
 umask(0027);
@@ -55,7 +58,7 @@ use lib "$FindBin::Bin/../../bin";
 use SmartMeterVZLoggerChannels qw(parse_obis compose_obis normalize_obis default_output_key stable_uuid read_json write_json_atomic load_catalog lookup_obis new_document migrate_legacy_meter validate_document localize_validation_errors);
 use SmartMeterVZLoggerExpert qw(read_text write_text_atomic validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping update_expert_log_settings expert_configs_equal);
 use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
-use SmartMeterVZLoggerConfig qw(protocol_for_meter normalized_meter_mode serial_mode clean_qos set_implementation_mode);
+use SmartMeterVZLoggerConfig qw(protocol_for_meter normalized_meter_mode serial_mode clean_qos set_implementation_mode read_webserver_settings);
 use SmartMeterLegacyRuntime qw(initialize_legacy_heads acquire_legacy_fetch_lock synchronize_legacy_runtime remove_legacy_cronjobs);
 
 ##########################################################################
@@ -103,6 +106,21 @@ sub ui_text
 	return $text;
 }
 
+sub normalize_json_utf8
+{
+	my ($value) = @_;
+	if (ref($value) eq "HASH") {
+		return { map { $_ => normalize_json_utf8($value->{$_}) } keys %{$value} };
+	}
+	if (ref($value) eq "ARRAY") {
+		return [ map { normalize_json_utf8($_) } @{$value} ];
+	}
+	return $value if (ref($value) || !defined($value) || utf8::is_utf8($value));
+	return $value if ($value !~ /[\x80-\xff]/);
+	my $decoded = eval { decode("UTF-8", $value, FB_CROAK) };
+	return $@ ? $value : $decoded;
+}
+
 # Globals 
 #my %pids;
 #my $CFGFILEDEVICES = $lbpconfigdir . "/devices.json";
@@ -118,7 +136,7 @@ if( $q->{ajax} ) {
 	my $request_lock;
 	eval {
 		my $action = $q->{ajaxaction} || "";
-		my %mutating = map { $_ => 1 } qw(obis-start obis-cancel service-action form-action ir-scan expert-mode expert-reset);
+		my %mutating = map { $_ => 1 } qw(obis-start obis-cancel service-action form-action ir-scan expert-mode expert-reset recovery-settings);
 		if ($mutating{$action}) {
 			my ($lock, $error) = acquire_config_lock("/var/run/shm/$lbpplugindir");
 			die "$error\n" if (!$lock);
@@ -167,6 +185,9 @@ if( $q->{ajax} ) {
 			die $L{'VZLOGGER.UI_EXPERT_RESET_POST'} if (($ENV{REQUEST_METHOD} || "") ne "POST");
 			load_service_ajax_config();
 			$response = reset_expert_configuration_ajax();
+		} elsif ($action eq "recovery-settings") {
+			die $L{'VZLOGGER.RECOVERY_POST_REQUIRED'} if (($ENV{REQUEST_METHOD} || "") ne "POST");
+			$response = run_recovery_settings_ajax();
 		} else {
 			$response->{message} = $L{'VZLOGGER.UI_UNKNOWN_AJAX'};
 		}
@@ -177,7 +198,7 @@ if( $q->{ajax} ) {
 		$response = { ok => JSON::PP::false, state => "failed", message => $error || $L{'VZLOGGER.UI_AJAX_FAILED'} };
 	}
 	ajax_header();
-	print JSON::PP->new->utf8->canonical->encode($response);
+	print JSON::PP->new->utf8->canonical->encode(normalize_json_utf8($response));
 	exit;
 
 ##########################################################################
@@ -407,6 +428,108 @@ sub add_service_template_params
 	my $control_log = latest_plugin_log_name("control") || latest_plugin_log_name("webui");
 	$template->param("CONTROL_LOG_URL" => $control_log ? log_url("plugins/$lbpplugindir/$control_log") : "#");
 	$template->param("CONTROL_LOG_DISABLED" => ($control_log ? "" : "is-disabled"));
+
+	my $recovery = read_recovery_settings();
+	$template->param("RECOVERY_ENABLED" => $recovery->{enabled} ? 1 : 0);
+	$template->param("RECOVERY_IP_CHECK_ENABLED" => $recovery->{ip_check_enabled} ? 1 : 0);
+	$template->param("RECOVERY_ALLOWED_IPS" => join("\n", @{$recovery->{allowed_ips}}));
+	$template->param("RECOVERY_COOLDOWN" => $recovery->{cooldown_seconds});
+	$template->param("RECOVERY_TOKEN_PRESENT" => $recovery->{token_sha256} ? 1 : 0);
+	my $host = $ENV{HTTP_HOST} || "loxberry";
+	if ($host =~ /\A\[([^\]]+)\](?::\d+)?\z/) {
+		$host = "[$1]";
+	} else {
+		$host =~ s/:\d+\z//;
+	}
+	$host = "loxberry" if ($host !~ /\A(?:\[[0-9a-fA-F:.]+\]|[A-Za-z0-9._-]+)\z/);
+	my $webserver = read_webserver_settings("$lbsconfigdir/general.json");
+	my $http_port = $webserver->{http_port} == 80 ? "" : ":$webserver->{http_port}";
+	my $https_port = $webserver->{https_port} == 443 ? "" : ":$webserver->{https_port}";
+	$template->param("RECOVERY_LOXONE_HTTP_ADDRESS" => "http://${host}${http_port}");
+	$template->param("RECOVERY_HTTPS_ENABLED" => $webserver->{https_enabled} ? 1 : 0);
+	$template->param("RECOVERY_LOXONE_HTTPS_ADDRESS" => "https://${host}${https_port}");
+	$template->param("RECOVERY_COMMAND_VZLOGGER" => "/plugins/$lbpplugindir/recovery.php?target=vzlogger");
+	$template->param("RECOVERY_COMMAND_BRIDGE" => "/plugins/$lbpplugindir/recovery.php?target=bridge");
+	$template->param("RECOVERY_COMMAND_ALL" => "/plugins/$lbpplugindir/recovery.php?target=all");
+}
+
+sub recovery_config_file
+{
+	return "$lbpconfigdir/smartmeter_recovery.json";
+}
+
+sub read_recovery_settings
+{
+	my $stored = read_json(recovery_config_file());
+	$stored = {} if (ref($stored) ne "HASH");
+	my $cooldown = $stored->{cooldown_seconds};
+	$cooldown = 300 if (!defined($cooldown) || $cooldown !~ /\A\d+\z/ || $cooldown < 30 || $cooldown > 3600);
+	my @ips = ref($stored->{allowed_ips}) eq "ARRAY" ? grep { valid_ip_address($_) } @{$stored->{allowed_ips}} : ();
+	my $hash = $stored->{token_sha256} || "";
+	$hash = "" if ($hash !~ /\A[a-f0-9]{64}\z/);
+	return {
+		enabled => $stored->{enabled} ? JSON::PP::true : JSON::PP::false,
+		ip_check_enabled => $stored->{ip_check_enabled} ? JSON::PP::true : JSON::PP::false,
+		allowed_ips => \@ips,
+		cooldown_seconds => 0 + $cooldown,
+		token_sha256 => $hash,
+	};
+}
+
+sub run_recovery_settings_ajax
+{
+	my $operation = $q->{recovery_operation} || "save";
+	die $L{'VZLOGGER.RECOVERY_INVALID_OPERATION'} if ($operation !~ /\A(?:save|rotate)\z/);
+	my $enabled = ($q->{recovery_enabled} || "0") eq "1" ? 1 : 0;
+	my $ip_check = ($q->{recovery_ip_check_enabled} || "0") eq "1" ? 1 : 0;
+	my $cooldown = $q->{recovery_cooldown} || "";
+	die $L{'VZLOGGER.RECOVERY_INVALID_COOLDOWN'} if ($cooldown !~ /\A\d+\z/ || $cooldown < 30 || $cooldown > 3600);
+	my @ips = grep { $_ ne "" } split(/[\s,;]+/, $q->{recovery_allowed_ips} || "");
+	foreach my $ip (@ips) {
+		die ui_text($L{'VZLOGGER.RECOVERY_INVALID_IP'}, ip => $ip) if (!valid_ip_address($ip));
+	}
+	my %seen;
+	@ips = grep { !$seen{$_}++ } @ips;
+	die $L{'VZLOGGER.RECOVERY_IP_REQUIRED'} if ($ip_check && !@ips);
+
+	my $settings = read_recovery_settings();
+	my $plain_token;
+	if ($operation eq "rotate") {
+		$plain_token = generate_recovery_token();
+		$settings->{token_sha256} = sha256_hex($plain_token);
+	}
+	die $L{'VZLOGGER.RECOVERY_TOKEN_REQUIRED'} if ($enabled && !$settings->{token_sha256});
+	$settings->{enabled} = $enabled ? JSON::PP::true : JSON::PP::false;
+	$settings->{ip_check_enabled} = $ip_check ? JSON::PP::true : JSON::PP::false;
+	$settings->{allowed_ips} = \@ips;
+	$settings->{cooldown_seconds} = 0 + $cooldown;
+	write_json_atomic(recovery_config_file(), $settings);
+
+	my $response = {
+		ok => JSON::PP::true,
+		state => "completed",
+		message => $operation eq "rotate" ? $L{'VZLOGGER.RECOVERY_TOKEN_ROTATED'} : $L{'VZLOGGER.RECOVERY_SETTINGS_SAVED'},
+		token_present => $settings->{token_sha256} ? JSON::PP::true : JSON::PP::false,
+	};
+	$response->{token} = $plain_token if (defined($plain_token));
+	return $response;
+}
+
+sub valid_ip_address
+{
+	my ($address) = @_;
+	return 0 if (!defined($address) || ref($address));
+	return eval { defined(inet_pton(AF_INET, $address)) || defined(inet_pton(AF_INET6, $address)) } ? 1 : 0;
+}
+
+sub generate_recovery_token
+{
+	open(my $fh, "<:raw", "/dev/urandom") or die $L{'VZLOGGER.RECOVERY_TOKEN_GENERATION_FAILED'};
+	my $bytes = "";
+	my $read = read($fh, $bytes, 32);
+	close($fh);
+	die $L{'VZLOGGER.RECOVERY_TOKEN_GENERATION_FAILED'} if (!defined($read) || $read != 32);
+	return unpack("H*", $bytes);
 }
 
 sub add_http_cache_template_params

@@ -33,6 +33,7 @@ This document records the product and engineering contracts that must remain tru
 - Validate Config is non-mutating: it uses a temporary draft and must not change saved settings, generated files, custom meter sources, cron, or services.
 - Apply succeeds only when generation, validation, promotion, service override handling, and every requested final service state succeed. Failures propagate to CGI/CLI callers as non-zero results.
 - Start and Restart validate the existing generated configuration and change only the requested service activation and its dedicated log settings. They must not save unrelated form fields. Stop remains available for a running service even when configuration is invalid.
+- The optional Loxone recovery endpoint is POST-only and token-authenticated. It may restart an active expected unit or recover an enabled failed unit, but it must never start an inactive, administratively disabled, unconfigured, or optional-disabled unit. Recovery must not install or enable units.
 - Service controls and lifecycle hooks must report the observed final service state, not only a successful command invocation.
 
 ## 4. Legacy Contract And Validation
@@ -71,6 +72,8 @@ This document records the product and engineering contracts that must remain tru
 - The bridge update cycle controls cache writes and UDP sends. Avoid writing cache files for every MQTT message.
 - The web UI intentionally shows cache availability, last update, and a link to the cache endpoint. It does not need to duplicate the complete cached value list inline.
 - MQTT passwords, private-key passwords, tokens, and similar secrets must never appear in rendered HTML, unmasked diagnostics, process listings, or logs.
+- Recovery tokens are generated with at least 256 bits of entropy, stored only as a hash, and accepted only in the dedicated HTTP header. An optional exact source-IP allow-list may add defense in depth without trusting proxy headers.
+- The recovery UI mirrors Loxone's hierarchy: one virtual output shows the unauthenticated base addresses using LoxBerry's configured HTTP/HTTPS ports, while separate virtual output commands show the ON command path, token header, empty body, and POST method. LoxBerry credentials must not be embedded because the recovery token is the endpoint authentication.
 - The bridge remains optional and disabled on a fresh installation. vzLogger can run independently when the bridge is disabled.
 
 ## 7. Expert Mode

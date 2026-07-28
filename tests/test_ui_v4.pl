@@ -46,6 +46,13 @@ foreach my $cgi (qw(webfrontend/htmlauth/index.cgi webfrontend/htmlauth/index_le
 
 my $vzlogger = $sources{'templates/settings.html'};
 like($vzlogger, qr/<details\b[^>]*\blb-collapsible\b/, "vzLogger uses native details collapsibles");
+like($vzlogger, qr/<details\b(?=[^>]*\bid="recovery_settings_panel")(?=[^>]*\blb-collapsible\b)(?=[^>]*\bopen\b)[^>]*>/, "recovery settings use an initially open persistent native collapsible");
+like($vzlogger, qr/<dialog\b(?=[^>]*\bid="ir_scan_overlay")(?=[^>]*\baction-overlay-standard\b)[^>]*>/, "I/R scan uses the single standard-width native action dialog");
+like($vzlogger, qr/<dialog\b(?=[^>]*\bid="obis_search_overlay")(?=[^>]*\baction-overlay-standard\b)[^>]*>/, "OBIS discovery uses the single standard-width native action dialog");
+like($vzlogger, qr/<dialog\b(?=[^>]*\bid="service_action_overlay")(?=[^>]*\baction-overlay-standard\b)[^>]*>/, "service actions use the single standard-width native action dialog");
+like($vzlogger, qr/<dialog\b(?=[^>]*\bid="configuration_action_overlay")(?=[^>]*\baction-overlay-wide\b)[^>]*>/, "configuration actions use the single wide native action dialog");
+like($vzlogger, qr/id="obis_search_spinner".*?getElementById\("obis_search_spinner"\)/s, "OBIS discovery updates its own spinner explicitly");
+unlike($vzlogger, qr/querySelector\("\.obis-search-spinner"\)/, "OBIS discovery does not modify another action dialog's spinner");
 like($vzlogger, qr/<dialog\b[^>]*\blb-modal\b/, "vzLogger uses native dialog modals");
 like($vzlogger, qr/\bshowModal\s*\(/, "vzLogger opens native dialogs");
 like($vzlogger, qr/class="ch-api lb-select"/, "dynamic channel API selects use V4 classes directly");
@@ -76,6 +83,7 @@ like($shared, qr/\blb-form-field\b/, "shared UI applies LoxBerry form-field clas
 like($shared, qr/\bpi-save\b/, "shared UI applies PrimeIcons to primary actions");
 
 my $styles = $sources{'webfrontend/htmlauth/smartmeter-v4.css'} . $sources{'webfrontend/htmlauth/smartmeter-vzlogger.css'};
+like($styles, qr/\.recovery-loxone-fields\s*\{[^}]*grid-template-columns/s, "Loxone copy-and-paste fields use a responsive grid");
 like($styles, qr/implementation-tabs \.lb-btn-active/, "active implementation tab has an explicit V4 state");
 like($styles, qr/implementation-tabs\s*\{[^}]*border:\s*0\s*!important/s, "implementation tab group has no redundant outer border");
 like($styles, qr/implementation-tabs \.lb-btn\s*\{[^}]*margin:\s*0\s*!important/s, "implementation tabs do not retain framework margins that clip the last border");

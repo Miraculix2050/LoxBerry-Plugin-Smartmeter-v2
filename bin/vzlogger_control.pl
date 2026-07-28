@@ -27,7 +27,9 @@ my $plugin_config_file = "$lbpconfigdir/smartmeter.cfg";
 my $config_file = "$lbpconfigdir/vzlogger.conf";
 my $expert_file = "$lbpconfigdir/vzlogger_expert.conf";
 my $mapping_file = "$lbpconfigdir/vzlogger_channels.json";
+my $recovery_config_file = "$lbpconfigdir/smartmeter_recovery.json";
 my $runtime_dir = "/var/run/shm/$psubfolder";
+my $recovery_state_file = "$runtime_dir/recovery-state.json";
 my $obis_watchdog_pid_file = "$runtime_dir/vzlogger_obis_watchdog.pid";
 my $obis_status_file = "$runtime_dir/vzlogger_obis_status.json";
 my $plugin_log_dir = $lbplogdir;
@@ -43,6 +45,7 @@ chmod(0750, $runtime_dir);
 my %mutating_action = map { $_ => 1 } qw(
 	generate apply apply-expert activate-vzlogger restart-vzlogger start-vzlogger stop-vzlogger
 	restart-bridge start-bridge stop-bridge disable-vzlogger
+	recover-vzlogger recover-bridge recover-all
 );
 my $config_lock;
 if ($mutating_action{$action}) {
@@ -148,6 +151,10 @@ if ($action eq "disable-vzlogger") {
 	exit $rc;
 }
 
+if ($action =~ /\Arecover-(vzlogger|bridge|all)\z/) {
+	exit recover_services($1);
+}
+
 if ($action eq "status") {
 	print "implementation: " . implementation_mode(Config::Simple->new($plugin_config_file)) . "\n";
 	print "vzlogger binary: " . (command_exists("vzlogger") ? "available" : "missing") . "\n";
@@ -166,7 +173,7 @@ if ($action eq "debug-log") {
 	exit create_debug_log();
 }
 
-print "Usage: $0 generate|validate|apply|apply-expert|activate-vzlogger|restart-vzlogger|start-vzlogger|stop-vzlogger|restart-bridge|start-bridge|stop-bridge|disable-vzlogger|status|debug-log\n";
+print "Usage: $0 generate|validate|apply|apply-expert|activate-vzlogger|restart-vzlogger|start-vzlogger|stop-vzlogger|restart-bridge|start-bridge|stop-bridge|disable-vzlogger|recover-vzlogger|recover-bridge|recover-all|status|debug-log\n";
 exit 1;
 
 sub run_perl
@@ -458,7 +465,9 @@ sub stop_bridge
 {
 	if (service_installed($bridge_service)) {
 		my $rc = run_privileged("stop $bridge_service", systemctl_command(), "stop", $bridge_service);
-		run_privileged("reset failed state for $bridge_service", systemctl_command(), "reset-failed", $bridge_service) if ($rc == 0);
+		if ($rc == 0 && service_state($bridge_service) eq "failed") {
+			$rc = run_privileged("reset failed state for $bridge_service", systemctl_command(), "reset-failed", $bridge_service);
+		}
 		print "Stopped $bridge_service service.\n" if ($rc == 0);
 		$rc = 1 if ($rc == 0 && !wait_for_service_state($bridge_service, 0));
 		return $rc;
@@ -601,7 +610,9 @@ sub stop_vzlogger
 		return 0;
 	}
 	my $rc = run_privileged("stop vzlogger", systemctl_command(), "stop", "vzlogger");
-	run_privileged("reset failed state for vzlogger", systemctl_command(), "reset-failed", "vzlogger") if ($rc == 0);
+	if ($rc == 0 && service_state("vzlogger") eq "failed") {
+		$rc = run_privileged("reset failed state for vzlogger", systemctl_command(), "reset-failed", "vzlogger");
+	}
 	$rc = 1 if ($rc == 0 && !wait_for_service_state("vzlogger", 0));
 	if ($disable && $rc == 0) {
 		return 0 if (!service_autostart_enabled("vzlogger"));
@@ -777,6 +788,207 @@ sub generated_mqtt_enabled
 	my $config = eval { JSON::PP->new->utf8->decode($json) };
 	return 0 if ($@ || ref($config) ne "HASH" || ref($config->{mqtt}) ne "HASH");
 	return $config->{mqtt}->{enabled} ? 1 : 0;
+}
+
+sub recover_services
+{
+	my ($target) = @_;
+	my @targets = $target eq "all" ? qw(vzlogger bridge) : ($target);
+	my $runtime = read_recovery_service_runtime();
+	my $settings = read_json_file($recovery_config_file) || {};
+	my $cooldown = $settings->{cooldown_seconds};
+	$cooldown = 300 if (!defined($cooldown) || $cooldown !~ /\A\d+\z/ || $cooldown < 30 || $cooldown > 3600);
+	my $state = read_json_file($recovery_state_file) || { services => {} };
+	$state->{services} = {} if (ref($state->{services}) ne "HASH");
+	my $now = time;
+	my %results;
+	my $failed = 0;
+
+	foreach my $name (@targets) {
+		my $service = $name eq "bridge" ? $bridge_service : "vzlogger";
+		my $entry = $runtime->{$service} || {};
+		my $active_state = $entry->{ActiveState} || "unknown";
+		my $sub_state = $entry->{SubState} || "unknown";
+		my $unit_state = $entry->{UnitFileState} || "unknown";
+		my $result = {
+			service => $service,
+			initial_state => $active_state,
+			initial_sub_state => $sub_state,
+			action => "skipped",
+			reason => "unknown_state",
+		};
+		$results{$name} = $result;
+
+		my $expected = $name eq "bridge" ? bridge_enabled() : vzlogger_mode_enabled();
+		if (!$expected) {
+			$result->{reason} = "not_configured";
+			next;
+		}
+		if (($entry->{LoadState} || "") ne "loaded") {
+			$result->{reason} = "not_installed";
+			next;
+		}
+		if ($unit_state ne "enabled" && $unit_state ne "enabled-runtime") {
+			$result->{reason} = "unit_disabled";
+			next;
+		}
+		if ($active_state eq "inactive") {
+			$result->{reason} = "manual_stop";
+			next;
+		}
+		if ($active_state =~ /\A(?:activating|deactivating|reloading)\z/) {
+			$result->{reason} = "busy";
+			next;
+		}
+		if ($active_state ne "active" && $active_state ne "failed") {
+			$result->{reason} = "unsupported_state";
+			next;
+		}
+
+		my $last = $state->{services}->{$name} || 0;
+		if ($last =~ /\A\d+\z/ && $now - $last < $cooldown) {
+			$result->{reason} = "cooldown";
+			$result->{retry_after} = $cooldown - ($now - $last);
+			next;
+		}
+
+		if (!generated_configuration_valid()) {
+			$result->{action} = "failed";
+			$result->{reason} = "invalid_configuration";
+			$failed = 1;
+			next;
+		}
+		if ($name eq "bridge" && !generated_mqtt_enabled()) {
+			$result->{action} = "failed";
+			$result->{reason} = "mqtt_disabled";
+			$failed = 1;
+			next;
+		}
+
+		my $rc;
+		if ($active_state eq "failed") {
+			$rc = run_systemctl_quiet("reset-failed", $service);
+			$rc = run_systemctl_quiet("start", $service) if ($rc == 0);
+			$result->{action} = $rc == 0 ? "started" : "failed";
+		} else {
+			$rc = run_systemctl_quiet("restart", $service);
+			$result->{action} = $rc == 0 ? "restarted" : "failed";
+		}
+		if ($rc == 0 && wait_for_service_state_quiet($service, 1)) {
+			$result->{reason} = "recovered";
+			$state->{services}->{$name} = $now;
+		} else {
+			$result->{action} = "failed";
+			$result->{reason} = "systemctl_failed";
+			$failed = 1;
+		}
+	}
+
+	write_json_file($recovery_state_file, $state, 0640);
+	print JSON::PP->new->utf8->canonical->encode({
+		ok => $failed ? JSON::PP::false : JSON::PP::true,
+		target => $target,
+		services => \%results,
+	});
+	print "\n";
+	return $failed ? 1 : 0;
+}
+
+sub generated_configuration_valid
+{
+	return 0 if (!-e $config_file || !-e "$bindir/vzlogger_validate.pl");
+	my $pid = fork();
+	return 0 if (!defined($pid));
+	if ($pid == 0) {
+		open(STDOUT, ">", "/dev/null") or exit 127;
+		open(STDERR, ">", "/dev/null") or exit 127;
+		exec($^X, "$bindir/vzlogger_validate.pl");
+		exit 127;
+	}
+	waitpid($pid, 0);
+	my $rc = $? >> 8;
+	return $rc == 0 ? 1 : 0;
+}
+
+sub read_recovery_service_runtime
+{
+	my %runtime;
+	return \%runtime if (!command_exists("systemctl"));
+	my @services = ("vzlogger", $bridge_service);
+	my $pid = open(my $fh, "-|", systemctl_command(), "show", @services,
+		"--property=Id,LoadState,ActiveState,SubState,UnitFileState,Result");
+	return \%runtime if (!$pid);
+	my $current;
+	while (my $line = <$fh>) {
+		chomp($line);
+		if ($line eq "") { $current = undef; next; }
+		my ($key, $value) = split(/=/, $line, 2);
+		next if (!defined($value));
+		if ($key eq "Id") {
+			$current = $value;
+			$current =~ s/\.service\z//;
+			$runtime{$current} ||= {};
+		}
+		$runtime{$current}->{$key} = $value if ($current);
+	}
+	close($fh);
+	return \%runtime;
+}
+
+sub read_json_file
+{
+	my ($file) = @_;
+	return if (!-e $file);
+	open(my $fh, "<", $file) or return;
+	local $/;
+	my $content = <$fh>;
+	close($fh);
+	my $data = eval { JSON::PP->new->utf8->decode($content) };
+	return ($@ || ref($data) ne "HASH") ? undef : $data;
+}
+
+sub write_json_file
+{
+	my ($file, $data, $mode) = @_;
+	my $tmp = "$file.tmp.$$";
+	open(my $fh, ">", $tmp) or return 0;
+	binmode($fh, ":raw");
+	my $ok = print $fh JSON::PP->new->utf8->canonical->encode($data);
+	$ok = 0 if (!close($fh));
+	if (!$ok) { unlink($tmp); return 0; }
+	chmod($mode, $tmp);
+	if (!rename($tmp, $file)) { unlink($tmp); return 0; }
+	return 1;
+}
+
+sub run_systemctl_quiet
+{
+	my ($verb, $service) = @_;
+	my @command = ($> == 0)
+		? (systemctl_command(), $verb, $service)
+		: ("sudo", "-n", systemctl_command(), $verb, $service);
+	open(my $null, ">", "/dev/null") or return 1;
+	my $rc;
+	{
+		local *STDOUT = $null;
+		local *STDERR = $null;
+		system(@command);
+		$rc = $? >> 8;
+	}
+	close($null);
+	log_control("recovery systemctl $verb $service exit=$rc");
+	return $rc;
+}
+
+sub wait_for_service_state_quiet
+{
+	my ($service, $running) = @_;
+	for (1 .. 20) {
+		my $active = service_state($service) eq "active" ? 1 : 0;
+		return 1 if ($active == ($running ? 1 : 0));
+		select(undef, undef, undef, 0.1);
+	}
+	return 0;
 }
 
 sub install_bridge_service

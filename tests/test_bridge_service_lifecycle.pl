@@ -64,6 +64,18 @@ like(
 	qr/if\s*\(\$action eq "stop-bridge"\)\s*\{\s*exit stop_bridge\(\);/s,
 	"manual bridge Stop remains temporary and does not change saved autostart behavior",
 );
+my ($bridge_stop_source) = $control =~ /(sub stop_bridge.*?)(?=\nsub stop_and_disable_bridge)/s;
+like(
+	$bridge_stop_source || "",
+	qr/if \(\$rc == 0 && service_state\(\$bridge_service\) eq "failed"\).*?reset-failed/s,
+	"stopping an inactive bridge skips reset-failed unless systemd reports a failed unit",
+);
+my ($vzlogger_stop_source) = $control =~ /(sub stop_vzlogger.*?)(?=\nsub stop_orphaned_obis_discovery_processes)/s;
+like(
+	$vzlogger_stop_source || "",
+	qr/if \(\$rc == 0 && service_state\("vzlogger"\) eq "failed"\).*?reset-failed/s,
+	"stopping inactive vzLogger skips reset-failed unless systemd reports a failed unit",
+);
 like(
 	$postroot,
 	qr/systemctl stop "\$BRIDGE_SERVICE".*?systemctl disable "\$BRIDGE_SERVICE".*?systemctl reset-failed/s,

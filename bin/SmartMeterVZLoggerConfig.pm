@@ -5,7 +5,7 @@ use warnings;
 use Exporter qw(import);
 use JSON::PP;
 
-our @EXPORT_OK = qw(validate_legacy_general read_mqtt_settings clean_number clean_qos sanitize_topic protocol_for_meter normalized_meter_mode serial_mode implementation_mode set_implementation_mode);
+our @EXPORT_OK = qw(validate_legacy_general read_mqtt_settings read_webserver_settings clean_number clean_qos sanitize_topic protocol_for_meter normalized_meter_mode serial_mode implementation_mode set_implementation_mode);
 
 sub implementation_mode
 {
@@ -80,6 +80,37 @@ sub read_mqtt_settings
 		}
 	}
 	return \%settings;
+}
+
+sub read_webserver_settings
+{
+	my ($general_json) = @_;
+	my %settings = (http_port => 80, https_enabled => 0, https_port => 443);
+	return \%settings if (!-e $general_json || !open(my $fh, "<", $general_json));
+	local $/;
+	my $general = eval { JSON::PP->new->utf8->decode(<$fh> || "") };
+	close($fh);
+	return \%settings if ($@ || ref($general) ne "HASH" || ref($general->{Webserver}) ne "HASH");
+
+	my $webserver = $general->{Webserver};
+	$settings{http_port} = _valid_port($webserver->{Port}, 80);
+	$settings{https_port} = _valid_port($webserver->{Sslport}, 443);
+	$settings{https_enabled} = _enabled_value($webserver->{Sslenabled});
+	return \%settings;
+}
+
+sub _valid_port
+{
+	my ($value, $default) = @_;
+	return $default if (!defined($value) || ref($value) || $value !~ /\A\d+\z/ || $value < 1 || $value > 65535);
+	return int($value);
+}
+
+sub _enabled_value
+{
+	my ($value) = @_;
+	return 0 if (!defined($value) || ref($value));
+	return $value =~ /\A(?:1|true|yes|on|enabled)\z/i ? 1 : 0;
 }
 
 sub _first_value
