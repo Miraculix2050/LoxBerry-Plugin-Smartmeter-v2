@@ -5,7 +5,15 @@ use warnings;
 use Exporter qw(import);
 use JSON::PP;
 
-our @EXPORT_OK = qw(validate_legacy_general read_mqtt_settings read_webserver_settings clean_number clean_qos sanitize_topic protocol_for_meter normalized_meter_mode serial_mode implementation_mode set_implementation_mode);
+our @EXPORT_OK = qw(validate_legacy_general read_mqtt_settings read_webserver_settings clean_boolean clean_number clean_qos sanitize_topic protocol_for_meter normalized_meter_mode serial_mode implementation_mode set_implementation_mode);
+
+sub clean_boolean
+{
+	my ($value, $fallback) = @_;
+	return $fallback ? 1 : 0 if (!defined($value) || ref($value));
+	return $value ? 1 : 0 if ($value =~ /\A(?:0|1)\z/);
+	return $fallback ? 1 : 0;
+}
 
 sub implementation_mode
 {

@@ -12,6 +12,29 @@ header('Pragma: public');
 $psubdir  	=array_pop(array_filter(explode('/',pathinfo($_SERVER["SCRIPT_FILENAME"],PATHINFO_DIRNAME))));
 $directory	="/var/run/shm/$psubdir/";
 $dateitypen = array("data");
+$configRoot = getenv('LBPCONFIG');
+$configCandidates = array_filter(array(
+	$configRoot ? "$configRoot/smartmeter.cfg" : null,
+	$configRoot ? "$configRoot/$psubdir/smartmeter.cfg" : null,
+	"/opt/loxberry/config/plugins/$psubdir/smartmeter.cfg",
+));
+$pluginConfig = false;
+foreach ($configCandidates as $configFile)
+{
+	if (is_file($configFile))
+	{
+		$pluginConfig = @parse_ini_file($configFile, true, INI_SCANNER_RAW);
+		break;
+	}
+}
+
+if (is_array($pluginConfig)
+	&& isset($pluginConfig['VZLOGGER']['HTTPCACHEENABLED'])
+	&& $pluginConfig['VZLOGGER']['HTTPCACHEENABLED'] === '0')
+{
+	echo "# HTTP cache disabled\n#EOF\n";
+	exit(0);
+}
 
 if (is_dir($directory)) 
 {

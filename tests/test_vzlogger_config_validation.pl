@@ -7,7 +7,7 @@ use File::Temp qw(tempdir);
 use JSON::PP;
 use Test::More;
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerConfig qw(validate_legacy_general normalized_meter_mode protocol_for_meter serial_mode sanitize_topic clean_qos implementation_mode set_implementation_mode read_webserver_settings);
+use SmartMeterVZLoggerConfig qw(validate_legacy_general normalized_meter_mode protocol_for_meter serial_mode sanitize_topic clean_boolean clean_qos implementation_mode set_implementation_mode read_webserver_settings);
 
 {
 	package TestConfig;
@@ -21,6 +21,8 @@ is(serial_mode(7, "even", 1), "7E1", "shared serial mode is canonical");
 is(sanitize_topic(" /smartmeter/site/ "), "smartmeter/site", "shared topic normalization trims separators");
 is(clean_qos("2", 0), 2, "shared QoS cleaner accepts supported values");
 is(clean_qos("bad", 1), 1, "shared QoS cleaner retains its validated default");
+is(clean_boolean("0", 1), 0, "shared boolean cleaner preserves explicit false");
+is(clean_boolean("invalid", 1), 1, "shared boolean cleaner uses its validated fallback");
 is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "none", "MAIN.READ" => 1)), "none", "explicit inactive mode is retained");
 is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "legacy", "MAIN.READ" => 0)), "legacy", "explicit Legacy mode is retained independently of READ");
 is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "vzlogger", "MAIN.READ" => 1)), "vzlogger", "explicit vzLogger mode is retained independently of READ");

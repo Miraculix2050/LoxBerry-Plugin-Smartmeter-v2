@@ -5,7 +5,7 @@ use warnings;
 use FindBin;
 use Test::More;
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys validate_channel_announcement send_udp_cycle);
+use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys validate_channel_announcement send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
 
 my $uuid = "11111111-2222-3333-4444-555555555555";
 my $second = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -13,6 +13,23 @@ my $mapping = {
 	$uuid => { serial => "reader", name => "Import", identifier => "1-0:1.8.0", channel_index => 0 },
 	$second => { serial => "reader", name => "Import2", identifier => "1-0:1.8.0", channel => "chn1", identifier_ambiguous => 1 },
 };
+
+is(timestamp_epoch(1785264660064), 1785264660, "millisecond timestamp is converted to Unix seconds");
+is(timestamp_epoch(1785264660), 1785264660, "second timestamp remains unchanged");
+is(loxone_timestamp(1785264660064), 554496660, "millisecond timestamp is converted with the UTC Loxone epoch");
+is_deeply(
+	bridge_timestamp_values(1785264660064),
+	{ Last_UpdateUnix => 1785264660, Last_UpdateLoxEpoche => 554496660 },
+	"bridge output contains Unix seconds and the matching Loxone timestamp",
+);
+foreach my $timezone (qw(UTC Europe/Berlin America/New_York)) {
+	local $ENV{TZ} = $timezone;
+	is(loxone_timestamp(1785264660064), 554496660, "Loxone conversion is independent of timezone $timezone");
+}
+ok(!defined(timestamp_epoch("invalid")), "invalid timestamp is rejected");
+ok(!defined(bridge_timestamp_values("invalid")), "invalid timestamp produces no bridge values");
+is(bridge_topic("smartmeter/vzlogger"), "smartmeter/bridge", "standard bridge topic is a sibling of vzLogger");
+is(bridge_topic("custom/readings"), "custom/readings/bridge", "custom expert topic receives a bridge child");
 my %channels = channel_mapping($mapping);
 is($channels{chn0}, $uuid, "channel index fallback is mapped");
 is($channels{chn1}, $second, "explicit channel name is mapped");

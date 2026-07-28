@@ -398,6 +398,16 @@ sub validate_mapping
 		}
 	}
 	if (bridge_enabled()) {
+		my $plugin = read_plugin_config();
+		my $mqtt_output_key = "VZLOGGER.BRIDGEMQTTENABLED";
+		my $http_cache_key = "VZLOGGER.HTTPCACHEENABLED";
+		my $mqtt_output = ($plugin->{$mqtt_output_key} || "0") eq "1";
+		my $http_cache = !defined($plugin->{$http_cache_key}) || $plugin->{$http_cache_key} eq "1";
+		my $udp_output = ($plugin->{"MAIN.SENDUDP"} || "0") eq "1";
+		push @errors, "The SmartMeter bridge is enabled but MQTT, HTTP cache, and UDP outputs are all disabled."
+			if (!$mqtt_output && !$http_cache && !$udp_output);
+		push @errors, "The SmartMeter bridge MQTT output requires vzLogger MQTT timestamps."
+			if ($mqtt_output && ref($config->{mqtt}) eq "HASH" && !$config->{mqtt}->{timestamp});
 		my $managed_count = grep { ref($_) eq "HASH" && $_->{managed_output} } values %$mapping;
 		push @errors, "The SmartMeter bridge is enabled but no active plugin output channel is configured." if (!$managed_count);
 	}

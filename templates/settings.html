@@ -722,13 +722,26 @@
 				<div class="lb-collapsible-content">
 				<p><TMPL_VAR NAME=VZLOGGER.BRIDGE_SETTINGS_HELP></p>
 				<table border="0" class="settings-table compact-settings">
+				<tr><td colspan="4"><h4><TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_OUTPUT></h4></td></tr>
 				<tr>
-					<td width="20%"><label for="vzlogger_udpinterval"><TMPL_VAR NAME=VZLOGGER.UPDATE_CYCLE></label></td>
-					<td width="55%"><select id="vzlogger_udpinterval" name="vzlogger_udpinterval"><TMPL_LOOP NAME=VZLOGGER_UDPINTERVAL_OPTIONS><option value="<TMPL_VAR NAME=VALUE>" <TMPL_VAR NAME=SELECTED>><TMPL_VAR NAME=LABEL></option></TMPL_LOOP></select></td>
+					<td width="20%"><label for="bridge_mqtt_enabled"><TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_ENABLED></label></td>
+					<td width="55%"><input id="bridge_mqtt_enabled_value" name="bridge_mqtt_enabled" type="hidden" value="<TMPL_VAR BRIDGE_MQTT_ENABLED>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_ENABLED>"><input id="bridge_mqtt_enabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); update_bridge_output_controls();"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td width="5%">&nbsp;</td>
-					<td width="20%"><font size="-1"><TMPL_VAR NAME=VZLOGGER.UPDATE_CYCLE_HELP></font></td>
+					<td width="20%"><font size="-1"><TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_ENABLED_HELP></font></td>
 				</tr>
-				<tr><td colspan="4"><h4><TMPL_VAR NAME=VZLOGGER.HTTP_CACHE></h4></td></tr>
+				<tr id="bridge_mqtt_topic_row">
+					<td><TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_TOPIC></td>
+					<td><code><TMPL_VAR BRIDGE_MQTT_TOPIC ESCAPE=HTML></code></td>
+					<td>&nbsp;</td>
+					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.BRIDGE_MQTT_TOPIC_HELP></font></td>
+				</tr>
+				<tr><td colspan="4"><h4><TMPL_VAR NAME=VZLOGGER.CACHE_UDP_OUTPUTS></h4></td></tr>
+				<tr>
+					<td><label for="http_cache_enabled"><TMPL_VAR NAME=VZLOGGER.HTTP_CACHE_ENABLED></label></td>
+					<td><input id="http_cache_enabled_value" name="http_cache_enabled" type="hidden" value="<TMPL_VAR HTTP_CACHE_ENABLED>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.HTTP_CACHE_ENABLED>"><input id="http_cache_enabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); update_bridge_output_controls();"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
+					<td>&nbsp;</td>
+					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.HTTP_CACHE_ENABLED_HELP></font></td>
+				</tr>
 				<tr id="http_cache_status_row">
 					<td><TMPL_VAR NAME=VZLOGGER.HTTP_CACHE_STATUS></td>
 					<td><span><TMPL_VAR NAME=HTTP_CACHE_STATUS></span><br><a id="http_cache_link" data-cache-available="<TMPL_VAR HTTP_CACHE_AVAILABLE>" class="inline-link <TMPL_VAR HTTP_CACHE_DISABLED>" href="<TMPL_VAR HTTP_CACHE_URL>" target="_blank"><TMPL_VAR NAME=VZLOGGER.OPEN_HTTP_CACHE></a></td>
@@ -738,7 +751,7 @@
 				<tr><td colspan="4"><h4><TMPL_VAR NAME=VZLOGGER.UDP_OPTIONS></h4></td></tr>
 				<tr>
 					<td><label for="sendudp"><TMPL_VAR NAME=VZLOGGER.SEND_UDP></label></td>
-					<td><input id="sendudp_value" name="sendudp" type="hidden" value="<TMPL_VAR SENDUDP>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.SEND_UDP>"><input id="sendudp" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
+					<td><input id="sendudp_value" name="sendudp" type="hidden" value="<TMPL_VAR SENDUDP>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.SEND_UDP>"><input id="sendudp" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); update_bridge_output_controls();"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td>&nbsp;</td>
 					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.SEND_UDP_HELP></font></td>
 				</tr>
@@ -747,6 +760,12 @@
 					<td><input id="udpport" name="udpport" type="text" data-validation="number" value="<TMPL_VAR UDPPORT>" data-validation-allowing="range[1;65000]"></td>
 					<td>&nbsp;</td>
 					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.UDP_PORT_HELP></font></td>
+				</tr>
+				<tr>
+					<td><label for="vzlogger_cacheudpinterval"><TMPL_VAR NAME=VZLOGGER.UPDATE_CYCLE></label></td>
+					<td><select id="vzlogger_cacheudpinterval" name="vzlogger_cacheudpinterval"><TMPL_LOOP NAME=VZLOGGER_CACHEUDPINTERVAL_OPTIONS><option value="<TMPL_VAR NAME=VALUE>" <TMPL_VAR NAME=SELECTED>><TMPL_VAR NAME=LABEL></option></TMPL_LOOP></select></td>
+					<td>&nbsp;</td>
+					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.UPDATE_CYCLE_HELP></font></td>
 				</tr>
 				</table>
 				</div>
@@ -1796,9 +1815,9 @@
 		smartmeterSetToggleValue("read", initial_read_value);
 		smartmeterSetToggleValue("implementation", initial_implementation_value);
 		smartmeterSetToggleValue("expert_mode", expert_mode_active ? "1" : "0");
-		var sendudp_control = $("#sendudp");
 		smartmeterSetToggleValue("sendudp", "<TMPL_VAR SENDUDP>");
-		sendudp_control.off("change.smartmeterUdp").on("change.smartmeterUdp", disable_udp);
+		smartmeterSetToggleValue("bridge_mqtt_enabled", "<TMPL_VAR BRIDGE_MQTT_ENABLED>");
+		smartmeterSetToggleValue("http_cache_enabled", "<TMPL_VAR HTTP_CACHE_ENABLED>");
 		$("#rescan_ir_heads, #http_cache_link, #vzlogger_live_link, #vzlogger_rendered_link").off("click.smartmeterDisabled").on("click.smartmeterDisabled", function (event) {
 			if ($(this).attr("aria-disabled") == "true") event.preventDefault();
 		});
@@ -1812,10 +1831,10 @@
 		smartmeterSetToggleValue("vzlogger_mqttrawandagg", "<TMPL_VAR VZLOGGER_MQTTRAWANDAGG>");
 		$("#vzlogger_mqttqos").val("<TMPL_VAR VZLOGGER_MQTTQOS>");
 		smartmeterSetToggleValue("vzlogger_mqtttimestamp", "<TMPL_VAR VZLOGGER_MQTTTIMESTAMP>");
-		$("#vzlogger_udpinterval").val("<TMPL_VAR VZLOGGER_UDPINTERVAL>");
+		$("#vzlogger_cacheudpinterval").val("<TMPL_VAR VZLOGGER_CACHEUDPINTERVAL>");
 		update_activation_dirty_hints();
 		disable_cron();
-		disable_udp();
+		update_bridge_output_controls();
 
 		function disable_cron() {
 			update_all_control_states();
@@ -1895,6 +1914,8 @@
 				local: smartmeterToggleValue("vzlogger_localenabled") == "1",
 				mqtt: expert_mode_active ? expert_mqtt_enabled : smartmeterToggleValue("vzlogger_mqttenabled") == "1",
 				bridge_switch: smartmeterToggleValue("read") == "1",
+				bridge_mqtt: smartmeterToggleValue("bridge_mqtt_enabled") == "1",
+				http_cache: smartmeterToggleValue("http_cache_enabled") == "1",
 				udp: smartmeterToggleValue("sendudp") == "1"
 			};
 			ui.bridge_available = ui.vzlogger && ui.mqtt;
@@ -1913,14 +1934,16 @@
 
 			set_control_disabled("#read", !ui.bridge_available);
 			$("#bridge_configuration_section").toggleClass("configuration-disabled", !ui.bridge);
-			set_control_disabled("#vzlogger_debug, #vzlogger_udpinterval, #sendudp", !ui.bridge);
+			set_control_disabled("#vzlogger_debug, #bridge_mqtt_enabled, #http_cache_enabled, #sendudp", !ui.bridge);
 			$("#bridge_settings_panel > p").toggleClass("setting-disabled-inline", !ui.bridge);
 			$("#bridge_settings_panel h4").closest("tr").toggleClass("setting-disabled", !ui.bridge);
-			$("#http_cache_status_row").toggleClass("setting-disabled", !ui.bridge);
+			$("#bridge_mqtt_topic_row").toggleClass("setting-disabled", !ui.bridge || !ui.bridge_mqtt);
+			$("#http_cache_status_row").toggleClass("setting-disabled", !ui.bridge || !ui.http_cache);
 			var cache_available = $("#http_cache_link").attr("data-cache-available") == "1";
-			set_anchor_disabled("#http_cache_link", !ui.bridge || !cache_available);
+			set_anchor_disabled("#http_cache_link", !ui.bridge || !ui.http_cache || !cache_available);
 			set_control_disabled("#udpport", !ui.bridge || !ui.udp);
 			$("#labeludpport").toggleClass("is-disabled", !ui.bridge || !ui.udp);
+			set_control_disabled("#vzlogger_cacheudpinterval", !ui.bridge || (!ui.http_cache && !ui.udp));
 			if (expert_mode_active) {
 				$("#vzlogger_configuration_section").find("input, select, textarea, button").not("#expert_mode").each(function () {
 					set_control_disabled($(this), true);
@@ -2054,9 +2077,7 @@
 		function update_local_controls() { update_all_control_states(); }
 		function update_mqtt_controls() { update_all_control_states(); }
 		function update_bridge_controls() { update_activation_dirty_hints(); update_all_control_states(); }
-		function disable_udp() {
-			update_all_control_states();
-		}
+		function update_bridge_output_controls() { update_all_control_states(); }
 
 		function update_meter_protocol(serial) {
 			var panelElement = document.getElementById("meter_" + serial);
