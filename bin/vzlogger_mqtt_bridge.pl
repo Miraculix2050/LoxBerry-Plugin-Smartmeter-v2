@@ -13,7 +13,7 @@ use LoxBerry::Log;
 use LoxBerry::System;
 use lib $FindBin::Bin;
 use SmartMeterVZLoggerChannels qw(output_order_mapping ordered_output_names read_json);
-use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping normalize_mapping_keys validate_channel_announcement send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
+use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping normalize_mapping_keys effective_channel_topics send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
 use SmartMeterVZLoggerConfig qw(clean_boolean clean_number clean_qos sanitize_topic);
 
 my $home = $lbhomedir;
@@ -73,23 +73,28 @@ die "$mapping_error\n" if (!$mapping);
 my $runtime_config = read_json($vzlogger_config_file) || {};
 my $runtime_mqtt = ref($runtime_config->{mqtt}) eq "HASH" ? $runtime_config->{mqtt} : {};
 my $source_topic = sanitize_topic($runtime_mqtt->{topic} || (($plugin_cfg->param("MAIN.MQTTTOPIC") || "smartmeter") . "/vzlogger"));
-my $subscribe_topic = "$source_topic/#";
+my ($effective_topics, $topic_errors) = effective_channel_topics($runtime_config, $mapping);
+die join("\n", @$topic_errors) . "\n" if (@$topic_errors);
+die "No active SmartMeter output channel MQTT topic is configured.\n" if (!@$effective_topics);
+my @subscribe_topics = map { $_->{topic} } @$effective_topics;
 my $bridge_topic = bridge_topic($source_topic);
 my $update_interval = clean_number($plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL"), clean_number($plugin_cfg->param("VZLOGGER.UDPINTERVAL"), 5));
 my $send_udp = $plugin_cfg->param("MAIN.SENDUDP") ? 1 : 0;
 my $http_cache_enabled = clean_boolean($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED"), 1);
-my $bridge_mqtt_enabled = clean_boolean($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED"), 0);
+my $bridge_mqtt_configured = clean_boolean($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED"), 0);
+my $source_timestamps_enabled = clean_boolean($runtime_mqtt->{timestamp}, 0);
+my $bridge_mqtt_enabled = $bridge_mqtt_configured && $source_timestamps_enabled;
 my $debug_enabled = ($plugin_cfg->param("VZLOGGER.DEBUG") || "0") eq "1";
 my $udp_port = clean_number($plugin_cfg->param("MAIN.UDPPORT"), 7000);
 my $mqtt = read_mqtt_settings();
 my %uuid_by_channel = channel_mapping($mapping);
-my %uuid_by_identifier = identifier_mapping($mapping);
 my $output_order_by_serial = output_order_mapping($mapping);
 my @udp_targets = $send_udp ? miniserver_targets() : ();
 
 $bridge_log->loglevel(7) if ($debug_enabled);
 my $debug_callback = $debug_enabled ? \&debug_line : undef;
-log_line("Starting MQTT bridge. Source=$subscribe_topic BridgeTopic=" . ($bridge_mqtt_enabled ? $bridge_topic : "disabled") . " Host=$mqtt->{host}:$mqtt->{port}");
+log_line("Starting MQTT bridge. Sources=" . join(",", @subscribe_topics) . " BridgeTopic=" . ($bridge_mqtt_enabled ? $bridge_topic : "disabled") . " Host=$mqtt->{host}:$mqtt->{port}");
+log_line("Bridge MQTT timestamp output is disabled because vzLogger source timestamps are unavailable.") if ($bridge_mqtt_configured && !$source_timestamps_enabled);
 log_line("Debug logging is enabled.") if ($debug_enabled);
 debug_line("UDP output is disabled in plugin config.") if (!$send_udp);
 debug_line("HTTP cache output is disabled in plugin config.") if (!$http_cache_enabled);
@@ -100,10 +105,10 @@ $mqtt_pub_fh = start_mqtt_publisher() if ($bridge_mqtt_enabled);
 
 my @command = (
 	"mosquitto_sub",
-	"-t", $subscribe_topic,
 	"-F", "%t %p",
 	"-q", $mqtt->{qos},
 );
+push @command, map { ("-t", $_) } @subscribe_topics;
 
 my $mqtt_fh;
 {
@@ -124,19 +129,6 @@ while (my $line = <$mqtt_fh>) {
 	my ($topic, $payload) = split(/\s+/, $line, 2);
 	next if (!defined($payload));
 	debug_line("MQTT raw topic=$topic payload=$payload") if ($debug_enabled);
-
-	if ($topic =~ m{/([^/]+)/uuid\z}) {
-		my $channel = $1;
-		my $uuid = validate_channel_announcement("uuid", $channel, $payload, $mapping, \%uuid_by_channel, \%uuid_by_identifier, $debug_callback);
-		debug_line("MQTT channel mapping verified channel=$channel uuid=$uuid") if ($debug_enabled && $uuid);
-		next;
-	}
-	if ($topic =~ m{/([^/]+)/id\z}) {
-		my $channel = $1;
-		my $uuid = validate_channel_announcement("id", $channel, $payload, $mapping, \%uuid_by_channel, \%uuid_by_identifier, $debug_callback);
-		debug_line("MQTT channel mapping verified channel=$channel identifier=$payload uuid=$uuid") if ($debug_enabled && $uuid);
-		next;
-	}
 
 	my $reading = parse_reading($topic, $payload, $mapping, \%uuid_by_channel, $debug_callback);
 	if (!$reading) {

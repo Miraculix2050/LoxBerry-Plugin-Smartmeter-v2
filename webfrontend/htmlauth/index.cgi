@@ -56,7 +56,7 @@ umask(0027);
 use lib $lbpbindir;
 use lib "$FindBin::Bin/../../bin";
 use SmartMeterVZLoggerChannels qw(parse_obis compose_obis normalize_obis default_output_key stable_uuid read_json write_json_atomic load_catalog lookup_obis new_document migrate_legacy_meter validate_document localize_validation_errors);
-use SmartMeterVZLoggerBridge qw(bridge_topic);
+use SmartMeterVZLoggerBridge qw(bridge_topic effective_channel_topics normalize_mapping_keys);
 use SmartMeterVZLoggerExpert qw(read_text write_text_atomic validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping update_expert_log_settings expert_configs_equal);
 use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
 use SmartMeterVZLoggerConfig qw(protocol_for_meter normalized_meter_mode serial_mode clean_qos set_implementation_mode read_webserver_settings);
@@ -348,7 +348,11 @@ sub form_vzlogger
 	$template->param("CRON" => $plugin_cfg->param("MAIN.CRON") || 5);
 	$template->param("SENDUDP" => $plugin_cfg->param("MAIN.SENDUDP") || 0);
 	$template->param("UDPPORT" => $plugin_cfg->param("MAIN.UDPPORT") || 7000);
-	$template->param("BRIDGE_MQTT_ENABLED" => clean_boolean($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED"), 0));
+	my $expert_mode = expert_mode_enabled();
+	my $runtime_config = read_json("$lbpconfigdir/vzlogger.conf") || {};
+	my $runtime_mqtt = ref($runtime_config->{mqtt}) eq "HASH" ? $runtime_config->{mqtt} : {};
+	my $source_timestamps = $expert_mode ? ($runtime_mqtt->{timestamp} ? 1 : 0) : clean_boolean($plugin_cfg->param("VZLOGGER.MQTTTIMESTAMP"), 1);
+	$template->param("BRIDGE_MQTT_ENABLED" => clean_boolean($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED"), 0) && $source_timestamps ? 1 : 0);
 	$template->param("HTTP_CACHE_ENABLED" => clean_boolean($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED"), 1));
 	$template->param("MQTTTOPIC" => $mqtttopic);
 	$template->param("VZLOGGER_LOCALENABLED" => $local_enabled);
@@ -378,7 +382,6 @@ sub form_vzlogger
 	$template->param("VZLOGGER_MQTTRAWANDAGG" => clean_boolean($plugin_cfg->param("VZLOGGER.MQTTRAWANDAGG"), 0));
 	$template->param("VZLOGGER_MQTTQOS" => clean_qos($plugin_cfg->param("VZLOGGER.MQTTQOS"), 0));
 	$template->param("VZLOGGER_MQTTTIMESTAMP" => clean_boolean($plugin_cfg->param("VZLOGGER.MQTTTIMESTAMP"), 1));
-	my $expert_mode = expert_mode_enabled();
 	$template->param("VZLOGGER_EXPERT_MODE" => $expert_mode);
 	$template->param("VZLOGGER_EXPERT_MODE_VALUE" => $expert_mode ? 1 : 0);
 	$template->param("VZLOGGER_EXPERT_SOURCE_PRESENT" => -e expert_config_file() ? 1 : 0);
@@ -389,8 +392,8 @@ sub form_vzlogger
 	$template->param("VZLOGGER_CONFIG_URL" => "./vzlogger_config.cgi?lang=$ui_language");
 	my $visible_config_exists = $expert_mode ? -e expert_config_file() : -e "$lbpconfigdir/vzlogger.conf";
 	$template->param("VZLOGGER_CONFIG_DISABLED" => ($visible_config_exists ? "" : "is-disabled"));
-	my $runtime_config = read_json("$lbpconfigdir/vzlogger.conf") || {};
 	$template->param("EXPERT_MQTT_ENABLED" => (ref($runtime_config->{mqtt}) eq "HASH" && $runtime_config->{mqtt}->{enabled}) ? 1 : 0);
+	$template->param("EXPERT_MQTT_TIMESTAMP" => $runtime_mqtt->{timestamp} ? 1 : 0);
 	my $applied_mqtt_topic = ref($runtime_config->{mqtt}) eq "HASH" ? ($runtime_config->{mqtt}->{topic} || "") : "";
 	$template->param("BRIDGE_MQTT_TOPIC" => bridge_topic($applied_mqtt_topic || "$mqtttopic/vzlogger"));
 	my $http_host = $ENV{HTTP_HOST} || "localhost";
@@ -399,6 +402,7 @@ sub form_vzlogger
 	$template->param("METER_TEMPLATES_JSON" => JSON::PP->new->utf8->canonical->encode(load_meter_templates()));
 	$template->param("CHANNEL_DEFINITIONS_JSON" => JSON::PP->new->utf8->canonical->encode($channel_document || new_document()));
 	$template->param("CHANNEL_INDICES_JSON" => JSON::PP->new->utf8->canonical->encode(runtime_channel_indices()));
+	$template->param("CHANNEL_TOPICS_JSON" => JSON::PP->new->utf8->canonical->encode(runtime_channel_topics()));
 	$template->param("OBIS_CATALOG_JSON" => JSON::PP->new->utf8->canonical->encode($obis_catalog || load_catalog("$lbptemplatedir/obis_catalog.json")));
 	add_http_cache_template_params(@rows);
 	$template->param("ROWS" => \@rows);
@@ -858,6 +862,7 @@ sub run_form_ajax_action
 		$response->{message} = $output;
 		$response->{config_url} = "./vzlogger_config.cgi?lang=" . ($L{'COMMON.LANGUAGE_CODE'} || "en");
 		$response->{channel_indices} = runtime_channel_indices();
+		$response->{channel_topics} = runtime_channel_topics();
 		write_apply_log($output, \$output);
 		return $response;
 	}
@@ -909,6 +914,7 @@ sub run_form_ajax_action
 	$response->{timed_out} = $configuration_action_timed_out ? JSON::PP::true : JSON::PP::false;
 	$response->{config_url} = "./vzlogger_config.cgi?lang=" . ($L{'COMMON.LANGUAGE_CODE'} || "en");
 	$response->{channel_indices} = runtime_channel_indices();
+	$response->{channel_topics} = runtime_channel_topics();
 	return $response;
 }
 
@@ -1043,7 +1049,7 @@ sub generated_config_status
 	my $config_file = "$lbpconfigdir/vzlogger.conf";
 	my $mapping_file = "$lbpconfigdir/vzlogger_channels.json";
 	my $validator = "$lbpbindir/vzlogger_validate.pl";
-	my $status = { present => -e $config_file ? 1 : 0, valid => 0, mqtt_enabled => 0 };
+	my $status = { present => -e $config_file ? 1 : 0, valid => 0, mqtt_enabled => 0, mqtt_timestamp => 0 };
 	return $status if (!$status->{present});
 	open(my $fh, "<", $config_file) or return $status;
 	local $/;
@@ -1052,6 +1058,7 @@ sub generated_config_status
 	my $config = eval { JSON::PP->new->utf8->decode($json) };
 	return $status if ($@ || ref($config) ne "HASH");
 	$status->{mqtt_enabled} = (ref($config->{mqtt}) eq "HASH" && $config->{mqtt}->{enabled}) ? 1 : 0;
+	$status->{mqtt_timestamp} = (ref($config->{mqtt}) eq "HASH" && $config->{mqtt}->{timestamp}) ? 1 : 0;
 	return $status if (!-e $validator || ref($config->{meters}) ne "ARRAY" || !@{$config->{meters}});
 	return $status if (!expert_mode_enabled() && !-e $mapping_file);
 	if ($assume_valid) {
@@ -1184,12 +1191,15 @@ sub set_expert_mode_ajax
 	my $expert_config = $status->{result}->{config};
 	my $mqtt_enabled = ref($expert_config) eq "HASH" &&
 		ref($expert_config->{mqtt}) eq "HASH" && $expert_config->{mqtt}->{enabled};
+	my $mqtt_timestamp = ref($expert_config) eq "HASH" &&
+		ref($expert_config->{mqtt}) eq "HASH" && $expert_config->{mqtt}->{timestamp};
 	return {
 		ok => JSON::PP::true,
 		expert_mode => $enabled eq "1" ? JSON::PP::true : JSON::PP::false,
 		expert_valid => $status->{valid} ? JSON::PP::true : JSON::PP::false,
 		expert_applied => expert_configuration_applied() ? JSON::PP::true : JSON::PP::false,
 		mqtt_enabled => $mqtt_enabled ? JSON::PP::true : JSON::PP::false,
+		mqtt_timestamp => $mqtt_timestamp ? JSON::PP::true : JSON::PP::false,
 		validation_message => $status->{message},
 		message => $enabled eq "1" ? $L{'VZLOGGER.UI_EXPERT_ENABLED'} : $L{'VZLOGGER.UI_EXPERT_DISABLED'},
 	};
@@ -1207,12 +1217,15 @@ sub reset_expert_configuration_ajax
 	my $expert_config = $status->{result}->{config};
 	my $mqtt_enabled = ref($expert_config) eq "HASH" &&
 		ref($expert_config->{mqtt}) eq "HASH" && $expert_config->{mqtt}->{enabled};
+	my $mqtt_timestamp = ref($expert_config) eq "HASH" &&
+		ref($expert_config->{mqtt}) eq "HASH" && $expert_config->{mqtt}->{timestamp};
 	return {
 		ok => JSON::PP::true,
 		expert_mode => JSON::PP::true,
 		expert_valid => $status->{valid} ? JSON::PP::true : JSON::PP::false,
 		expert_applied => expert_configuration_applied() ? JSON::PP::true : JSON::PP::false,
 		mqtt_enabled => $mqtt_enabled ? JSON::PP::true : JSON::PP::false,
+		mqtt_timestamp => $mqtt_timestamp ? JSON::PP::true : JSON::PP::false,
 		validation_message => $status->{message},
 		message => $L{'VZLOGGER.UI_EXPERT_RESET_DONE'},
 	};
@@ -1262,7 +1275,11 @@ sub save_expert_allowed_form
 	$plugin_cfg->param("MAIN.READ", clean_config_value($q->{read}, qr/\A[01]\z/, $plugin_cfg->param("MAIN.READ") || "0"));
 	$plugin_cfg->param("MAIN.SENDUDP", clean_config_value($q->{sendudp}, qr/\A[01]\z/, $plugin_cfg->param("MAIN.SENDUDP") || "0"));
 	$plugin_cfg->param("MAIN.UDPPORT", clean_config_value($q->{udpport}, qr/\A\d+\z/, $plugin_cfg->param("MAIN.UDPPORT") || "7000"));
-	$plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED", clean_config_value($q->{bridge_mqtt_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED")) ? $plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED") : "0"));
+	my $expert = expert_draft_status();
+	my $expert_config = $expert->{result}->{config};
+	my $source_timestamps = $expert->{valid} && ref($expert_config) eq "HASH" && ref($expert_config->{mqtt}) eq "HASH" && $expert_config->{mqtt}->{timestamp};
+	my $bridge_mqtt = clean_config_value($q->{bridge_mqtt_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED")) ? $plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED") : "0");
+	$plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED", $source_timestamps ? $bridge_mqtt : "0");
 	$plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED", clean_config_value($q->{http_cache_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED")) ? $plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED") : "1"));
 	$plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL", clean_udp_interval($q->{vzlogger_cacheudpinterval}, $plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL") || $plugin_cfg->param("VZLOGGER.UDPINTERVAL") || "5"));
 	$plugin_cfg->param("VZLOGGER.DEBUG", clean_config_value($q->{vzlogger_debug}, qr/\A[01]\z/, $plugin_cfg->param("VZLOGGER.DEBUG") || "0"));
@@ -1500,7 +1517,9 @@ sub save_vzlogger_form
 	$plugin_cfg->param("VZLOGGER.MQTTRETAIN", clean_config_value($q->{vzlogger_mqttretain}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.MQTTRETAIN")) ? $plugin_cfg->param("VZLOGGER.MQTTRETAIN") : "1"));
 	$plugin_cfg->param("VZLOGGER.MQTTRAWANDAGG", clean_config_value($q->{vzlogger_mqttrawandagg}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.MQTTRAWANDAGG")) ? $plugin_cfg->param("VZLOGGER.MQTTRAWANDAGG") : "0"));
 	$plugin_cfg->param("VZLOGGER.MQTTQOS", clean_config_value($q->{vzlogger_mqttqos}, qr/\A[01]\z/, $plugin_cfg->param("VZLOGGER.MQTTQOS") || "0"));
-	$plugin_cfg->param("VZLOGGER.MQTTTIMESTAMP", clean_config_value($q->{vzlogger_mqtttimestamp}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.MQTTTIMESTAMP")) ? $plugin_cfg->param("VZLOGGER.MQTTTIMESTAMP") : "1"));
+	my $source_timestamps = clean_config_value($q->{vzlogger_mqtttimestamp}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.MQTTTIMESTAMP")) ? $plugin_cfg->param("VZLOGGER.MQTTTIMESTAMP") : "1");
+	$plugin_cfg->param("VZLOGGER.MQTTTIMESTAMP", $source_timestamps);
+	$plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED", "0") if ($source_timestamps ne "1");
 
 	foreach my $device ($implementation eq "vzlogger" ? @heads : ()) {
 		my $serial = $device;
@@ -1594,10 +1613,9 @@ sub validate_submitted_vzlogger_form
 		push @errors, "$field must be 0 or 1" if (defined($q->{$field}) && $q->{$field} !~ /\A[01]\z/);
 	}
 	if (($q->{read} || "0") eq "1") {
+		my $effective_bridge_mqtt = (($q->{bridge_mqtt_enabled} || "0") eq "1" && ($q->{vzlogger_mqtttimestamp} || "0") eq "1") ? 1 : 0;
 		push @errors, $L{'VZLOGGER.UI_BRIDGE_OUTPUT_REQUIRED'}
-			if (($q->{bridge_mqtt_enabled} || "0") ne "1" && ($q->{http_cache_enabled} || "0") ne "1" && ($q->{sendudp} || "0") ne "1");
-		push @errors, $L{'VZLOGGER.UI_BRIDGE_TIMESTAMP_REQUIRED'}
-			if (($q->{bridge_mqtt_enabled} || "0") eq "1" && ($q->{vzlogger_mqtttimestamp} || "0") ne "1");
+			if (!$effective_bridge_mqtt && ($q->{http_cache_enabled} || "0") ne "1" && ($q->{sendudp} || "0") ne "1");
 	}
 	push @errors, "vzlogger_mqttqos must be 0 or 1" if (defined($q->{vzlogger_mqttqos}) && $q->{vzlogger_mqttqos} !~ /\A[01]\z/);
 	push @errors, "vzlogger_loglevel must be 0, 1, 3, 5, 10 or 15"
@@ -2691,6 +2709,18 @@ sub runtime_channel_indices
 		}
 	}
 	return \%indices;
+}
+
+sub runtime_channel_topics
+{
+	my $config = read_json("$lbpconfigdir/vzlogger.conf");
+	my $loaded_mapping = read_json("$lbpconfigdir/vzlogger_channels.json");
+	my ($mapping) = normalize_mapping_keys($loaded_mapping);
+	return {} if (ref($config) ne "HASH" || !$mapping);
+	my ($topics, $errors) = effective_channel_topics($config, $mapping);
+	return {} if (@$errors);
+	my %by_uuid = map { $_->{uuid} => $_->{topic} } @$topics;
+	return \%by_uuid;
 }
 
 sub resolve_meter_mode_for_row
