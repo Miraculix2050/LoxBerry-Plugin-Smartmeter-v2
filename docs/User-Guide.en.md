@@ -147,11 +147,14 @@ vzLogger publishes below:
 <base topic>/vzlogger
 ```
 
-The MQTT bridge subscribes to:
+The MQTT bridge does not subscribe to a wildcard tree. For every channel enabled through **Output in SmartMeter** in the applied configuration, it subscribes to exactly one topic:
 
 ```text
-<base topic>/vzlogger/#
+<base topic>/vzlogger/chnN/agg   (with effective channel aggregation)
+<base topic>/vzlogger/chnN/raw   (otherwise)
 ```
+
+Even with vzLogger `rawAndAgg=true`, an aggregated channel subscribes only to `/agg`. `/id` and `/uuid` are not subscribed. The applied full source topic is shown directly in each channel row; new or unapplied channels show a notice instead.
 
 As its first output, the bridge immediately publishes the Loxone timestamp converted from each channel timestamp to:
 
@@ -159,7 +162,7 @@ As its first output, the bridge immediately publishes the Loxone timestamp conve
 <base topic>/bridge
 ```
 
-The bridge inherits broker, port, authentication, TLS, QoS, and retain from the actually applied vzLogger MQTT configuration. The JSON payload is grouped by meter serial, for example `{"A106Q3RX":{"Last_UpdateUnix":1785264660,"Last_UpdateLoxEpoche":554496660}}`. A Unix timestamp in milliseconds is first rounded down to whole UTC seconds. `Last_UpdateLoxEpoche` is calculated from the same value by subtracting the fixed UTC offset `1230768000`; timezone and daylight-saving offsets are never added. The example value `1785264660064` therefore becomes `1785264660` and `554496660`. `use_local_time` selects only meter or LoxBerry system time inside vzLogger and does not change this conversion. A correctly set meter clock accounts for possible FIFO buffering delays; use LoxBerry system time when the meter timestamp is wrong or missing. MQTT output is sent immediately when a channel timestamp changes and does not wait for the cache/UDP update cycle. A missing or invalid source timestamp does not overwrite the retained value. There is no additional bridge heartbeat.
+The bridge inherits broker, port, authentication, TLS, QoS, and retain from the actually applied vzLogger MQTT configuration. The JSON payload is grouped by meter serial, for example `{"A106Q3RX":{"Last_UpdateUnix":1785264660,"Last_UpdateLoxEpoche":554496660}}`. A Unix timestamp in milliseconds is first rounded down to whole UTC seconds. `Last_UpdateLoxEpoche` is calculated from the same value by subtracting the fixed UTC offset `1230768000`; timezone and daylight-saving offsets are never added. The example value `1785264660064` therefore becomes `1785264660` and `554496660`. `use_local_time` selects only meter or LoxBerry system time inside vzLogger and does not change this conversion. Without vzLogger MQTT timestamps, the bridge MQTT timestamp output is automatically switched off and locked; HTTP cache and UDP continue to process scalar `/raw` and `/agg` values and use the local receive time for their update fields. Enabling source timestamps later leaves the bridge output off until it is deliberately enabled again. MQTT output is sent immediately when a channel timestamp changes and does not wait for the cache/UDP update cycle. There is no additional bridge heartbeat.
 
 When **Update HTTP cache** is enabled, the bridge keeps recognized vzLogger messages in memory and writes them on the update cycle as legacy-compatible `.data` cache files below:
 

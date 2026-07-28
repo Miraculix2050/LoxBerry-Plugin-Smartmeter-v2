@@ -147,11 +147,14 @@ vzLogger veröffentlicht unter:
 <Basis-Topic>/vzlogger
 ```
 
-Die MQTT-Bridge abonniert:
+Die MQTT-Bridge abonniert keinen Wildcard-Baum. Für jeden in der angewendeten Konfiguration über **In SmartMeter ausgeben** aktivierten Kanal abonniert sie genau einen Pfad:
 
 ```text
-<Basis-Topic>/vzlogger/#
+<Basis-Topic>/vzlogger/chnN/agg   (bei wirksamer Kanal-Aggregation)
+<Basis-Topic>/vzlogger/chnN/raw   (sonst)
 ```
+
+Auch bei vzLogger `rawAndAgg=true` wird für einen aggregierten Kanal nur `/agg` abonniert. `/id` und `/uuid` werden nicht abonniert. Der jeweils angewendete vollständige Quellpfad steht direkt in der Kanalzeile; bei neuen oder noch nicht angewendeten Kanälen erscheint stattdessen ein Hinweis.
 
 Als erste Ausgabe veröffentlicht die Bridge den aus dem jeweiligen Kanal-Timestamp umgerechneten Loxone-Zeitstempel sofort auf:
 
@@ -159,7 +162,7 @@ Als erste Ausgabe veröffentlicht die Bridge den aus dem jeweiligen Kanal-Timest
 <Basis-Topic>/bridge
 ```
 
-Die Bridge übernimmt Broker, Port, Authentifizierung, TLS, QoS und Retain aus der tatsächlich angewendeten vzLogger-MQTT-Konfiguration. Der JSON-Payload ist nach Zählerseriennummer gegliedert, zum Beispiel `{"A106Q3RX":{"Last_UpdateUnix":1785264660,"Last_UpdateLoxEpoche":554496660}}`. Ein Unix-Timestamp in Millisekunden wird zunächst auf ganze UTC-Sekunden abgerundet. `Last_UpdateLoxEpoche` entsteht aus demselben Wert durch Abzug des festen UTC-Offsets `1230768000`; Zeitzone und Sommerzeit werden niemals addiert. Der Beispielwert `1785264660064` ergibt deshalb `1785264660` und `554496660`. `use_local_time` wählt nur innerhalb von vzLogger zwischen Zähler- und LoxBerry-Systemzeit und verändert diese Umrechnung nicht. Eine korrekt eingestellte Zählerzeit bildet mögliche Verzögerungen durch FIFO-Puffer ab; bei falschen oder fehlenden Zählerzeitstempeln sollte die LoxBerry-Systemzeit verwendet werden. Die MQTT-Ausgabe erfolgt bei einem geänderten Kanal-Timestamp unmittelbar und hängt nicht vom Cache-/UDP-Intervall ab. Ein fehlender oder ungültiger Quell-Timestamp überschreibt den letzten Retain-Wert nicht. Einen zusätzlichen Bridge-Heartbeat gibt es nicht.
+Die Bridge übernimmt Broker, Port, Authentifizierung, TLS, QoS und Retain aus der tatsächlich angewendeten vzLogger-MQTT-Konfiguration. Der JSON-Payload ist nach Zählerseriennummer gegliedert, zum Beispiel `{"A106Q3RX":{"Last_UpdateUnix":1785264660,"Last_UpdateLoxEpoche":554496660}}`. Ein Unix-Timestamp in Millisekunden wird zunächst auf ganze UTC-Sekunden abgerundet. `Last_UpdateLoxEpoche` entsteht aus demselben Wert durch Abzug des festen UTC-Offsets `1230768000`; Zeitzone und Sommerzeit werden niemals addiert. Der Beispielwert `1785264660064` ergibt deshalb `1785264660` und `554496660`. `use_local_time` wählt nur innerhalb von vzLogger zwischen Zähler- und LoxBerry-Systemzeit und verändert diese Umrechnung nicht. Ohne aktivierte vzLogger-MQTT-Zeitstempel wird die Bridge-MQTT-Timestamp-Ausgabe automatisch ausgeschaltet und gesperrt; HTTP-Cache und UDP verarbeiten skalare `/raw`- und `/agg`-Werte weiterhin und verwenden für ihre Aktualisierungszeit die lokale Empfangszeit. Beim späteren Aktivieren der Quell-Zeitstempel bleibt die Bridge-Ausgabe aus, bis sie bewusst wieder eingeschaltet wird. Die MQTT-Ausgabe erfolgt bei einem geänderten Kanal-Timestamp unmittelbar und hängt nicht vom Cache-/UDP-Intervall ab. Einen zusätzlichen Bridge-Heartbeat gibt es nicht.
 
 Wenn **HTTP-Cache aktualisieren** eingeschaltet ist, sammelt die Bridge erkannte vzLogger-Nachrichten im Arbeitsspeicher und schreibt sie im Aktualisierungsintervall als Legacy-kompatible `.data`-Cachedateien:
 

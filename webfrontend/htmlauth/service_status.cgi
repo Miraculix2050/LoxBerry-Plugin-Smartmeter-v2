@@ -49,6 +49,7 @@ if ($details) {
 		present => $generated->{present} ? JSON::PP::true : JSON::PP::false,
 		valid => $generated->{valid} ? JSON::PP::true : JSON::PP::false,
 		mqtt_enabled => $generated->{mqtt_enabled} ? JSON::PP::true : JSON::PP::false,
+		mqtt_timestamp => $generated->{mqtt_timestamp} ? JSON::PP::true : JSON::PP::false,
 		expert_mode => $expert_mode ? JSON::PP::true : JSON::PP::false,
 		expert_present => $expert->{present} ? JSON::PP::true : JSON::PP::false,
 		expert_valid => $expert->{valid} ? JSON::PP::true : JSON::PP::false,
@@ -159,9 +160,10 @@ sub generated_config_status
 	my ($config_dir, $bin_dir, $expert_mode) = @_;
 	my $file = "$config_dir/vzlogger.conf";
 	my $config = read_json_file($file);
-	my $status = { present => -e $file ? 1 : 0, valid => 0, mqtt_enabled => 0 };
+	my $status = { present => -e $file ? 1 : 0, valid => 0, mqtt_enabled => 0, mqtt_timestamp => 0 };
 	return $status if (ref($config) ne "HASH");
 	$status->{mqtt_enabled} = ref($config->{mqtt}) eq "HASH" && $config->{mqtt}->{enabled} ? 1 : 0;
+	$status->{mqtt_timestamp} = ref($config->{mqtt}) eq "HASH" && $config->{mqtt}->{timestamp} ? 1 : 0;
 	return $status if (ref($config->{meters}) ne "ARRAY" || !@{$config->{meters}});
 	return $status if (!$expert_mode && !-e "$config_dir/vzlogger_channels.json");
 	my $validator = "$bin_dir/vzlogger_validate.pl";
