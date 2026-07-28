@@ -4,6 +4,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Add targeted troubleshooting guidance to the rendered vzLogger live-data page for an unavailable HTTP service and for an index response without active channels.
 - Add subtle zero-line fills to instantaneous-power curves, keep every live-chart line at a stable width, opacity, and order during hover, reveal only the current measurement point, and let legend clicks toggle visibility across live updates without reordering entries.
 - Draw vzLogger live histories as continuous color-coded lines, derive real collection gaps from each channel's observed measurement cadence, ignore previously stored false short-gap markers, preserve genuine interruptions, and retain hover-only measurement points with a larger hit area.
 - Reduce clutter in vzLogger live charts beyond 15 minutes by plotting exact temporal averages for instantaneous readings and the last energy-counter reading per display interval, while retaining extrema, gaps, resets, and summary peaks.

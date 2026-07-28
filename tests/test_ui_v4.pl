@@ -115,6 +115,8 @@ like($vzlogger, qr/<td colspan="4">\s*<div class="recovery-endpoints-title">.*?<
 
 my $live = $sources{'webfrontend/htmlauth/vzlogger_live.js'};
 like($live, qr/function ingest\(data\).*?return changed;/s, "live ingestion reports whether history changed");
+like($live, qr/diagnosticHtml\(i18n\.noChannels, i18n\.noChannelsHint\)/, "empty live responses show channel-specific troubleshooting guidance");
+like($live, qr/error\.message === i18n\.dataFailed \? i18n\.dataFailedHint/, "live-data failures show service and HTTP troubleshooting guidance");
 like($live, qr/firstRender \|\| metadataChanged \|\| responseChanged \|\| historyChanged.*?renderTable\(data\); updateChart\(\);/s, "live rendering is gated by first render or changed data");
 like($live, qr/visibilitychange.*?renderTable\(currentData\); updateChart\(\);/s, "returning to the live page forces a current render");
 like($live, qr/backgroundColor:\s*colorWithAlpha\(style\.color,\s*0\.04\).*?fill:\s*Live\.isPower\(meta\)\s*\?\s*\{\s*target:\s*"origin"\s*\}\s*:\s*false/s, "live power curves use a subtle fill toward zero only");
