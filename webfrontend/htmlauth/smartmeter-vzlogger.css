@@ -9,6 +9,8 @@
 .service-control-log { margin:-3px 0 14px; text-align:right; }
 .service-action-reason { color:#8a5a00; font-size:85%; margin-top:.25em; }
 .service-action-reason:empty { display:none; }
+.config-key { display:block; margin-top:.18em; color:#68737d; font-size:80%; font-weight:normal; line-height:1.25; overflow-wrap:anywhere; word-break:break-word; }
+.config-key code { padding:0; border:0; background:transparent; color:inherit; font-size:inherit; white-space:normal; }
 .obis-channel-option { display:block; }
 .obis-channel-label { font-size:13px; line-height:1.35; }
 .obis-channel-new { display:block; color:#8a5a00; font-size:85%; margin:.15em 0 .35em 2em; }
@@ -46,7 +48,9 @@
 .recovery-token-output { display: flex; flex-wrap: wrap; gap: .4em; margin-top: .45em; }
 .recovery-token-output[hidden] { display: none; }
 .recovery-token-output input { flex: 1 1 24em; min-width: 0; font-family: monospace; }
+.recovery-endpoints-title { margin-bottom: .5em; font-weight: 600; }
 .recovery-endpoints { display: grid; gap: .65em; }
+.recovery-endpoints-help { margin-top: .6em; }
 .recovery-loxone-block { min-width: 0; padding: .65em .75em; border: 1px solid #ccd5dc; border-radius: 5px; background: rgba(255, 255, 255, .7); }
 .recovery-loxone-block h4 { margin: 0 0 .5em; }
 .recovery-loxone-block p { margin: .5em 0 0; color: #5f6872; font-size: 90%; }

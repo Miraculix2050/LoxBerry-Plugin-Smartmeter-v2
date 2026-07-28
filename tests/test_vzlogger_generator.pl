@@ -30,6 +30,25 @@ DEVICE=/dev/null
 ENABLED=1
 ALLOWSKIP=1
 AGGTIME=30
+AGGFIXEDINTERVAL=1
+[reader_false]
+SERIAL=reader_false
+METER=sml
+PROTOCOL=sml
+DEVICE=/dev/zero
+ENABLED=1
+ALLOWSKIP=1
+AGGTIME=30
+AGGFIXEDINTERVAL=0
+[reader_disabled_aggregation]
+SERIAL=reader_disabled_aggregation
+METER=sml
+PROTOCOL=sml
+DEVICE=/dev/random
+ENABLED=1
+ALLOWSKIP=1
+AGGTIME=-1
+AGGFIXEDINTERVAL=1
 CFG
 close($cfg);
 
@@ -45,7 +64,7 @@ my $document = {
 		  api_options=>{influxdb=>{host=>"must-not-leak"},volkszaehler=>{},mysmartgrid=>{}}, plugin_output=>{enabled=>JSON::PP::false,key=>"Not_Output"} },
 		{ uuid=>$disabled_uuid, enabled=>JSON::PP::false, origin=>"manual", obis=>"1-0:2.8.0", storage=>undef, display_name=>"", api=>"volkszaehler", aggmode=>"none", duplicates=>0,
 		  api_options=>{influxdb=>{},volkszaehler=>{},mysmartgrid=>{}}, plugin_output=>{enabled=>JSON::PP::true,key=>"Disabled"} },
-	] },
+	], reader_false => [], reader_disabled_aggregation => [] },
 };
 write_json_atomic("$dir/vzlogger_channel_definitions.json", $document);
 
@@ -68,15 +87,20 @@ sub read_json_file {
 }
 
 my $generated = read_json_file("$dir/vzlogger.conf");
-is(scalar(@{$generated->{meters}->[0]->{channels}}), 2, "only active definitions are generated");
-is($generated->{meters}->[0]->{channels}->[0]->{identifier}, "1-0:1.8.0*5", "storage index reaches vzLogger identifier");
-is($generated->{meters}->[0]->{channels}->[0]->{host}, "http://influx", "active API field generated");
-is($generated->{meters}->[0]->{channels}->[0]->{version}, 1, "InfluxDB version is generated");
-is_deeply($generated->{meters}->[0]->{channels}->[0]->{tags}, {meter=>"main"}, "InfluxDB tags JSON is generated as an object");
-ok(!exists($generated->{meters}->[0]->{channels}->[0]->{middleware}), "inactive API field omitted");
-ok(!exists($generated->{meters}->[0]->{channels}->[0]->{display_name}), "display name is not a vzLogger field");
-ok(!exists($generated->{meters}->[0]->{channels}->[0]->{name}), "no general channel name is invented");
-ok(!exists($generated->{meters}->[0]->{channels}->[1]->{duplicates}), "duplicates omitted for null API");
+my %meter_by_device = map { $_->{device} => $_ } @{$generated->{meters}};
+my $reader = $meter_by_device{"/dev/null"};
+is(scalar(@{$reader->{channels}}), 2, "only active definitions are generated");
+ok($reader->{aggfixedinterval}, "fixed aggregation interval is generated when aggregation is active");
+ok(exists($meter_by_device{"/dev/zero"}->{aggfixedinterval}) && !$meter_by_device{"/dev/zero"}->{aggfixedinterval}, "explicit false fixed interval is generated while aggregation is active");
+ok(!exists($meter_by_device{"/dev/random"}->{aggfixedinterval}), "remembered fixed interval is omitted while aggregation is disabled");
+is($reader->{channels}->[0]->{identifier}, "1-0:1.8.0*5", "storage index reaches vzLogger identifier");
+is($reader->{channels}->[0]->{host}, "http://influx", "active API field generated");
+is($reader->{channels}->[0]->{version}, 1, "InfluxDB version is generated");
+is_deeply($reader->{channels}->[0]->{tags}, {meter=>"main"}, "InfluxDB tags JSON is generated as an object");
+ok(!exists($reader->{channels}->[0]->{middleware}), "inactive API field omitted");
+ok(!exists($reader->{channels}->[0]->{display_name}), "display name is not a vzLogger field");
+ok(!exists($reader->{channels}->[0]->{name}), "no general channel name is invented");
+ok(!exists($reader->{channels}->[1]->{duplicates}), "duplicates omitted for null API");
 
 my $mapping = read_json_file("$dir/vzlogger_channels.json");
 is_deeply([sort keys %$mapping], [$first_uuid], "mapping contains only active plugin outputs");

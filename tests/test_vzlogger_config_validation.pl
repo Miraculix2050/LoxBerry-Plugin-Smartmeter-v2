@@ -143,6 +143,8 @@ close($live_data_fh);
 unlike($live_data_source, qr/LoxBerry::|HTML::Template|load_catalog/, "lightweight live-data CGI avoids templates, language loading, and catalogs");
 like($live_data_source, qr/X-Smartmeter-Metadata-Version/, "lightweight live-data CGI preserves the metadata version header");
 like($vzlogger_cgi_source, qr/rollback_failed_vzlogger_activation\(\$previous_implementation\)/, "failed vzLogger activation restores the preceding implementation mode");
+like($vzlogger_cgi_source, qr/qw\(allowskip aggfixedinterval uselocaltime\)/, "submitted fixed aggregation interval must be a boolean");
+like($vzlogger_cgi_source, qr/AGGFIXEDINTERVAL.*?clean_boolean.*?0/s, "missing fixed aggregation interval defaults to false");
 like($vzlogger_cgi_source, qr/else \{\s*# GET builds.*?ensure_vzlogger_defaults\(0\).*?ensure_head_defaults\(0, \@heads\).*?load_or_migrate_channel_document\(0, \@heads\)/s, "vzLogger GET builds defaults and migrations without persistence");
 like($vzlogger_cgi_source, qr/write_json_atomic\(\$file, \$channel_document\) if \(\$changed && \$persist\)/, "channel migration writes only on an explicit persistent path");
 like($vzlogger_cgi_source, qr/SMARTMETER_LEGACY_LOCK_HELD/, "vzLogger activation passes its held Legacy polling guard to the service controller");
