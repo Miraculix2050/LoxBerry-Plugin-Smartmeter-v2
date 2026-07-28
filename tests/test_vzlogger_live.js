@@ -33,6 +33,13 @@ assert.deepEqual(Live.cleanPreferences({ schema: 3, channels: ["missing"], histo
 assert.equal(Live.cleanPreferences({ schema: 2, channels: ["total"], historyRange: Live.RANGE_VALUES[3] }, ["total"]).historyRangeExplicit, true, "a non-default range from the previous schema remains an explicit choice");
 assert.equal(Live.cleanPreferences({ schema: 2, channels: ["total"], historyRange: Live.DEFAULT_RANGE }, ["total"]).historyRangeExplicit, false, "the old automatic 24-hour default can migrate to dynamic selection");
 assert.deepEqual(Array.from(Live.limitSelection(channels, new Set(["total", "import", "voltage"]), 2)), ["total", "import"], "restored preferences are limited to two unit groups");
+const tenSecondReadings = [0, 10000, 20000, 30000, 40000].map((x, index) => ({ x, y: index }));
+assert.equal(Live.estimateSampleInterval(tenSecondReadings), 10000, "the actual channel cadence is estimated from recent readings");
+assert.equal(Live.gapThreshold(10000), 30000, "a ten-second channel tolerates normal delivery jitter and isolated delays");
+assert.equal(Live.hasReadingGap(1000, 11000, 10000), false, "normal ten-second readings remain connected");
+assert.equal(Live.hasReadingGap(1000, 31000, 10000), false, "the adaptive gap threshold itself remains connected");
+assert.equal(Live.hasReadingGap(1000, 31001, 10000), true, "a delay beyond the adaptive threshold creates a gap");
+assert.equal(Live.gapThreshold(60000), 180000, "slower meters receive a gap threshold based on their own cadence");
 assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL + 1), true, "a delayed reading creates a chart gap");
 assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL), false, "the accepted polling window remains connected");
 assert.equal(Live.pollDelay(0), 2000, "successful live polling retains the two-second interval");
@@ -48,7 +55,9 @@ assert.deepEqual(Live.readingDecision(previousReading, 1001, 11, "1001|11", "100
 assert.equal(Live.readingDecision(previousReading, 1001, 11, "1001|11", "1001|11", { category: "active_power_total" }).accept, false, "the last raw tuple is ignored");
 assert.equal(Live.readingDecision(previousReading, 1000, 10, "1000|10.0", "1000|10", { category: "active_power_total" }).rememberKey, true, "an equivalent scaled tuple advances deduplication without adding history");
 assert.equal(Live.readingDecision(previousReading, 999, 9, "999|9", "1000|10", { category: "active_power_total" }).accept, false, "an older reading is ignored");
-assert.equal(Live.readingDecision(previousReading, 1000 + Live.GAP_INTERVAL + 1, 11, "gap|11", "1000|10", { category: "active_power_total" }).gap, true, "a delayed accepted reading requests a chart gap");
+assert.equal(Live.readingDecision(previousReading, 1000 + Live.GAP_INTERVAL + 1, 11, "initial|11", "1000|10", { category: "active_power_total" }).gap, false, "a new channel learns its cadence before declaring a gap");
+assert.equal(Live.readingDecision(previousReading, 1000 + Live.GAP_INTERVAL + 1, 11, "gap|11", "1000|10", { category: "active_power_total" }, 10000).gap, true, "a delayed accepted reading requests a chart gap once cadence is known");
+assert.equal(Live.readingDecision(previousReading, 11000, 11, "normal|11", "1000|10", { category: "active_power_total" }, 10000).gap, false, "the reading decision uses the measured channel cadence");
 assert.equal(Live.readingDecision(previousReading, 1001, 9, "1001|9", "1000|10", { category: "active_energy_import" }).reset, true, "an accepted decreasing energy reading requests a new baseline");
 assert.equal(Live.liveDataSignature({ data: [] }), Live.liveDataSignature({ data: [] }), "equivalent live responses have a stable signature");
 assert.notEqual(Live.liveDataSignature({ data: [] }), Live.liveDataSignature({ data: [{ tuples: [[1, 2]] }] }), "changed live responses have a different signature");
@@ -62,6 +71,14 @@ assert.deepEqual(restored.histories.total, [{ x: 1000, y: 12, absolute: 12, raw:
 assert.equal(restored.lastTuples.total, "1|12", "the last tuple survives reload deduplication");
 assert.deepEqual(restored.energySegments.reader[0].bases, { import: 42 }, "removed channels are pruned from restored energy baselines");
 assert.equal(Live.cleanHistorySnapshot(snapshot, ["total", "import"], "meta-2"), null, "history from changed metadata is rejected");
+
+const storedGapReadings = [1000, 11000, 21000, 61001, 71001].map((x, index) => ({ x, y: index }));
+const storedGaps = [
+	{ uuid:"total", x:11001 },
+	{ uuid:"total", x:21001, previousX:21000, nextX:61001 }
+];
+assert.deepEqual(Live.filterStoredGaps(storedGapReadings, storedGaps).map(gap => gap.x), [21001], "legacy cadence gaps are discarded while a real stored interruption remains");
+assert.deepEqual(Live.styleFor("total").dash, [], "all live-chart channels use continuous lines");
 
 const rangeNow = Live.RANGE_VALUES[3] + 1000000;
 assert.equal(Live.rangeForHistory(new Map(), rangeNow), Live.RANGE_VALUES[0], "an empty history starts with the 15-minute range");

@@ -4,6 +4,8 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Add subtle zero-line fills to instantaneous-power curves, keep every live-chart line at a stable width, opacity, and order during hover, reveal only the current measurement point, and let legend clicks toggle visibility across live updates without reordering entries.
+- Draw vzLogger live histories as continuous color-coded lines, derive real collection gaps from each channel's observed measurement cadence, ignore previously stored false short-gap markers, preserve genuine interruptions, and retain hover-only measurement points with a larger hit area.
 - Reduce clutter in vzLogger live charts beyond 15 minutes by plotting exact temporal averages for instantaneous readings and the last energy-counter reading per display interval, while retaining extrema, gaps, resets, and summary peaks.
 - Reduce bridge MQTT load by subscribing to exactly one applied `chnN/agg` or `chnN/raw` topic for each enabled SmartMeter output channel, prefer effective aggregation even when raw values are also published, show the applied source topic in the channel UI, accept scalar raw/aggregate payloads without timestamps, and automatically disable bridge MQTT timestamp publication when source timestamps are unavailable.
 - Add the standard `meters[].aggfixedinterval` control with retained inactive state, label native vzLogger paths throughout the configuration UI, align German and English help with the vzLogger parameter reference, correct the documented SmartMeter bridge update-cycle scope, and widen the Loxone copy-and-paste blocks.
