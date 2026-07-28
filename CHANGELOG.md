@@ -4,6 +4,9 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Render service, I/R-head, and OBIS actions as one correctly sized native modal instead of a bordered inner panel inside a wider dialog, and target the OBIS spinner without affecting the I/R scan overlay.
+- Avoid misleading `reset-failed` errors while applying a deliberately disabled optional bridge; failed-state cleanup now runs only for services that systemd actually reports as failed.
+- Add an optional token-protected Loxone recovery endpoint for vzLogger, the MQTT bridge, or both, with per-service cooldown, an optional source-IP allow-list, correctly encoded localized AJAX feedback, a collapsible settings panel, and Loxone-specific copy-and-paste fields using LoxBerry's configured HTTP/HTTPS ports for one virtual output plus three virtual output commands; deliberately stopped, disabled, unconfigured, and optional-disabled services remain untouched.
 - Cut recurring web-UI CPU load with lightweight batched service-status and live-data CGI endpoints, ten-second service polling, bounded live-data retry backoff, warning-free Perl imports, read-only GET rendering, lazy meter/channel editors, and cacheable vzLogger UI assets while preserving the two-second live-data resolution and existing endpoint compatibility.
 - Restore passwordless Save/Apply service handling by granting only the four exact install/remove commands for the root-owned vzLogger and bridge systemd helpers; this fixes both bridge activation and deactivation after the LoxBerry V4 helper move.
 - Reduce recurring AJAX work by reading each service's state and PID with one cached systemd query, skipping unchanged live-table and chart renders, and updating aggregation availability without rebuilding every channel card on each input event.

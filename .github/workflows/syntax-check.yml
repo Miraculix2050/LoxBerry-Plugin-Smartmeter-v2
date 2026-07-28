@@ -102,6 +102,7 @@ jobs:
           perl tests/test_lifecycle_v4.pl
           perl tests/test_ui_v4.pl
           perl tests/test_bridge_service_lifecycle.pl
+          perl tests/test_recovery.pl
           perl -I .github/ci/perl-lib -I bin tests/test_legacy_runtime.pl
 
       - name: Test test-device file normalization

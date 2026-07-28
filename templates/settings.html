@@ -89,6 +89,8 @@
 		line-height: 1.35;
 	}
 	.service-panel h3 { margin: 0 0 4px 0; }
+	.service-panel.recovery-settings-panel { border: 0; background: transparent; padding: 0; }
+	.service-panel.recovery-settings-panel > .lb-collapsible-content { padding: 10px 12px; }
 	.service-panel-description { margin: 0 0 8px 0; color: #444; }
 	.service-panel table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 	.service-panel td { padding: 3px 5px; vertical-align: top; }
@@ -178,26 +180,16 @@
 	.meter-doc-links { margin-top: .45em; }
 	.meter-remove-row td { padding-top: 12px !important; border-top: 1px solid #ddd; }
 	.meter-remove-help { margin-left: .75em; font-size: 90%; }
-	.obis-search-overlay {
-		display: none;
-		position: fixed;
-		inset: 0;
-		z-index: 10000;
-		align-items: center;
-		justify-content: center;
-		padding: 20px;
-		background: rgba(0, 0, 0, .45);
-	}
-	.obis-search-overlay.is-visible { display: flex; }
+	.smartmeter-page dialog.action-overlay-standard { width: min(92vw, 420px); }
+	.smartmeter-page dialog.action-overlay-wide { width: min(92vw, 640px); }
 	.obis-search-dialog {
 		box-sizing: border-box;
 		width: 100%;
-		max-width: 420px;
-		padding: 24px;
-		border: 1px solid #777;
-		border-radius: 8px;
-		background: #fff;
-		box-shadow: 0 8px 28px rgba(0, 0, 0, .35);
+		max-width: none;
+		border: 0;
+		border-radius: 0;
+		background: transparent;
+		box-shadow: none;
 		color: #222;
 		text-align: center;
 	}
@@ -215,7 +207,6 @@
 	.ir-scan-results { margin: 12px 0 0; padding-left: 1.4em; text-align: left; }
 	.ir-scan-countdown { margin-top: 10px; color: #666; font-size: 90%; }
 	.service-action-details { max-height: 12em; overflow: auto; margin: 12px 0 0; padding: 8px; border: 1px solid #ddd; background: #f7f7f7; text-align: left; white-space: pre-wrap; }
-	.configuration-action-dialog { max-width: 640px; }
 	.configuration-action-dialog .service-action-details { max-height: 22em; }
 	.obis-search-actions { margin-top: 18px; }
 	.obis-search-actions .lb-btn { margin: 0 auto; }
@@ -396,6 +387,101 @@
 		</tr>
 		</table>
 	</div>
+	<details class="service-panel recovery-settings-panel lb-collapsible" id="recovery_settings_panel" open>
+		<summary><TMPL_VAR NAME=VZLOGGER.RECOVERY_TITLE></summary>
+		<div class="lb-collapsible-content">
+		<p class="service-panel-description"><TMPL_VAR NAME=VZLOGGER.RECOVERY_DESCRIPTION></p>
+		<table border="0">
+		<tr>
+			<td class="service-label"><label for="recovery_enabled"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ENABLED></label></td>
+			<td class="service-controls"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.RECOVERY_ENABLED>"><input id="recovery_enabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" <TMPL_IF RECOVERY_ENABLED>checked</TMPL_IF>><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
+			<td class="service-spacer">&nbsp;</td>
+			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ENABLED_HELP></td>
+		</tr>
+		<tr>
+			<td class="service-label"><label for="recovery_cooldown"><TMPL_VAR NAME=VZLOGGER.RECOVERY_COOLDOWN></label></td>
+			<td class="service-controls"><input id="recovery_cooldown" type="number" min="30" max="3600" value="<TMPL_VAR RECOVERY_COOLDOWN>"></td>
+			<td class="service-spacer">&nbsp;</td>
+			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_COOLDOWN_HELP></td>
+		</tr>
+		<tr>
+			<td class="service-label"><label for="recovery_ip_check_enabled"><TMPL_VAR NAME=VZLOGGER.RECOVERY_IP_CHECK></label></td>
+			<td class="service-controls"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.RECOVERY_IP_CHECK>"><input id="recovery_ip_check_enabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="update_recovery_controls();" <TMPL_IF RECOVERY_IP_CHECK_ENABLED>checked</TMPL_IF>><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
+			<td class="service-spacer">&nbsp;</td>
+			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_IP_CHECK_HELP></td>
+		</tr>
+		<tr id="recovery_allowed_ips_row">
+			<td class="service-label"><label for="recovery_allowed_ips"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ALLOWED_IPS></label></td>
+			<td class="service-controls"><textarea id="recovery_allowed_ips" class="lb-input" rows="2" placeholder="192.168.1.5"><TMPL_VAR RECOVERY_ALLOWED_IPS ESCAPE=HTML></textarea></td>
+			<td class="service-spacer">&nbsp;</td>
+			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ALLOWED_IPS_HELP></td>
+		</tr>
+		<tr>
+			<td class="service-label"><TMPL_VAR NAME=VZLOGGER.RECOVERY_TOKEN></td>
+			<td class="service-controls">
+				<span id="recovery_token_status"><TMPL_IF RECOVERY_TOKEN_PRESENT><TMPL_VAR NAME=VZLOGGER.RECOVERY_TOKEN_CONFIGURED><TMPL_ELSE><TMPL_VAR NAME=VZLOGGER.RECOVERY_TOKEN_MISSING></TMPL_IF></span>
+				<div id="recovery_token_output" class="recovery-token-output" hidden><input id="recovery_plain_token" type="text" readonly autocomplete="off"><button type="button" onclick="copy_recovery_token();"><TMPL_VAR NAME=VZLOGGER.RECOVERY_COPY_TOKEN></button></div>
+			</td>
+			<td class="service-spacer">&nbsp;</td>
+			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_TOKEN_HELP></td>
+		</tr>
+		<tr>
+			<td class="service-label"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ENDPOINTS></td>
+			<td class="service-controls recovery-endpoints">
+				<section class="recovery-loxone-block recovery-loxone-output">
+					<h4><TMPL_VAR NAME=VZLOGGER.RECOVERY_VIRTUAL_OUTPUT></h4>
+					<dl class="recovery-loxone-fields">
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_OUTPUT_HTTP_ADDRESS></dt>
+						<dd><code><TMPL_VAR RECOVERY_LOXONE_HTTP_ADDRESS ESCAPE=HTML></code></dd>
+						<TMPL_IF RECOVERY_HTTPS_ENABLED>
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_OUTPUT_HTTPS_ADDRESS></dt>
+						<dd><code><TMPL_VAR RECOVERY_LOXONE_HTTPS_ADDRESS ESCAPE=HTML></code></dd>
+						</TMPL_IF>
+					</dl>
+					<p><TMPL_VAR NAME=VZLOGGER.RECOVERY_OUTPUT_AUTH_HELP></p>
+				</section>
+				<section class="recovery-loxone-block">
+					<h4><TMPL_VAR NAME=VZLOGGER.RECOVERY_VIRTUAL_COMMAND>: vzLogger</h4>
+					<dl class="recovery-loxone-fields">
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_COMMAND_ON></dt><dd><code><TMPL_VAR RECOVERY_COMMAND_VZLOGGER ESCAPE=HTML></code></dd>
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_HEADER_ON></dt><dd><code>X-Smartmeter-Recovery-Token: &lt;token&gt;</code></dd>
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_BODY_ON></dt><dd><em><TMPL_VAR NAME=VZLOGGER.RECOVERY_BODY_EMPTY></em></dd>
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_METHOD_ON></dt><dd><code>POST</code></dd>
+					</dl>
+				</section>
+				<section class="recovery-loxone-block">
+					<h4><TMPL_VAR NAME=VZLOGGER.RECOVERY_VIRTUAL_COMMAND>: Bridge</h4>
+					<dl class="recovery-loxone-fields">
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_COMMAND_ON></dt><dd><code><TMPL_VAR RECOVERY_COMMAND_BRIDGE ESCAPE=HTML></code></dd>
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_HEADER_ON></dt><dd><code>X-Smartmeter-Recovery-Token: &lt;token&gt;</code></dd>
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_BODY_ON></dt><dd><em><TMPL_VAR NAME=VZLOGGER.RECOVERY_BODY_EMPTY></em></dd>
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_METHOD_ON></dt><dd><code>POST</code></dd>
+					</dl>
+				</section>
+				<section class="recovery-loxone-block">
+					<h4><TMPL_VAR NAME=VZLOGGER.RECOVERY_VIRTUAL_COMMAND>: all</h4>
+					<dl class="recovery-loxone-fields">
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_COMMAND_ON></dt><dd><code><TMPL_VAR RECOVERY_COMMAND_ALL ESCAPE=HTML></code></dd>
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_HEADER_ON></dt><dd><code>X-Smartmeter-Recovery-Token: &lt;token&gt;</code></dd>
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_BODY_ON></dt><dd><em><TMPL_VAR NAME=VZLOGGER.RECOVERY_BODY_EMPTY></em></dd>
+						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_METHOD_ON></dt><dd><code>POST</code></dd>
+					</dl>
+				</section>
+			</td>
+			<td class="service-spacer">&nbsp;</td>
+			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ENDPOINTS_HELP></td>
+		</tr>
+		<tr>
+			<td class="service-label"><TMPL_VAR NAME=VZLOGGER.ACTIONS></td>
+			<td class="service-controls"><button type="button" onclick="save_recovery_settings('save');"><TMPL_VAR NAME=VZLOGGER.RECOVERY_SAVE></button><button type="button" onclick="save_recovery_settings('rotate');"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ROTATE_TOKEN></button><span id="recovery_settings_feedback" class="recovery-settings-feedback" role="status" aria-live="polite"></span></td>
+			<td class="service-spacer">&nbsp;</td>
+			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_SAVE_HELP></td>
+		</tr>
+		</table>
+		<span id="recovery_rotate_confirm_text" hidden><TMPL_VAR NAME=VZLOGGER.RECOVERY_ROTATE_CONFIRM></span>
+		<span id="recovery_request_failed_text" hidden><TMPL_VAR NAME=VZLOGGER.RECOVERY_REQUEST_FAILED></span>
+		</div>
+	</details>
 	<div class="service-control-log"><span><TMPL_VAR NAME=VZLOGGER.SERVICE_CONTROL_LOG_LABEL></span> <a href="<TMPL_VAR CONTROL_LOG_URL>" target="log" class="<TMPL_VAR CONTROL_LOG_DISABLED>"><TMPL_VAR NAME=VZLOGGER.SHOW_CONTROL_LOG></a></div>
 
 	<div id="vzlogger_configuration_section" class="configuration-section <TMPL_IF VZLOGGER_EXPERT_MODE>configuration-disabled</TMPL_IF>">
@@ -687,7 +773,7 @@
 	</tr>
 	</table>
 	</form>
-	<dialog id="ir_scan_overlay" class="lb-modal" aria-labelledby="ir_scan_title" aria-describedby="ir_scan_message">
+	<dialog id="ir_scan_overlay" class="lb-modal action-overlay-standard" aria-labelledby="ir_scan_title" aria-describedby="ir_scan_message">
 		<div class="lb-modal-content obis-search-dialog">
 			<div id="ir_scan_spinner" class="obis-search-spinner" aria-hidden="true"></div>
 			<div id="ir_scan_title" class="obis-search-title"><TMPL_VAR NAME=VZLOGGER.IR_SCAN_RUNNING></div>
@@ -710,9 +796,9 @@
 			<span id="ir_scan_autoclose_text" hidden><TMPL_VAR NAME=VZLOGGER.IR_SCAN_AUTOCLOSE></span>
 		</div>
 	</dialog>
-	<dialog id="obis_search_overlay" class="lb-modal" aria-labelledby="obis_search_title" aria-describedby="obis_search_message">
+	<dialog id="obis_search_overlay" class="lb-modal action-overlay-standard" aria-labelledby="obis_search_title" aria-describedby="obis_search_message">
 		<div class="lb-modal-content obis-search-dialog">
-			<div class="obis-search-spinner" aria-hidden="true"></div>
+			<div id="obis_search_spinner" class="obis-search-spinner" aria-hidden="true"></div>
 			<div id="obis_search_title" class="obis-search-title"><TMPL_VAR NAME=VZLOGGER.OBIS_SEARCH_RUNNING></div>
 			<div id="obis_search_message" class="obis-search-message" role="status" aria-live="polite"><TMPL_VAR NAME=VZLOGGER.OBIS_SEARCH_WAIT></div>
 			<div class="obis-search-actions"><button id="obis_search_cancel" type="button" onclick="cancel_obis_discovery();"><TMPL_VAR NAME=VZLOGGER.OBIS_SEARCH_CANCEL></button></div>
@@ -731,7 +817,7 @@
 			<span id="service_not_installed_text" hidden><TMPL_VAR NAME=VZLOGGER.UI_NOT_INSTALLED></span>
 		</div>
 	</dialog>
-	<dialog id="service_action_overlay" class="lb-modal" aria-labelledby="service_action_title" aria-describedby="service_action_overlay_message">
+	<dialog id="service_action_overlay" class="lb-modal action-overlay-standard" aria-labelledby="service_action_title" aria-describedby="service_action_overlay_message">
 		<div class="lb-modal-content obis-search-dialog">
 			<div id="service_action_spinner" class="obis-search-spinner" aria-hidden="true"></div>
 			<div id="service_action_title" class="obis-search-title"></div>
@@ -754,7 +840,7 @@
 			<span id="service_action_failed_text" hidden><TMPL_VAR NAME=VZLOGGER.SERVICE_ACTION_FAILED></span>
 		</div>
 	</dialog>
-	<dialog id="configuration_action_overlay" class="lb-modal" aria-labelledby="configuration_action_title" aria-describedby="configuration_action_message">
+	<dialog id="configuration_action_overlay" class="lb-modal action-overlay-wide" aria-labelledby="configuration_action_title" aria-describedby="configuration_action_message">
 		<div class="lb-modal-content obis-search-dialog configuration-action-dialog">
 			<div id="configuration_action_spinner" class="obis-search-spinner" aria-hidden="true"></div>
 			<div id="configuration_action_title" class="obis-search-title"></div>
@@ -802,6 +888,47 @@
 
 		function service_ajax_url(action) {
 			return "./index.cgi?ajax=1&ajaxaction=" + encodeURIComponent(action) + "&lang=" + encodeURIComponent(ui_language) + "&_=" + Date.now();
+		}
+
+		function update_recovery_controls() {
+			var enabled = document.getElementById("recovery_ip_check_enabled").checked;
+			var input = document.getElementById("recovery_allowed_ips");
+			input.disabled = !enabled;
+			document.getElementById("recovery_allowed_ips_row").classList.toggle("setting-disabled", !enabled);
+		}
+
+		function save_recovery_settings(operation) {
+			if (operation === "rotate" && !window.confirm(obis_text("recovery_rotate_confirm_text"))) return;
+			var feedback = document.getElementById("recovery_settings_feedback");
+			var data = new FormData();
+			data.append("ajax", "1");
+			data.append("ajaxaction", "recovery-settings");
+			data.append("lang", ui_language);
+			data.append("recovery_operation", operation);
+			data.append("recovery_enabled", document.getElementById("recovery_enabled").checked ? "1" : "0");
+			data.append("recovery_ip_check_enabled", document.getElementById("recovery_ip_check_enabled").checked ? "1" : "0");
+			data.append("recovery_allowed_ips", document.getElementById("recovery_allowed_ips").value);
+			data.append("recovery_cooldown", document.getElementById("recovery_cooldown").value);
+			feedback.textContent = "…";
+			fetch("./index.cgi", { method: "POST", body: data, credentials: "same-origin", cache: "no-store" })
+				.then(function (response) { return response.json(); })
+				.then(function (response) {
+					if (!response.ok) throw new Error(response.message || obis_text("recovery_request_failed_text"));
+					feedback.textContent = response.message || "OK";
+					if (response.token) {
+						document.getElementById("recovery_plain_token").value = response.token;
+						document.getElementById("recovery_token_output").hidden = false;
+						document.getElementById("recovery_token_status").textContent = response.message;
+					}
+				})
+				.catch(function (error) { feedback.textContent = error.message || obis_text("recovery_request_failed_text"); });
+		}
+
+		function copy_recovery_token() {
+			var input = document.getElementById("recovery_plain_token");
+			input.select();
+			if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(input.value);
+			else document.execCommand("copy");
 		}
 
 		function show_action_success(message) {
@@ -1345,7 +1472,7 @@
 		function show_obis_search_overlay() {
 			var overlay = document.getElementById("obis_search_overlay");
 			if (!overlay) return;
-			document.querySelector(".obis-search-spinner").style.display = "block";
+			document.getElementById("obis_search_spinner").style.display = "block";
 			document.getElementById("obis_search_title").textContent = obis_text("obis_search_running_text");
 			document.getElementById("obis_search_message").textContent = obis_text("obis_search_wait_text");
 			document.getElementById("obis_search_cancel").disabled = false;
@@ -2097,6 +2224,7 @@
 
 		$(".meter-panel").each(function () { initialize_meter_panel(this, false); });
 		initialize_collapsible_persistence();
+		update_recovery_controls();
 	</script>
 </TMPL_IF>
 </div>
