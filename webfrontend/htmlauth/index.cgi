@@ -1395,6 +1395,7 @@ sub ensure_head_defaults
 		$plugin_cfg->param("$serial.ENABLED", "1");
 		$plugin_cfg->param("$serial.ALLOWSKIP", "1");
 		$plugin_cfg->param("$serial.AGGTIME", "-1");
+		$plugin_cfg->param("$serial.AGGFIXEDINTERVAL", "0");
 		$plugin_cfg->param("$serial.PROTOCOL", "");
 		$plugin_cfg->param("$serial.STARTBAUDRATE", "");
 		$plugin_cfg->param("$serial.BAUDRATE", "");
@@ -1517,6 +1518,7 @@ sub save_vzlogger_form
 		if ($mode =~ /\A(?:sml|d0|oms)\z/ && $meter_enabled) {
 			$plugin_cfg->param("$serial.ALLOWSKIP", clean_config_value($q->{"$serial\_allowskip"}, qr/\A[01]\z/, clean_boolean(config_scalar_value("$serial.ALLOWSKIP"), 1)));
 			$plugin_cfg->param("$serial.AGGTIME", clean_config_value($q->{"$serial\_aggtime"}, qr/\A(?:-?\d+)?\z/, config_scalar_value("$serial.AGGTIME")));
+			$plugin_cfg->param("$serial.AGGFIXEDINTERVAL", clean_config_value($q->{"$serial\_aggfixedinterval"}, qr/\A[01]\z/, clean_boolean(config_scalar_value("$serial.AGGFIXEDINTERVAL"), 0)));
 			$plugin_cfg->param("$serial.INTERVAL", clean_config_value($q->{"$serial\_interval"}, qr/\A(?:-?\d+)?\z/, config_scalar_value("$serial.INTERVAL")));
 			$plugin_cfg->param("$serial.PULLSEQ", clean_config_value($q->{"$serial\_pullseq"}, qr/\A[A-Fa-f0-9]*\z/, config_scalar_value("$serial.PULLSEQ")));
 			$plugin_cfg->param("$serial.BAUDRATE", clean_config_value($q->{"$serial\_baudrate"}, qr/\A\d*\z/, config_scalar_value("$serial.BAUDRATE")));
@@ -1617,7 +1619,7 @@ sub validate_submitted_vzlogger_form
 		my $enabled = defined($q->{"$serial\_enabled"}) ? $q->{"$serial\_enabled"} : clean_boolean(config_scalar_value("$serial.ENABLED"), 1);
 		push @errors, "$serial: enabled must be 0 or 1" if ($enabled !~ /\A[01]\z/);
 		next if ($enabled ne "1");
-		foreach my $field (qw(allowskip uselocaltime)) {
+		foreach my $field (qw(allowskip aggfixedinterval uselocaltime)) {
 			my $name = "$serial\_$field";
 			push @errors, "$serial: $field must be 0 or 1" if (defined($q->{$name}) && $q->{$name} !~ /\A[01]\z/);
 		}
@@ -2071,6 +2073,8 @@ sub write_vzlogger_obis_test_config
 		channels => [],
 	};
 	set_optional_integer($meter_config, "aggtime", config_scalar_value("$serial.AGGTIME"), 1);
+	set_optional_boolean($meter_config, "aggfixedinterval", config_scalar_value("$serial.AGGFIXEDINTERVAL"))
+		if (exists($meter_config->{aggtime}) && $meter_config->{aggtime} > 0);
 
 	if ($protocol eq "sml") {
 		set_optional_integer($meter_config, "interval", config_scalar_value("$serial.INTERVAL"), 1);
@@ -2630,6 +2634,7 @@ sub build_head_rows
 			METER_ENABLED => clean_boolean(config_scalar_value("$serial.ENABLED"), 1),
 			ALLOWSKIP => clean_boolean(config_scalar_value("$serial.ALLOWSKIP"), 1),
 			AGGTIME => config_scalar_value("$serial.AGGTIME"),
+			AGGFIXEDINTERVAL => clean_boolean(config_scalar_value("$serial.AGGFIXEDINTERVAL"), 0),
 			INTERVAL => config_scalar_value("$serial.INTERVAL"),
 			PULLSEQ => first_config_value($serial, "PULLSEQ") // "",
 			BAUDRATE => $baudrate,

@@ -347,8 +347,8 @@
 					<button id="vzlogger_start_button" class="service-control-button" type="button" onclick="run_service_action('start-vzlogger');" title="<TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP>" data-help-title="<TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP>" disabled <TMPL_IF VZLOGGER_SERVICE_RUNNING>style="display:none"</TMPL_IF>><TMPL_VAR NAME=VZLOGGER.START_SERVICE></button>
 					<button id="vzlogger_stop_button" class="service-control-button" type="button" onclick="run_service_action('stop-vzlogger');" title="<TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP>" data-help-title="<TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP>" disabled <TMPL_IF VZLOGGER_SERVICE_RUNNING><TMPL_ELSE>style="display:none"</TMPL_IF>><TMPL_VAR NAME=VZLOGGER.STOP_SERVICE></button>
 					<a href="<TMPL_VAR VZLOGGER_LOG_URL>" target="log" class="<TMPL_VAR VZLOGGER_LOG_DISABLED>"><TMPL_VAR NAME=VZLOGGER.SHOW_LOG></a>
-					<span class="service-inline-setting"><span><TMPL_VAR NAME=VZLOGGER.DEBUG_LOG></span><input id="vzlogger_service_debug_value" name="vzlogger_service_debug" type="hidden" value="<TMPL_VAR VZLOGGER_SERVICE_DEBUG>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.DEBUG_LOG>"><input id="vzlogger_service_debug" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></span>
-					<span class="service-inline-setting"><label for="vzlogger_loglevel"><TMPL_VAR NAME=VZLOGGER.LOG_LEVEL></label><select id="vzlogger_loglevel" name="vzlogger_loglevel"><option value="0">0 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_0></option><option value="1">1 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_1></option><option value="3">3 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_3></option><option value="5">5 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_5></option><option value="10">10 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_10></option><option value="15">15 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_15></option></select></span>
+					<span class="service-inline-setting"><span><TMPL_VAR NAME=VZLOGGER.DEBUG_LOG></span><span class="config-key"><code>log</code></span><input id="vzlogger_service_debug_value" name="vzlogger_service_debug" type="hidden" value="<TMPL_VAR VZLOGGER_SERVICE_DEBUG>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.DEBUG_LOG>"><input id="vzlogger_service_debug" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></span>
+					<span class="service-inline-setting"><label for="vzlogger_loglevel"><TMPL_VAR NAME=VZLOGGER.LOG_LEVEL></label><span class="config-key"><code>verbosity</code></span><select id="vzlogger_loglevel" name="vzlogger_loglevel"><option value="0">0 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_0></option><option value="1">1 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_1></option><option value="3">3 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_3></option><option value="5">5 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_5></option><option value="10">10 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_10></option><option value="15">15 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_15></option></select></span>
 				</div>
 				<div id="vzlogger_service_action_reason" class="service-action-reason" aria-live="polite"></div>
 				<div class="vzlogger-live-links"><a id="vzlogger_live_link" class="inline-link <TMPL_VAR VZLOGGER_LIVE_DISABLED>" href="<TMPL_VAR VZLOGGER_LIVEURL>" target="_blank"><TMPL_VAR NAME=VZLOGGER.OPEN_LIVE_READINGS></a><a id="vzlogger_rendered_link" class="inline-link <TMPL_VAR VZLOGGER_LIVE_DISABLED>" href="<TMPL_VAR VZLOGGER_RENDERED_URL>" target="_blank"><TMPL_VAR NAME=VZLOGGER.OPEN_RENDERED_READINGS></a></div>
@@ -426,8 +426,9 @@
 			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_TOKEN_HELP></td>
 		</tr>
 		<tr>
-			<td class="service-label"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ENDPOINTS></td>
-			<td class="service-controls recovery-endpoints">
+			<td colspan="4">
+				<div class="recovery-endpoints-title"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ENDPOINTS></div>
+				<div class="recovery-endpoints">
 				<section class="recovery-loxone-block recovery-loxone-output">
 					<h4><TMPL_VAR NAME=VZLOGGER.RECOVERY_VIRTUAL_OUTPUT></h4>
 					<dl class="recovery-loxone-fields">
@@ -467,9 +468,9 @@
 						<dt><TMPL_VAR NAME=VZLOGGER.RECOVERY_METHOD_ON></dt><dd><code>POST</code></dd>
 					</dl>
 				</section>
+				</div>
+				<div class="service-help recovery-endpoints-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ENDPOINTS_HELP></div>
 			</td>
-			<td class="service-spacer">&nbsp;</td>
-			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ENDPOINTS_HELP></td>
 		</tr>
 		<tr>
 			<td class="service-label"><TMPL_VAR NAME=VZLOGGER.ACTIONS></td>
@@ -496,7 +497,7 @@
 				<div class="lb-collapsible-content">
 				<table border="0" class="settings-table compact-settings">
 				<tr>
-					<td width="18%"><label for="vzlogger_retry"><TMPL_VAR NAME=VZLOGGER.RETRY></label></td>
+					<td width="18%"><label for="vzlogger_retry"><TMPL_VAR NAME=VZLOGGER.RETRY></label><span class="config-key"><code>retry</code></span></td>
 					<td><input id="vzlogger_retry" name="vzlogger_retry" type="text" data-validation="number" data-validation-allowing="range[0;86400]" value="<TMPL_VAR VZLOGGER_RETRY>"></td>
 					<td>&nbsp;</td>
 					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.RETRY_HELP></font></td>
@@ -514,31 +515,31 @@
 				<p><TMPL_VAR NAME=VZLOGGER.LOCAL_SETTINGS_HELP></p>
 				<table border="0" class="settings-table compact-settings">
 				<tr>
-					<td width="20%"><label for="vzlogger_localenabled"><TMPL_VAR NAME=VZLOGGER.LOCAL_ENABLED></label></td>
+					<td width="20%"><label for="vzlogger_localenabled"><TMPL_VAR NAME=VZLOGGER.LOCAL_ENABLED></label><span class="config-key"><code>local.enabled</code></span></td>
 					<td width="55%"><input id="vzlogger_localenabled_value" name="vzlogger_localenabled" type="hidden" value="<TMPL_VAR VZLOGGER_LOCALENABLED>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.LOCAL_ENABLED>"><input id="vzlogger_localenabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); update_local_controls();"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td width="5%">&nbsp;</td>
 					<td width="20%"><font size="-1"><TMPL_VAR NAME=VZLOGGER.LOCAL_ENABLED_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_localport"><TMPL_VAR NAME=VZLOGGER.HTTP_PORT></label></td>
+					<td><label for="vzlogger_localport"><TMPL_VAR NAME=VZLOGGER.HTTP_PORT></label><span class="config-key"><code>local.port</code></span></td>
 					<td><input id="vzlogger_localport" name="vzlogger_localport" type="text" data-validation="number" value="<TMPL_VAR VZLOGGER_LOCALPORT>" data-validation-allowing="range[1024;65000]"></td>
 					<td>&nbsp;</td>
 					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.HTTP_PORT_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_localindex"><TMPL_VAR NAME=VZLOGGER.LOCAL_INDEX></label></td>
+					<td><label for="vzlogger_localindex"><TMPL_VAR NAME=VZLOGGER.LOCAL_INDEX></label><span class="config-key"><code>local.index</code></span></td>
 					<td><input id="vzlogger_localindex_value" name="vzlogger_localindex" type="hidden" value="<TMPL_VAR VZLOGGER_LOCALINDEX>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.LOCAL_INDEX>"><input id="vzlogger_localindex" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td>&nbsp;</td>
 					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.LOCAL_INDEX_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_localtimeout"><TMPL_VAR NAME=VZLOGGER.LOCAL_TIMEOUT></label></td>
+					<td><label for="vzlogger_localtimeout"><TMPL_VAR NAME=VZLOGGER.LOCAL_TIMEOUT></label><span class="config-key"><code>local.timeout</code></span></td>
 					<td><input id="vzlogger_localtimeout" name="vzlogger_localtimeout" type="text" data-validation="number" data-validation-allowing="range[0;86400]" value="<TMPL_VAR VZLOGGER_LOCALTIMEOUT>"></td>
 					<td>&nbsp;</td>
 					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.LOCAL_TIMEOUT_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_localbuffer"><TMPL_VAR NAME=VZLOGGER.LOCAL_BUFFER></label></td>
+					<td><label for="vzlogger_localbuffer"><TMPL_VAR NAME=VZLOGGER.LOCAL_BUFFER></label><span class="config-key"><code>local.buffer</code></span></td>
 					<td><input id="vzlogger_localbuffer" name="vzlogger_localbuffer" type="text" data-validation="custom" data-validation-regexp="^-?\d+$" value="<TMPL_VAR VZLOGGER_LOCALBUFFER>"></td>
 					<td>&nbsp;</td>
 					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.LOCAL_BUFFER_HELP></font></td>
@@ -557,64 +558,64 @@
 				<table border="0" class="settings-table compact-settings">
 				<tr><td colspan="4"><h4><TMPL_VAR NAME=VZLOGGER.MQTT_CONNECTION_SETTINGS></h4></td></tr>
 				<tr>
-					<td width="20%"><label for="vzlogger_mqttenabled"><TMPL_VAR NAME=VZLOGGER.MQTT_ENABLED></label></td>
+					<td width="20%"><label for="vzlogger_mqttenabled"><TMPL_VAR NAME=VZLOGGER.MQTT_ENABLED></label><span class="config-key"><code>mqtt.enabled</code></span></td>
 					<td width="55%"><input id="vzlogger_mqttenabled_value" name="vzlogger_mqttenabled" type="hidden" value="<TMPL_VAR VZLOGGER_MQTTENABLED>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.MQTT_ENABLED>"><input id="vzlogger_mqttenabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onChange="smartmeterSyncToggle(this); update_mqtt_controls();"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td width="5%">&nbsp;</td>
 					<td width="20%"><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_ENABLED_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqtthost"><TMPL_VAR NAME=VZLOGGER.MQTT_HOST></label></td>
+					<td><label for="vzlogger_mqtthost"><TMPL_VAR NAME=VZLOGGER.MQTT_HOST></label><span class="config-key"><code>mqtt.host</code></span></td>
 					<td><input id="vzlogger_mqtthost" name="vzlogger_mqtthost" type="text" value="<TMPL_VAR VZLOGGER_MQTTHOST>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_HOST_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttport"><TMPL_VAR NAME=VZLOGGER.MQTT_PORT></label></td>
+					<td><label for="vzlogger_mqttport"><TMPL_VAR NAME=VZLOGGER.MQTT_PORT></label><span class="config-key"><code>mqtt.port</code></span></td>
 					<td><input id="vzlogger_mqttport" name="vzlogger_mqttport" type="text" value="<TMPL_VAR VZLOGGER_MQTTPORT>" data-validation="number" data-validation-optional="true" data-validation-allowing="range[1;65535]"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_PORT_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttkeepalive"><TMPL_VAR NAME=VZLOGGER.MQTT_KEEPALIVE></label></td>
+					<td><label for="vzlogger_mqttkeepalive"><TMPL_VAR NAME=VZLOGGER.MQTT_KEEPALIVE></label><span class="config-key"><code>mqtt.keepalive</code></span></td>
 					<td><input id="vzlogger_mqttkeepalive" name="vzlogger_mqttkeepalive" type="text" value="<TMPL_VAR VZLOGGER_MQTTKEEPALIVE>" data-validation="number" data-validation-allowing="range[0;65535]"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_KEEPALIVE_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="mqtttopic"><TMPL_VAR NAME=VZLOGGER.MQTT_BASE_TOPIC></label></td>
+					<td><label for="mqtttopic"><TMPL_VAR NAME=VZLOGGER.MQTT_BASE_TOPIC></label><span class="config-key"><code>mqtt.topic</code></span></td>
 					<td><input id="mqtttopic" name="mqtttopic" type="text" class="textfield" value="<TMPL_VAR MQTTTOPIC>" data-validation="custom" data-validation-regexp="^[^#+]+$"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_BASE_TOPIC_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttid"><TMPL_VAR NAME=VZLOGGER.MQTT_ID></label></td>
+					<td><label for="vzlogger_mqttid"><TMPL_VAR NAME=VZLOGGER.MQTT_ID></label><span class="config-key"><code>mqtt.id</code></span></td>
 					<td><input id="vzlogger_mqttid" name="vzlogger_mqttid" type="text" value="<TMPL_VAR VZLOGGER_MQTTID>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_ID_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttretain"><TMPL_VAR NAME=VZLOGGER.MQTT_RETAIN></label></td>
+					<td><label for="vzlogger_mqttretain"><TMPL_VAR NAME=VZLOGGER.MQTT_RETAIN></label><span class="config-key"><code>mqtt.retain</code></span></td>
 					<td><input id="vzlogger_mqttretain_value" name="vzlogger_mqttretain" type="hidden" value="<TMPL_VAR VZLOGGER_MQTTRETAIN>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.MQTT_RETAIN>"><input id="vzlogger_mqttretain" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_RETAIN_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttrawandagg"><TMPL_VAR NAME=VZLOGGER.MQTT_RAW_AND_AGG></label></td>
+					<td><label for="vzlogger_mqttrawandagg"><TMPL_VAR NAME=VZLOGGER.MQTT_RAW_AND_AGG></label><span class="config-key"><code>mqtt.rawAndAgg</code></span></td>
 					<td><input id="vzlogger_mqttrawandagg_value" name="vzlogger_mqttrawandagg" type="hidden" value="<TMPL_VAR VZLOGGER_MQTTRAWANDAGG>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.MQTT_RAW_AND_AGG>"><input id="vzlogger_mqttrawandagg" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_RAW_AND_AGG_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttqos"><TMPL_VAR NAME=VZLOGGER.MQTT_QOS></label></td>
+					<td><label for="vzlogger_mqttqos"><TMPL_VAR NAME=VZLOGGER.MQTT_QOS></label><span class="config-key"><code>mqtt.qos</code></span></td>
 					<td><select id="vzlogger_mqttqos" name="vzlogger_mqttqos"><option value="0">0</option><option value="1">1</option></select></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_QOS_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqtttimestamp"><TMPL_VAR NAME=VZLOGGER.MQTT_TIMESTAMP></label></td>
+					<td><label for="vzlogger_mqtttimestamp"><TMPL_VAR NAME=VZLOGGER.MQTT_TIMESTAMP></label><span class="config-key"><code>mqtt.timestamp</code></span></td>
 					<td><input id="vzlogger_mqtttimestamp_value" name="vzlogger_mqtttimestamp" type="hidden" value="<TMPL_VAR VZLOGGER_MQTTTIMESTAMP>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.MQTT_TIMESTAMP>"><input id="vzlogger_mqtttimestamp" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_TIMESTAMP_HELP></font></td>
 				</tr>
 				<tr><td colspan="4"><h4><TMPL_VAR NAME=VZLOGGER.MQTT_USER_AUTH></h4></td></tr>
 				<tr>
-					<td><label for="vzlogger_mqttuser"><TMPL_VAR NAME=VZLOGGER.MQTT_USER></label></td>
+					<td><label for="vzlogger_mqttuser"><TMPL_VAR NAME=VZLOGGER.MQTT_USER></label><span class="config-key"><code>mqtt.user</code></span></td>
 					<td><input id="vzlogger_mqttuser" name="vzlogger_mqttuser" type="text" value="<TMPL_VAR VZLOGGER_MQTTUSER>" autocomplete="username"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_USER_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttpass"><TMPL_VAR NAME=VZLOGGER.MQTT_PASSWORD></label></td>
+					<td><label for="vzlogger_mqttpass"><TMPL_VAR NAME=VZLOGGER.MQTT_PASSWORD></label><span class="config-key"><code>mqtt.pass</code></span></td>
 					<td>
 						<input id="vzlogger_mqttpass" name="vzlogger_mqttpass" type="password" value="" autocomplete="new-password" placeholder="<TMPL_VAR VZLOGGER_MQTTPASS_STATUS>">
 						<label for="vzlogger_mqttpass_reset"><input id="vzlogger_mqttpass_reset" name="vzlogger_mqttpass_reset" type="checkbox" value="1"><TMPL_VAR NAME=VZLOGGER.MQTT_PASSWORD_RESET></label>
@@ -623,27 +624,27 @@
 				</tr>
 				<tr><td colspan="4"><h4><TMPL_VAR NAME=VZLOGGER.MQTT_CERT_AUTH></h4></td></tr>
 				<tr>
-					<td><label for="vzlogger_mqttcafile"><TMPL_VAR NAME=VZLOGGER.MQTT_CAFILE></label></td>
+					<td><label for="vzlogger_mqttcafile"><TMPL_VAR NAME=VZLOGGER.MQTT_CAFILE></label><span class="config-key"><code>mqtt.cafile</code></span></td>
 					<td><input id="vzlogger_mqttcafile" name="vzlogger_mqttcafile" type="text" value="<TMPL_VAR VZLOGGER_MQTTCAFILE>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_CAFILE_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttcapath"><TMPL_VAR NAME=VZLOGGER.MQTT_CAPATH></label></td>
+					<td><label for="vzlogger_mqttcapath"><TMPL_VAR NAME=VZLOGGER.MQTT_CAPATH></label><span class="config-key"><code>mqtt.capath</code></span></td>
 					<td><input id="vzlogger_mqttcapath" name="vzlogger_mqttcapath" type="text" value="<TMPL_VAR VZLOGGER_MQTTCAPATH>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_CAPATH_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttcertfile"><TMPL_VAR NAME=VZLOGGER.MQTT_CERTFILE></label></td>
+					<td><label for="vzlogger_mqttcertfile"><TMPL_VAR NAME=VZLOGGER.MQTT_CERTFILE></label><span class="config-key"><code>mqtt.certfile</code></span></td>
 					<td><input id="vzlogger_mqttcertfile" name="vzlogger_mqttcertfile" type="text" value="<TMPL_VAR VZLOGGER_MQTTCERTFILE>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_CERTFILE_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttkeyfile"><TMPL_VAR NAME=VZLOGGER.MQTT_KEYFILE></label></td>
+					<td><label for="vzlogger_mqttkeyfile"><TMPL_VAR NAME=VZLOGGER.MQTT_KEYFILE></label><span class="config-key"><code>mqtt.keyfile</code></span></td>
 					<td><input id="vzlogger_mqttkeyfile" name="vzlogger_mqttkeyfile" type="text" value="<TMPL_VAR VZLOGGER_MQTTKEYFILE>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_KEYFILE_HELP></font></td>
 				</tr>
 				<tr>
-					<td><label for="vzlogger_mqttkeypass"><TMPL_VAR NAME=VZLOGGER.MQTT_KEYPASS></label></td>
+					<td><label for="vzlogger_mqttkeypass"><TMPL_VAR NAME=VZLOGGER.MQTT_KEYPASS></label><span class="config-key"><code>mqtt.keypass</code></span></td>
 					<td>
 						<input id="vzlogger_mqttkeypass" name="vzlogger_mqttkeypass" type="password" value="" autocomplete="new-password" placeholder="<TMPL_VAR NAME=VZLOGGER.MQTT_PASSWORD_UNCHANGED>">
 						<label for="vzlogger_mqttkeypass_reset"><input id="vzlogger_mqttkeypass_reset" name="vzlogger_mqttkeypass_reset" type="checkbox" value="1"><TMPL_VAR NAME=VZLOGGER.MQTT_KEYPASS_RESET></label>
@@ -663,7 +664,7 @@
 	</tr>
 	<TMPL_LOOP NAME=ROWS>
 	<tr id="meter_row_<TMPL_VAR NAME=SERIAL>" class="meter-row" data-meter-serial="<TMPL_VAR NAME=SERIAL ESCAPE=HTML>"><td colspan="4">
-		<details id="meter_<TMPL_VAR NAME=SERIAL>" class="meter-panel lb-collapsible" <TMPL_IF NAME=COLLAPSED><TMPL_ELSE>open</TMPL_IF> data-warning-kind="<TMPL_VAR NAME=WARNING_KIND>" data-oms-supported="<TMPL_VAR NAME=OMS_SUPPORTED>" data-current-mode="<TMPL_VAR NAME=METER>" data-meter-enabled="<TMPL_VAR NAME=METER_ENABLED>" data-allowskip="<TMPL_VAR NAME=ALLOWSKIP>" data-parity="<TMPL_VAR NAME=PARITYMODE>" data-local-time="<TMPL_VAR NAME=USELOCALTIME>" data-wait-sync="<TMPL_VAR NAME=WAITSYNC>" data-mbus-debug="<TMPL_VAR NAME=MBUSDEBUG>">
+		<details id="meter_<TMPL_VAR NAME=SERIAL>" class="meter-panel lb-collapsible" <TMPL_IF NAME=COLLAPSED><TMPL_ELSE>open</TMPL_IF> data-warning-kind="<TMPL_VAR NAME=WARNING_KIND>" data-oms-supported="<TMPL_VAR NAME=OMS_SUPPORTED>" data-current-mode="<TMPL_VAR NAME=METER>" data-meter-enabled="<TMPL_VAR NAME=METER_ENABLED>" data-allowskip="<TMPL_VAR NAME=ALLOWSKIP>" data-aggfixedinterval="<TMPL_VAR NAME=AGGFIXEDINTERVAL>" data-parity="<TMPL_VAR NAME=PARITYMODE>" data-local-time="<TMPL_VAR NAME=USELOCALTIME>" data-wait-sync="<TMPL_VAR NAME=WAITSYNC>" data-mbus-debug="<TMPL_VAR NAME=MBUSDEBUG>">
 			<summary>
 				<TMPL_VAR NAME=NAME ESCAPE=HTML>
 				<TMPL_IF NAME=PENDING_METER><span class="meter-pending-badge"><TMPL_VAR NAME=VZLOGGER.METER_PENDING_NEW></span></TMPL_IF>
@@ -675,28 +676,29 @@
 			<TMPL_IF NAME=OMS_UNSUPPORTED><div class="meter-oms-runtime-warning meter-warning-message" role="alert"><TMPL_VAR NAME=VZLOGGER.METER_WARNING_OMS_UNAVAILABLE></div></TMPL_IF>
 			<table border="0" class="settings-table compact-settings">
 			<tr class="meter-name-row"><td><label for="<TMPL_VAR NAME=SERIAL>_name"><TMPL_VAR NAME=COMMON.METER_NAME></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_name" name="<TMPL_VAR NAME=SERIAL>_name" type="text" value="<TMPL_VAR NAME=NAME ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_NAME_HELP></td></tr>
-			<tr class="meter-common-field meter-enabled-row"><td><label for="<TMPL_VAR NAME=SERIAL>_enabled"><TMPL_VAR NAME=VZLOGGER.METER_ENABLED></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_enabled_value" name="<TMPL_VAR NAME=SERIAL>_enabled" type="hidden" value="<TMPL_VAR NAME=METER_ENABLED>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.METER_ENABLED>"><input id="<TMPL_VAR NAME=SERIAL>_enabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); update_meter_enabled('<TMPL_VAR NAME=SERIAL>');"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_ENABLED_HELP></td></tr>
-			<tr><td><TMPL_VAR NAME=VZLOGGER.METER_DEVICE></td><td><code><TMPL_VAR NAME=DEVICE ESCAPE=HTML></code></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_DEVICE_HELP></td></tr>
-			<tr><td><label for="<TMPL_VAR NAME=SERIAL>_meter"><TMPL_VAR NAME=VZLOGGER.METER_PROTOCOL></label></td><td><select id="<TMPL_VAR NAME=SERIAL>_meter" name="<TMPL_VAR NAME=SERIAL>_meter" onchange="update_meter_protocol(this.id.substring(0, this.id.length - 6));"><option value="0"><TMPL_VAR NAME=COMMON.PLEASE_SELECT></option><option value="sml">SML</option><option value="d0">D0</option><option value="oms">OMS</option><option value="user"><TMPL_VAR NAME=VZLOGGER.PROTOCOL_USER></option></select></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_PROTOCOL_HELP></td></tr>
+			<tr class="meter-common-field meter-enabled-row"><td><label for="<TMPL_VAR NAME=SERIAL>_enabled"><TMPL_VAR NAME=VZLOGGER.METER_ENABLED></label><span class="config-key"><code>meters[].enabled</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_enabled_value" name="<TMPL_VAR NAME=SERIAL>_enabled" type="hidden" value="<TMPL_VAR NAME=METER_ENABLED>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.METER_ENABLED>"><input id="<TMPL_VAR NAME=SERIAL>_enabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); update_meter_enabled('<TMPL_VAR NAME=SERIAL>');"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_ENABLED_HELP></td></tr>
+			<tr><td><TMPL_VAR NAME=VZLOGGER.METER_DEVICE><span class="config-key"><code>meters[].device</code></span></td><td><code><TMPL_VAR NAME=DEVICE ESCAPE=HTML></code></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_DEVICE_HELP></td></tr>
+			<tr><td><label for="<TMPL_VAR NAME=SERIAL>_meter"><TMPL_VAR NAME=VZLOGGER.METER_PROTOCOL></label><span class="config-key"><code>meters[].protocol</code></span></td><td><select id="<TMPL_VAR NAME=SERIAL>_meter" name="<TMPL_VAR NAME=SERIAL>_meter" onchange="update_meter_protocol(this.id.substring(0, this.id.length - 6));"><option value="0"><TMPL_VAR NAME=COMMON.PLEASE_SELECT></option><option value="sml">SML</option><option value="d0">D0</option><option value="oms">OMS</option><option value="user"><TMPL_VAR NAME=VZLOGGER.PROTOCOL_USER></option></select></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_PROTOCOL_HELP></td></tr>
 			<tr class="meter-template-row"><td><label for="<TMPL_VAR NAME=SERIAL>_template"><TMPL_VAR NAME=VZLOGGER.METER_TEMPLATE></label></td><td><select id="<TMPL_VAR NAME=SERIAL>_template" class="meter-template-select" data-placeholder="<TMPL_VAR NAME=VZLOGGER.METER_TEMPLATE_SELECT ESCAPE=HTML>" onchange="apply_meter_template('<TMPL_VAR NAME=SERIAL>');"><option value=""><TMPL_VAR NAME=VZLOGGER.METER_TEMPLATE_SELECT></option></select><span id="<TMPL_VAR NAME=SERIAL>_template_unsaved" class="meter-template-note" hidden><TMPL_VAR NAME=COMMON.ACTIVATION_UNSAVED></span><span id="<TMPL_VAR NAME=SERIAL>_template_warning" class="meter-template-note" hidden><TMPL_VAR NAME=VZLOGGER.METER_TEMPLATE_LIMITED></span></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_TEMPLATE_HELP></td></tr>
-			<tr class="meter-common-field"><td><label for="<TMPL_VAR NAME=SERIAL>_allowskip"><TMPL_VAR NAME=VZLOGGER.METER_ALLOWSKIP></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_allowskip_value" name="<TMPL_VAR NAME=SERIAL>_allowskip" type="hidden" value="<TMPL_VAR NAME=ALLOWSKIP>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.METER_ALLOWSKIP>"><input id="<TMPL_VAR NAME=SERIAL>_allowskip" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_ALLOWSKIP_HELP></td></tr>
-			<tr class="meter-common-field"><td><label for="<TMPL_VAR NAME=SERIAL>_aggtime"><TMPL_VAR NAME=VZLOGGER.METER_AGGTIME></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_aggtime" name="<TMPL_VAR NAME=SERIAL>_aggtime" type="number" value="<TMPL_VAR NAME=AGGTIME>" oninput="update_meter_enabled('<TMPL_VAR NAME=SERIAL>');"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_AGGTIME_HELP></td></tr>
+			<tr class="meter-common-field"><td><label for="<TMPL_VAR NAME=SERIAL>_allowskip"><TMPL_VAR NAME=VZLOGGER.METER_ALLOWSKIP></label><span class="config-key"><code>meters[].allowskip</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_allowskip_value" name="<TMPL_VAR NAME=SERIAL>_allowskip" type="hidden" value="<TMPL_VAR NAME=ALLOWSKIP>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.METER_ALLOWSKIP>"><input id="<TMPL_VAR NAME=SERIAL>_allowskip" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_ALLOWSKIP_HELP></td></tr>
+			<tr class="meter-common-field"><td><label for="<TMPL_VAR NAME=SERIAL>_aggtime"><TMPL_VAR NAME=VZLOGGER.METER_AGGTIME></label><span class="config-key"><code>meters[].aggtime</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_aggtime" name="<TMPL_VAR NAME=SERIAL>_aggtime" type="number" value="<TMPL_VAR NAME=AGGTIME>" oninput="update_meter_enabled('<TMPL_VAR NAME=SERIAL>');"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_AGGTIME_HELP></td></tr>
+			<tr class="meter-common-field"><td><label for="<TMPL_VAR NAME=SERIAL>_aggfixedinterval"><TMPL_VAR NAME=VZLOGGER.METER_AGGFIXEDINTERVAL></label><span class="config-key"><code>meters[].aggfixedinterval</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_aggfixedinterval_value" name="<TMPL_VAR NAME=SERIAL>_aggfixedinterval" type="hidden" value="<TMPL_VAR NAME=AGGFIXEDINTERVAL>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.METER_AGGFIXEDINTERVAL>"><input id="<TMPL_VAR NAME=SERIAL>_aggfixedinterval" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_AGGFIXEDINTERVAL_HELP></td></tr>
 
-			<tr class="meter-field" data-meter-field="interval" data-protocols="sml d0"><td><label for="<TMPL_VAR NAME=SERIAL>_interval"><TMPL_VAR NAME=VZLOGGER.METER_INTERVAL></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_interval" name="<TMPL_VAR NAME=SERIAL>_interval" type="number" value="<TMPL_VAR NAME=INTERVAL>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_INTERVAL_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="pullseq" data-protocols="sml d0"><td><label for="<TMPL_VAR NAME=SERIAL>_pullseq"><TMPL_VAR NAME=VZLOGGER.METER_PULLSEQ></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_pullseq" name="<TMPL_VAR NAME=SERIAL>_pullseq" type="text" value="<TMPL_VAR NAME=PULLSEQ ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_PULLSEQ_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="baudrate" data-protocols="sml d0 oms"><td><label for="<TMPL_VAR NAME=SERIAL>_baudrate"><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_baudrate" name="<TMPL_VAR NAME=SERIAL>_baudrate" type="number" min="1" value="<TMPL_VAR NAME=BAUDRATE>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="parity" data-protocols="sml d0"><td><label for="<TMPL_VAR NAME=SERIAL>_paritymode"><TMPL_VAR NAME=VZLOGGER.METER_PARITY></label></td><td><select id="<TMPL_VAR NAME=SERIAL>_paritymode" name="<TMPL_VAR NAME=SERIAL>_paritymode"><option value=""><TMPL_VAR NAME=VZLOGGER.METER_AUTO_EMPTY></option><option value="8n1">8N1</option><option value="7e1">7E1</option><option value="7o1">7O1</option><option value="7n1">7N1</option></select></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_PARITY_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="use_local_time" data-protocols="sml oms"><td><label for="<TMPL_VAR NAME=SERIAL>_uselocaltime"><TMPL_VAR NAME=VZLOGGER.METER_USE_LOCAL_TIME></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_uselocaltime_value" name="<TMPL_VAR NAME=SERIAL>_uselocaltime" type="hidden" value="<TMPL_VAR NAME=USELOCALTIME>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.METER_USE_LOCAL_TIME>"><input id="<TMPL_VAR NAME=SERIAL>_uselocaltime" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_USE_LOCAL_TIME_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="interval" data-protocols="sml d0"><td><label for="<TMPL_VAR NAME=SERIAL>_interval"><TMPL_VAR NAME=VZLOGGER.METER_INTERVAL></label><span class="config-key"><code>meters[].interval</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_interval" name="<TMPL_VAR NAME=SERIAL>_interval" type="number" value="<TMPL_VAR NAME=INTERVAL>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_INTERVAL_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="pullseq" data-protocols="sml d0"><td><label for="<TMPL_VAR NAME=SERIAL>_pullseq"><TMPL_VAR NAME=VZLOGGER.METER_PULLSEQ></label><span class="config-key"><code>meters[].pullseq</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_pullseq" name="<TMPL_VAR NAME=SERIAL>_pullseq" type="text" value="<TMPL_VAR NAME=PULLSEQ ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_PULLSEQ_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="baudrate" data-protocols="sml d0 oms"><td><label for="<TMPL_VAR NAME=SERIAL>_baudrate"><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE></label><span class="config-key"><code>meters[].baudrate</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_baudrate" name="<TMPL_VAR NAME=SERIAL>_baudrate" type="number" min="1" value="<TMPL_VAR NAME=BAUDRATE>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="parity" data-protocols="sml d0"><td><label for="<TMPL_VAR NAME=SERIAL>_paritymode"><TMPL_VAR NAME=VZLOGGER.METER_PARITY></label><span class="config-key"><code>meters[].parity</code></span></td><td><select id="<TMPL_VAR NAME=SERIAL>_paritymode" name="<TMPL_VAR NAME=SERIAL>_paritymode"><option value=""><TMPL_VAR NAME=VZLOGGER.METER_AUTO_EMPTY></option><option value="8n1">8N1</option><option value="7e1">7E1</option><option value="7o1">7O1</option><option value="7n1">7N1</option></select></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_PARITY_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="use_local_time" data-protocols="sml oms"><td><label for="<TMPL_VAR NAME=SERIAL>_uselocaltime"><TMPL_VAR NAME=VZLOGGER.METER_USE_LOCAL_TIME></label><span class="config-key"><code>meters[].use_local_time</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_uselocaltime_value" name="<TMPL_VAR NAME=SERIAL>_uselocaltime" type="hidden" value="<TMPL_VAR NAME=USELOCALTIME>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.METER_USE_LOCAL_TIME>"><input id="<TMPL_VAR NAME=SERIAL>_uselocaltime" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_USE_LOCAL_TIME_HELP></td></tr>
 
-			<tr class="meter-field" data-meter-field="dump_file" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_dumpfile"><TMPL_VAR NAME=VZLOGGER.METER_DUMP_FILE></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_dumpfile" name="<TMPL_VAR NAME=SERIAL>_dumpfile" type="text" value="<TMPL_VAR NAME=DUMPFILE ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_DUMP_FILE_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="ackseq" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_ackseq"><TMPL_VAR NAME=VZLOGGER.METER_ACKSEQ></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_ackseq" name="<TMPL_VAR NAME=SERIAL>_ackseq" type="text" value="<TMPL_VAR NAME=ACKSEQ ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_ACKSEQ_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="baudrate_read" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_baudrateread"><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_READ></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_baudrateread" name="<TMPL_VAR NAME=SERIAL>_baudrateread" type="number" min="1" value="<TMPL_VAR NAME=BAUDRATEREAD>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_READ_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="wait_sync" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_waitsync"><TMPL_VAR NAME=VZLOGGER.METER_WAIT_SYNC></label></td><td><select id="<TMPL_VAR NAME=SERIAL>_waitsync" name="<TMPL_VAR NAME=SERIAL>_waitsync"><option value=""><TMPL_VAR NAME=VZLOGGER.METER_AUTO_EMPTY></option><option value="off">off</option><option value="end">end</option></select></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_WAIT_SYNC_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="read_timeout" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_readtimeout"><TMPL_VAR NAME=VZLOGGER.METER_READ_TIMEOUT></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_readtimeout" name="<TMPL_VAR NAME=SERIAL>_readtimeout" type="number" min="0" value="<TMPL_VAR NAME=READTIMEOUT>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_READ_TIMEOUT_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="baudrate_change_delay" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_baudratechangedelay"><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_CHANGE_DELAY></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_baudratechangedelay" name="<TMPL_VAR NAME=SERIAL>_baudratechangedelay" type="number" min="0" value="<TMPL_VAR NAME=BAUDRATECHANGEDELAY>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_CHANGE_DELAY_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="dump_file" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_dumpfile"><TMPL_VAR NAME=VZLOGGER.METER_DUMP_FILE></label><span class="config-key"><code>meters[].dump_file</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_dumpfile" name="<TMPL_VAR NAME=SERIAL>_dumpfile" type="text" value="<TMPL_VAR NAME=DUMPFILE ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_DUMP_FILE_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="ackseq" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_ackseq"><TMPL_VAR NAME=VZLOGGER.METER_ACKSEQ></label><span class="config-key"><code>meters[].ackseq</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_ackseq" name="<TMPL_VAR NAME=SERIAL>_ackseq" type="text" value="<TMPL_VAR NAME=ACKSEQ ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_ACKSEQ_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="baudrate_read" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_baudrateread"><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_READ></label><span class="config-key"><code>meters[].baudrate_read</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_baudrateread" name="<TMPL_VAR NAME=SERIAL>_baudrateread" type="number" min="1" value="<TMPL_VAR NAME=BAUDRATEREAD>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_READ_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="wait_sync" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_waitsync"><TMPL_VAR NAME=VZLOGGER.METER_WAIT_SYNC></label><span class="config-key"><code>meters[].wait_sync</code></span></td><td><select id="<TMPL_VAR NAME=SERIAL>_waitsync" name="<TMPL_VAR NAME=SERIAL>_waitsync"><option value=""><TMPL_VAR NAME=VZLOGGER.METER_AUTO_EMPTY></option><option value="off">off</option><option value="end">end</option></select></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_WAIT_SYNC_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="read_timeout" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_readtimeout"><TMPL_VAR NAME=VZLOGGER.METER_READ_TIMEOUT></label><span class="config-key"><code>meters[].read_timeout</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_readtimeout" name="<TMPL_VAR NAME=SERIAL>_readtimeout" type="number" min="0" value="<TMPL_VAR NAME=READTIMEOUT>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_READ_TIMEOUT_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="baudrate_change_delay" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_baudratechangedelay"><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_CHANGE_DELAY></label><span class="config-key"><code>meters[].baudrate_change_delay</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_baudratechangedelay" name="<TMPL_VAR NAME=SERIAL>_baudratechangedelay" type="number" min="0" value="<TMPL_VAR NAME=BAUDRATECHANGEDELAY>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_CHANGE_DELAY_HELP></td></tr>
 
-			<tr class="meter-field" data-meter-field="key" data-protocols="oms"><td><label for="<TMPL_VAR NAME=SERIAL>_omskey"><TMPL_VAR NAME=VZLOGGER.METER_OMS_KEY></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_omskey" name="<TMPL_VAR NAME=SERIAL>_omskey" type="password" autocomplete="off" maxlength="32" value="<TMPL_VAR NAME=OMSKEY ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_OMS_KEY_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="mbus_debug" data-protocols="oms"><td><label for="<TMPL_VAR NAME=SERIAL>_mbusdebug"><TMPL_VAR NAME=VZLOGGER.METER_MBUS_DEBUG></label></td><td><input id="<TMPL_VAR NAME=SERIAL>_mbusdebug_value" name="<TMPL_VAR NAME=SERIAL>_mbusdebug" type="hidden" value="<TMPL_VAR NAME=MBUSDEBUG>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.METER_MBUS_DEBUG>"><input id="<TMPL_VAR NAME=SERIAL>_mbusdebug" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_MBUS_DEBUG_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="key" data-protocols="oms"><td><label for="<TMPL_VAR NAME=SERIAL>_omskey"><TMPL_VAR NAME=VZLOGGER.METER_OMS_KEY></label><span class="config-key"><code>meters[].key</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_omskey" name="<TMPL_VAR NAME=SERIAL>_omskey" type="password" autocomplete="off" maxlength="32" value="<TMPL_VAR NAME=OMSKEY ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_OMS_KEY_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="mbus_debug" data-protocols="oms"><td><label for="<TMPL_VAR NAME=SERIAL>_mbusdebug"><TMPL_VAR NAME=VZLOGGER.METER_MBUS_DEBUG></label><span class="config-key"><code>meters[].mbus_debug</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_mbusdebug_value" name="<TMPL_VAR NAME=SERIAL>_mbusdebug" type="hidden" value="<TMPL_VAR NAME=MBUSDEBUG>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.METER_MBUS_DEBUG>"><input id="<TMPL_VAR NAME=SERIAL>_mbusdebug" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_MBUS_DEBUG_HELP></td></tr>
 
 			<tr class="meter-user-settings"><td><label for="<TMPL_VAR NAME=SERIAL>_userjson"><TMPL_VAR NAME=VZLOGGER.METER_USER_JSON></label></td><td><textarea class="meter-json-editor" id="<TMPL_VAR NAME=SERIAL>_userjson" name="<TMPL_VAR NAME=SERIAL>_userjson" maxlength="65536"><TMPL_VAR NAME=USER_JSON ESCAPE=HTML></textarea><div class="meter-doc-links"><a href="https://wiki.volkszaehler.org/software/controller/vzlogger/vzlogger_conf_parameter" target="_blank" rel="noopener"><TMPL_VAR NAME=VZLOGGER.METER_USER_JSON_DOCS></a> · <a href="https://github.com/volkszaehler/vzlogger/tree/master/etc" target="_blank" rel="noopener"><TMPL_VAR NAME=VZLOGGER.METER_USER_JSON_EXAMPLES></a></div></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_USER_JSON_HELP></td></tr>
 
@@ -1569,6 +1571,7 @@
 			return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; });
 		}
 		function channel_help_html(value) { return value ? '<small class="obis-channel-help">'+html_text(value)+'</small>' : ''; }
+		function config_key_html(value) { return '<small class="config-key"><code>'+html_text(value)+'</code></small>'; }
 		function channel_uuid() {
 			if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
 			return "xxxxxxxx-xxxx-4xxx-axxx-xxxxxxxxxxxx".replace(/x/g, function () { return Math.floor(Math.random() * 16).toString(16); });
@@ -1623,7 +1626,7 @@
 			if (api === "volkszaehler") fields = [["middleware","Middleware",true],["timeout","Timeout",false]];
 			if (api === "influxdb") fields = [["version","Version (1 / 2)"],["host","Host",true],["database","Database / Bucket"],["organization","Organization"],["measurement_name","Measurement"],["tags","Tags (JSON)"],["token","Token"],["username","Username"],["password","Password"],["timeout","Timeout"],["max_batch_inserts","Batch"],["max_buffer_size","Buffer"],["send_uuid","Send UUID",false,"checkbox"],["ssl_verifypeer","TLS verify peer",false,"checkbox"]];
 			if (api === "mysmartgrid") fields = [["middleware","Middleware",true],["secretKey","Secret key",true],["device","Device",true],["type","Type",true],["interval","Interval"],["scaler","Scaler"],["timeout","Timeout"],["name",channel_labels.registrationName]];
-			return fields.map(function(field){ var value=options[field[0]]; if(value==null && (field[0]==='send_uuid'||field[0]==='ssl_verifypeer')) value=true; var type=field[3]||((/password|token|secretKey/.test(field[0]))?"password":"text"); return '<div class="obis-channel-field lb-form-field"><label>'+html_text(field[1])+(field[2]?' *':'')+'</label><input class="'+(type==='checkbox'?'ch-option-checkbox':'lb-input')+'" data-option="'+field[0]+'" type="'+type+'" '+(field[2]?'required ':'')+(type==='checkbox'?(value?'checked':''):'value="'+html_text(value==null?"":(typeof value==='object'?JSON.stringify(value):value))+'"')+'>'+channel_help_html(api_field_help[field[0]])+'</div>'; }).join("");
+			return fields.map(function(field){ var value=options[field[0]]; if(value==null && (field[0]==='send_uuid'||field[0]==='ssl_verifypeer')) value=true; var type=field[3]||((/password|token|secretKey/.test(field[0]))?"password":"text"); return '<div class="obis-channel-field lb-form-field"><label>'+html_text(field[1])+(field[2]?' *':'')+'</label>'+config_key_html('meters[].channels[].'+field[0])+'<input class="'+(type==='checkbox'?'ch-option-checkbox':'lb-input')+'" data-option="'+field[0]+'" type="'+type+'" '+(field[2]?'required ':'')+(type==='checkbox'?(value?'checked':''):'value="'+html_text(value==null?"":(typeof value==='object'?JSON.stringify(value):value))+'"')+'>'+channel_help_html(api_field_help[field[0]])+'</div>'; }).join("");
 		}
 		function render_channel_editor(serial) {
 			channel_definitions.meters = channel_definitions.meters || {};
@@ -1653,7 +1656,7 @@
 			var grid=card.querySelector('.obis-channel-grid'); if(!grid||grid.dataset.rendered==='1') return;
 			var channel=channel_definitions.meters[serial][index],container=document.getElementById(serial+'_obis_channels'),protocol=container.getAttribute('data-protocol')||'',aggtime=Number((document.getElementById(serial+'_aggtime')||{}).value||0),api=channel.api||'null',options=channel.api_options[api]||{},info=catalog_info(full_obis(channel));
 			var remove=channel.origin==='manual'?'<div class="obis-channel-remove"><button class="ch-remove obis-channel-remove-button lb-btn lb-compact" type="button"><i class="pi pi-trash" aria-hidden="true"></i>'+html_text(channel_labels.remove)+'</button>'+channel_help_html(channel_labels.removeHelp)+'</div>':'';
-			grid.innerHTML='<div class="obis-channel-info"><strong>'+html_text(info.short)+'</strong>'+(info.unit?' · '+html_text(info.unit):'')+'<br>'+html_text(info.long)+(info.warning?'<br>'+html_text(info.warning):'')+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.identifier)+'</label><input class="ch-obis lb-input" required value="'+html_text(channel.obis)+'">'+channel_help_html(channel_help.identifier)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.storage)+'</label><div class="obis-storage-control"><input class="ch-storage obis-number-spinner lb-input" type="number" min="0" max="254" step="1" inputmode="numeric" '+(protocol==='oms'?'disabled title="'+html_text(channel_labels.storageOms)+'"':'')+' value="'+html_text(channel.storage==null?'':channel.storage)+'"><button class="ch-storage-clear obis-storage-clear lb-btn '+(channel.storage==null?'is-active':'')+'" type="button" aria-pressed="'+(channel.storage==null?'true':'false')+'" '+(protocol==='oms'?'disabled ':'')+'title="'+html_text(channel_labels.storageClear)+'">'+html_text(channel_labels.storageClear)+'</button></div>'+channel_help_html(protocol==='oms'?channel_labels.storageOms:channel_help.storage)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.display)+'</label><input class="ch-display lb-input" value="'+html_text(channel.display_name||'')+'">'+channel_help_html(channel_help.display)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.api)+'</label><select class="ch-api lb-select"><option value="null">'+html_text(channel_labels.apiNoneOption)+'</option><option value="volkszaehler">volkszaehler</option><option value="influxdb">influxdb</option><option value="mysmartgrid">mysmartgrid</option></select>'+channel_help_html(channel_help.api)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.aggregation)+'</label><select class="ch-agg lb-select" '+(aggtime>0?'':'disabled')+'><option value="none">none</option><option value="avg">avg</option><option value="max">max</option><option value="sum">sum</option></select>'+channel_help_html(channel_help.aggregation)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.duplicates)+'</label><input class="ch-duplicates lb-input" type="number" min="0" '+((api==='volkszaehler'||api==='influxdb')?'':'disabled')+' value="'+html_text(channel.duplicates||0)+'">'+channel_help_html(channel_help.duplicates)+'</div><div class="obis-api-fields"><strong>'+html_text(channel_labels.apiOptions)+'</strong>'+api_option_fields(api,options)+'</div><div class="obis-output-fields"><label><input class="ch-output" type="checkbox" '+(channel.plugin_output.enabled?'checked':'')+'> '+html_text(channel_labels.output)+'</label>'+channel_help_html(channel_help.output)+'<div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.outputKey)+'</label><input class="ch-output-key lb-input" maxlength="64" title="'+html_text(channel_labels.outputKeyFormat)+'" '+(channel.plugin_output.enabled?'required':'disabled')+' value="'+html_text(channel.plugin_output.key||'')+'">'+channel_help_html(channel_help.outputKey)+'</div></div>'+remove;
+			grid.innerHTML='<div class="obis-channel-info"><strong>'+html_text(info.short)+'</strong>'+(info.unit?' · '+html_text(info.unit):'')+'<br>'+html_text(info.long)+(info.warning?'<br>'+html_text(info.warning):'')+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.identifier)+'</label>'+config_key_html('meters[].channels[].identifier')+'<input class="ch-obis lb-input" required value="'+html_text(channel.obis)+'">'+channel_help_html(channel_help.identifier)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.storage)+'</label>'+config_key_html('meters[].channels[].identifier')+'<div class="obis-storage-control"><input class="ch-storage obis-number-spinner lb-input" type="number" min="0" max="254" step="1" inputmode="numeric" '+(protocol==='oms'?'disabled title="'+html_text(channel_labels.storageOms)+'"':'')+' value="'+html_text(channel.storage==null?'':channel.storage)+'"><button class="ch-storage-clear obis-storage-clear lb-btn '+(channel.storage==null?'is-active':'')+'" type="button" aria-pressed="'+(channel.storage==null?'true':'false')+'" '+(protocol==='oms'?'disabled ':'')+'title="'+html_text(channel_labels.storageClear)+'">'+html_text(channel_labels.storageClear)+'</button></div>'+channel_help_html(protocol==='oms'?channel_labels.storageOms:channel_help.storage)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.display)+'</label><input class="ch-display lb-input" value="'+html_text(channel.display_name||'')+'">'+channel_help_html(channel_help.display)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.api)+'</label>'+config_key_html('meters[].channels[].api')+'<select class="ch-api lb-select"><option value="null">'+html_text(channel_labels.apiNoneOption)+'</option><option value="volkszaehler">volkszaehler</option><option value="influxdb">influxdb</option><option value="mysmartgrid">mysmartgrid</option></select>'+channel_help_html(channel_help.api)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.aggregation)+'</label>'+config_key_html('meters[].channels[].aggmode')+'<select class="ch-agg lb-select" '+(aggtime>0?'':'disabled')+'><option value="none">none</option><option value="avg">avg</option><option value="max">max</option><option value="sum">sum</option></select>'+channel_help_html(channel_help.aggregation)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.duplicates)+'</label>'+config_key_html('meters[].channels[].duplicates')+'<input class="ch-duplicates lb-input" type="number" min="0" '+((api==='volkszaehler'||api==='influxdb')?'':'disabled')+' value="'+html_text(channel.duplicates||0)+'">'+channel_help_html(channel_help.duplicates)+'</div><div class="obis-api-fields"><strong>'+html_text(channel_labels.apiOptions)+'</strong>'+api_option_fields(api,options)+'</div><div class="obis-output-fields"><label><input class="ch-output" type="checkbox" '+(channel.plugin_output.enabled?'checked':'')+'> '+html_text(channel_labels.output)+'</label>'+channel_help_html(channel_help.output)+'<div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.outputKey)+'</label><input class="ch-output-key lb-input" maxlength="64" title="'+html_text(channel_labels.outputKeyFormat)+'" '+(channel.plugin_output.enabled?'required':'disabled')+' value="'+html_text(channel.plugin_output.key||'')+'">'+channel_help_html(channel_help.outputKey)+'</div></div>'+remove;
 			grid.dataset.rendered='1'; delete grid.dataset.lazy; grid.querySelector('select.ch-api').value=api; grid.querySelector('select.ch-agg').value=aggtime>0?(channel.aggmode||'none'):'none'; validate_output_key_input(grid.querySelector('input.ch-output-key'));
 		}
 		function replace_channel_card(serial,index,card) { var details=card.querySelector('details'); card.replaceWith(create_channel_card(serial,index,details&&details.open)); update_meter_enabled(serial); }
@@ -2171,6 +2174,7 @@
 			set_control_disabled(panel.find("input.ch-storage"), global_disabled || meter_disabled || mode == "oms");
 			set_control_disabled(panel.find("button.ch-storage-clear"), global_disabled || meter_disabled || mode == "oms");
 			set_control_disabled(panel.find("select.ch-agg"), global_disabled || meter_disabled || Number($("#" + serial + "_aggtime").val() || 0) <= 0);
+			set_control_disabled($("#" + serial + "_aggfixedinterval"), global_disabled || meter_disabled || Number($("#" + serial + "_aggtime").val() || 0) <= 0);
 			panel.find(".obis-channel-card").each(function () {
 				var api = $(this).find("select.ch-api").val();
 				set_control_disabled($(this).find("input.ch-duplicates"), global_disabled || meter_disabled || ["volkszaehler", "influxdb"].indexOf(api) < 0);
@@ -2228,6 +2232,7 @@
 				meter: panel.getAttribute("data-current-mode") || "0",
 				enabled: panel.getAttribute("data-meter-enabled") || "1",
 				allowskip: panel.getAttribute("data-allowskip") || "1",
+				aggfixedinterval: panel.getAttribute("data-aggfixedinterval") || "0",
 				paritymode: panel.getAttribute("data-parity") || "8n1",
 				uselocaltime: panel.getAttribute("data-local-time") || "0",
 				waitsync: panel.getAttribute("data-wait-sync") || "off",

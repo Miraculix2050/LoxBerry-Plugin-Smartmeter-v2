@@ -103,6 +103,12 @@ like($vzlogger, qr/initializeDeferredPanel/, "closed meter panels defer their in
 my ($aggtime_input) = $vzlogger =~ /([^\r\n]*id="<TMPL_VAR NAME=SERIAL>_aggtime"[^\r\n]*)/;
 like($aggtime_input || "", qr/update_meter_enabled/, "aggtime updates channel availability immediately");
 unlike($aggtime_input || "", qr/render_channel_editor/, "aggtime input does not rebuild every channel card");
+like($vzlogger, qr/id="<TMPL_VAR NAME=SERIAL>_aggfixedinterval"/, "fixed aggregation interval control is rendered for standard meters");
+like($vzlogger, qr/set_control_disabled\(\$\("#" \+ serial \+ "_aggfixedinterval"\).*?_aggtime/s, "fixed aggregation interval follows active aggtime immediately");
+like($vzlogger, qr/class="config-key"><code>meters\[\]\.aggfixedinterval<\/code>/, "native vzLogger fields expose their generated configuration path");
+unlike($vzlogger, qr/CONFIG_FIELD_PLUGIN|kein Feld in vzlogger\.conf|not a field in vzlogger\.conf/, "plugin-only settings do not show a redundant configuration marker");
+like($styles, qr/\.config-key\s*\{[^}]*overflow-wrap:\s*anywhere/s, "configuration paths wrap safely on narrow screens");
+like($vzlogger, qr/<td colspan="4">\s*<div class="recovery-endpoints-title">.*?<div class="recovery-endpoints">/s, "Loxone copy-and-paste blocks receive the full desktop table width");
 
 my $live = $sources{'webfrontend/htmlauth/vzlogger_live.js'};
 like($live, qr/function ingest\(data\).*?return changed;/s, "live ingestion reports whether history changed");

@@ -215,6 +215,8 @@ sub standard_meter_config
 		device => $device,
 	};
 	set_optional_integer($meter, "aggtime", config_scalar_value("$section.AGGTIME"), 1);
+	set_optional_boolean($meter, "aggfixedinterval", config_scalar_value("$section.AGGFIXEDINTERVAL"))
+		if (exists($meter->{aggtime}) && $meter->{aggtime} > 0);
 
 	if ($protocol eq "sml") {
 		set_optional_integer($meter, "interval", config_scalar_value("$section.INTERVAL"), 1);
@@ -457,7 +459,7 @@ sub ordered_keys
 		root => [qw(retry verbosity log local mqtt meters)],
 		local => [qw(enabled port index timeout buffer)],
 		mqtt => [qw(enabled host port keepalive topic id user pass retain rawAndAgg qos timestamp cafile capath certfile keyfile keypass)],
-		meter => [qw(enabled allowskip aggtime protocol device interval host dump_file pullseq ackseq baudrate baudrate_read parity wait_sync read_timeout baudrate_change_delay key mbus_debug use_local_time channels)],
+		meter => [qw(enabled allowskip aggtime aggfixedinterval protocol device interval host dump_file pullseq ackseq baudrate baudrate_read parity wait_sync read_timeout baudrate_change_delay key mbus_debug use_local_time channels)],
 		channel => [qw(api uuid identifier)],
 	);
 	my @preferred = @{$orders{$context} || []};

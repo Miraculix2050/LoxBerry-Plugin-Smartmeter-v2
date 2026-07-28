@@ -4,6 +4,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Add the standard `meters[].aggfixedinterval` control with retained inactive state, label native vzLogger paths throughout the configuration UI, align German and English help with the vzLogger parameter reference, correct the documented SmartMeter bridge update-cycle scope, and widen the Loxone copy-and-paste blocks.
 - Make MQTT the first SmartMeter-bridge output and publish each source channel timestamp immediately as aggregate `Last_UpdateUnix` and `Last_UpdateLoxEpoche` JSON values on the derived `<base-topic>/bridge`, using whole UTC seconds and the fixed UTC Loxone offset `1230768000` without timezone or daylight-saving adjustment; inherit the applied vzLogger MQTT connection, TLS, QoS, and retain settings without exposing credentials in process arguments.
 - Make the bridge HTTP cache optional, remove its `.data` files and stop cache updates while disabled, and scope the shared update interval to HTTP-cache writes and UDP sends instead of MQTT publication; fresh installations default to bridge MQTT on and HTTP cache off while upgrades preserve the previous output behavior.
 - Render service, I/R-head, and OBIS actions as one correctly sized native modal instead of a bordered inner panel inside a wider dialog, and target the OBIS spinner without affecting the I/R scan overlay.

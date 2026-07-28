@@ -60,7 +60,7 @@ This document records the product and engineering contracts that must remain tru
 - Custom-channel identity is maintained by the versioned `vzlogger_user_channel_uuids_<serial>.json` registry. Explicit UUIDs always win. Otherwise a canonical SHA-256 channel fingerprint maps to an ordered UUID list so identical duplicates and channel reordering remain stable. Content changes may create a new UUID; only an explicit UUID guarantees identity across such changes.
 - Manual duplicate OBIS channels are valid when they have distinct UUIDs. Discovered channels are normally deactivated instead of deleted so later discovery can find them again.
 - SML/D0 storage index `*F` accepts `0..254`. Empty, `null`, and `255` mean unspecified and are not emitted as a redundant `*255`; OMS does not support this field.
-- Channel aggregation is a temporal setting and is available only when the meter has `aggtime > 0`. Retained settings for an inactive API are neither validated nor generated.
+- Channel aggregation and meter `aggfixedinterval` are temporal settings available only when the meter has `aggtime > 0`. A disabled aggregation retains the saved fixed-interval choice but does not generate it. Retained settings for an inactive API are neither validated nor generated.
 - Output keys are unique per reader, case-insensitively, and are the only HTTP-cache/UDP names emitted for that channel. Existing keys must not be renamed automatically or supplemented with compatibility aliases. Keys are 1–64 characters and accept letters, digits, spaces, and `_ # | ( ) [ ] / ' % $ ! . * -`; `:` and `;` remain reserved delimiters.
 
 ## 6. MQTT, Cache, HTTP, And UDP
