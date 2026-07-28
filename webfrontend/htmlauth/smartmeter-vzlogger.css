@@ -11,6 +11,7 @@
 .service-action-reason:empty { display:none; }
 .config-key { display:block; margin-top:.18em; color:#68737d; font-size:80%; font-weight:normal; line-height:1.25; overflow-wrap:anywhere; word-break:break-word; }
 .config-key code { padding:0; border:0; background:transparent; color:inherit; font-size:inherit; white-space:normal; }
+.config-key-spacer { visibility:hidden; }
 .obis-channel-option { display:block; }
 .obis-channel-label { font-size:13px; line-height:1.35; }
 .obis-channel-new { display:block; color:#8a5a00; font-size:85%; margin:.15em 0 .35em 2em; }
@@ -44,7 +45,7 @@
 .obis-channel-toolbar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px; }
 .obis-channel-toolbar-title { margin-right:auto; font-weight:bold; }
 .meter-obis-settings>td { width:auto !important; }
-@media(max-width:800px){.obis-channel-summary,.obis-channel-grid,.obis-api-fields{grid-template-columns:1fr}}
+@media(max-width:800px){.obis-channel-summary,.obis-channel-grid,.obis-api-fields{grid-template-columns:1fr}.config-key-spacer{display:none}}
 .recovery-token-output { display: flex; flex-wrap: wrap; gap: .4em; margin-top: .45em; }
 .recovery-token-output[hidden] { display: none; }
 .recovery-token-output input { flex: 1 1 24em; min-width: 0; font-family: monospace; }

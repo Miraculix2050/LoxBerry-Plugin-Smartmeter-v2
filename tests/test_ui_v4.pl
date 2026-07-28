@@ -57,6 +57,7 @@ like($vzlogger, qr/<dialog\b[^>]*\blb-modal\b/, "vzLogger uses native dialog mod
 like($vzlogger, qr/\bshowModal\s*\(/, "vzLogger opens native dialogs");
 like($vzlogger, qr/class="ch-api lb-select"/, "dynamic channel API selects use V4 classes directly");
 like($vzlogger, qr/class="ch-obis lb-input"/, "dynamic channel inputs use V4 classes directly");
+like($vzlogger, qr/channel_labels\.display.*?config-key-spacer.*?class="ch-display lb-input"/, "display name reserves the desktop configuration-key row before its input");
 like($vzlogger, qr/\bpi-trash\b/, "dynamic destructive actions use PrimeIcons");
 for my $key (qw(CHANNEL_SOURCE CHANNEL_API_TARGET CHANNEL_API_NONE CHANNEL_BRIDGE_OUTPUT CHANNEL_STATE_ENABLED CHANNEL_STATE_DISABLED)) {
 	like($vzlogger, qr/\bVZLOGGER\.\Q$key\E\b/, "channel summary references $key");
@@ -108,6 +109,8 @@ like($vzlogger, qr/set_control_disabled\(\$\("#" \+ serial \+ "_aggfixedinterval
 like($vzlogger, qr/class="config-key"><code>meters\[\]\.aggfixedinterval<\/code>/, "native vzLogger fields expose their generated configuration path");
 unlike($vzlogger, qr/CONFIG_FIELD_PLUGIN|kein Feld in vzlogger\.conf|not a field in vzlogger\.conf/, "plugin-only settings do not show a redundant configuration marker");
 like($styles, qr/\.config-key\s*\{[^}]*overflow-wrap:\s*anywhere/s, "configuration paths wrap safely on narrow screens");
+like($styles, qr/\.config-key-spacer\s*\{[^}]*visibility:\s*hidden/s, "display name spacer matches the hidden desktop configuration-key row");
+like($styles, qr/\@media\(max-width:800px\).*?\.config-key-spacer\s*\{[^}]*display:\s*none/s, "display name spacer is removed from the single-column mobile layout");
 like($vzlogger, qr/<td colspan="4">\s*<div class="recovery-endpoints-title">.*?<div class="recovery-endpoints">/s, "Loxone copy-and-paste blocks receive the full desktop table width");
 
 my $live = $sources{'webfrontend/htmlauth/vzlogger_live.js'};
