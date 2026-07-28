@@ -117,6 +117,10 @@ my $live = $sources{'webfrontend/htmlauth/vzlogger_live.js'};
 like($live, qr/function ingest\(data\).*?return changed;/s, "live ingestion reports whether history changed");
 like($live, qr/firstRender \|\| metadataChanged \|\| responseChanged \|\| historyChanged.*?renderTable\(data\); updateChart\(\);/s, "live rendering is gated by first render or changed data");
 like($live, qr/visibilitychange.*?renderTable\(currentData\); updateChart\(\);/s, "returning to the live page forces a current render");
+like($live, qr/backgroundColor:\s*colorWithAlpha\(style\.color,\s*0\.04\).*?fill:\s*Live\.isPower\(meta\)\s*\?\s*\{\s*target:\s*"origin"\s*\}\s*:\s*false/s, "live power curves use a subtle fill toward zero only");
+like($live, qr/pointRadius:\s*0,\s*pointHoverRadius:\s*4,\s*pointHitRadius:\s*8/, "live hover reveals the measurement point without permanent markers");
+unlike($live, qr/function focusDataset\(|onHover:\s*\([^)]*\)\s*=>\s*focusDataset|onClick:\s*\([^)]*legendItem[^)]*\)\s*=>\s*focusDataset/, "live hover and legend clicks do not restyle or reorder datasets");
+like($live, qr/visibility\.set\(dataset\.uuid,\s*chart\.isDatasetVisible\(index\)\).*?chart\.data\.datasets\s*=\s*datasets;.*?chart\.setDatasetVisibility\(index,\s*visibility\.get\(dataset\.uuid\)\)/s, "live updates preserve legend visibility by channel UUID");
 
 my $help = read_file("webfrontend/htmlauth/help.cgi");
 like($help, qr/LoxBerry::Web::lbheader\s*\([^;]*["']nojqm["']/s, "local help uses the V4 header without jQuery Mobile");

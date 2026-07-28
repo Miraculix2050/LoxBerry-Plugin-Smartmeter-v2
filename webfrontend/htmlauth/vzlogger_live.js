@@ -9,7 +9,9 @@
 	const HISTORY_STORAGE_KEY = "smartmeter-v2.vzloggerLiveHistory.v1";
 	const POLL_INTERVAL = 2000;
 	const MAX_POLL_INTERVAL = 30000;
-	const GAP_INTERVAL = POLL_INTERVAL * 3;
+	const GAP_INTERVAL = 30000;
+	const GAP_MULTIPLIER = 3;
+	const SAMPLE_INTERVAL_WINDOW = 31;
 	const RANGE_VALUES = [15 * 60 * 1000, 2 * 60 * 60 * 1000, 24 * 60 * 60 * 1000, 7 * 24 * 60 * 60 * 1000];
 	const DEFAULT_RANGE = RANGE_VALUES[2];
 	const RETENTION_TIERS = [
@@ -26,7 +28,6 @@
 	const POWER_CATEGORIES = new Set(["active_power_total", "active_power_import", "active_power_export"]);
 	const ENERGY_CATEGORIES = new Set(["active_energy_import", "active_energy_export"]);
 	const PALETTE = ["#0072b2", "#d55e00", "#009e73", "#cc79a7", "#e69f00", "#56b4e9", "#6f4e7c", "#555555"];
-	const DASHES = [[], [8, 4], [2, 3], [10, 3, 2, 3]];
 
 	function numericTimestamp(value) {
 		const number = Number(value);
@@ -148,22 +149,57 @@
 		return result;
 	}
 
-	function hasReadingGap(previousTimestamp, timestamp) {
-		return Number.isFinite(previousTimestamp) && Number.isFinite(timestamp) && timestamp - previousTimestamp > GAP_INTERVAL;
+	function estimateSampleInterval(points) {
+		const recent = [];
+		for (let index = (points || []).length - 1; index >= 0 && recent.length <= SAMPLE_INTERVAL_WINDOW; index--) {
+			const point = points[index];
+			if (point && point.y !== null && Number.isFinite(point.x)) recent.push(point.x);
+		}
+		recent.reverse();
+		const intervals = [];
+		for (let index = 1; index < recent.length; index++) {
+			const interval = recent[index] - recent[index - 1];
+			if (interval > 0) intervals.push(interval);
+		}
+		if (!intervals.length) return null;
+		intervals.sort((a, b) => a - b);
+		const middle = Math.floor(intervals.length / 2);
+		return intervals.length % 2 ? intervals[middle] : (intervals[middle - 1] + intervals[middle]) / 2;
+	}
+
+	function gapThreshold(sampleInterval) {
+		return Number.isFinite(sampleInterval) && sampleInterval > 0 ? Math.max(GAP_INTERVAL, sampleInterval * GAP_MULTIPLIER) : GAP_INTERVAL;
+	}
+
+	function hasReadingGap(previousTimestamp, timestamp, sampleInterval) {
+		return Number.isFinite(previousTimestamp) && Number.isFinite(timestamp) && timestamp - previousTimestamp > gapThreshold(sampleInterval);
+	}
+
+	function filterStoredGaps(points, gaps) {
+		const readings = (points || []).filter(point => point && point.y !== null && Number.isFinite(point.x)).sort((a, b) => a.x - b.x);
+		const sampleInterval = estimateSampleInterval(readings);
+		let readingIndex = 0;
+		return (gaps || []).filter(gap => gap && Number.isFinite(gap.x)).sort((a, b) => a.x - b.x).filter(gap => {
+			while (readingIndex < readings.length && readings[readingIndex].x < gap.x) readingIndex += 1;
+			const previousTimestamp = Number.isFinite(gap.previousX) ? gap.previousX : (readingIndex > 0 ? readings[readingIndex - 1].x : null);
+			const nextTimestamp = Number.isFinite(gap.nextX) ? gap.nextX : (readingIndex < readings.length ? readings[readingIndex].x : null);
+			if (!Number.isFinite(previousTimestamp) || !Number.isFinite(nextTimestamp)) return true;
+			return hasReadingGap(previousTimestamp, nextTimestamp, sampleInterval);
+		});
 	}
 
 	function isCounterReset(meta, previousValue, value) {
 		return isEnergy(meta) && Number.isFinite(previousValue) && Number.isFinite(value) && value < previousValue;
 	}
 
-	function readingDecision(previous, x, y, key, lastKey, meta) {
+	function readingDecision(previous, x, y, key, lastKey, meta, sampleInterval) {
 		if (lastKey === key) return { accept: false, rememberKey: false, gap: false, reset: false };
 		if (previous && x === previous.x && y === previous.y) return { accept: false, rememberKey: true, gap: false, reset: false };
 		if (previous && x < previous.x) return { accept: false, rememberKey: false, gap: false, reset: false };
 		return {
 			accept: true,
 			rememberKey: true,
-			gap: !!previous && hasReadingGap(previous.x, x),
+			gap: !!previous && Number.isFinite(sampleInterval) && hasReadingGap(previous.x, x, sampleInterval),
 			reset: !!previous && isCounterReset(meta, previous.absolute, y)
 		};
 	}
@@ -175,7 +211,7 @@
 	function styleFor(uuid) {
 		let hash = 0;
 		for (const character of String(uuid)) hash = ((hash * 31) + character.charCodeAt(0)) >>> 0;
-		return { color: PALETTE[hash % PALETTE.length], dash: DASHES[Math.floor(hash / PALETTE.length) % DASHES.length] };
+		return { color: PALETTE[hash % PALETTE.length], dash: [] };
 	}
 
 	function balanceText(balance, tolerance, labels, format) {
@@ -337,10 +373,10 @@
 	}
 
 	return {
-		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, MAX_POLL_INTERVAL, GAP_INTERVAL, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS, CHART_BUCKETS,
+		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, MAX_POLL_INTERVAL, GAP_INTERVAL, GAP_MULTIPLIER, SAMPLE_INTERVAL_WINDOW, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS, CHART_BUCKETS,
 		numericTimestamp, scaledValue, category, isPower, isEnergy, chartValue,
 		chooseEnergyChannel, choosePowerChannels, defaultSelection, cleanPreferences, rangeForHistory,
-		limitSelection, hasReadingGap, isCounterReset, readingDecision, liveDataSignature, styleFor, balanceText,
+		limitSelection, estimateSampleInterval, gapThreshold, hasReadingGap, filterStoredGaps, isCounterReset, readingDecision, liveDataSignature, styleFor, balanceText,
 		historySnapshot, cleanHistorySnapshot, channelFingerprint, mergeBucket, expandBucket, compactHistory, aggregateChartPoints, pollDelay
 	};
 }));
@@ -367,7 +403,6 @@
 	let refreshing = false;
 	let pollFailures = 0;
 	let chart = null;
-	let focusedDataset = -1;
 	let historyDb = null;
 	let historyStorageAvailable = false;
 	let lastHistoryCleanup = 0;
@@ -634,7 +669,7 @@
 		await done;
 		const points = values[0].map(record => ({ x: record.x, y: record.y, absolute: record.y, raw: null }));
 		for (let index = 1; index <= Live.RETENTION_TIERS.length; index++) values[index].forEach(record => points.push(...Live.expandBucket(record)));
-		values[values.length - 1].forEach(gap => points.push({ x: gap.x, y: null, absolute: null, raw: null }));
+		Live.filterStoredGaps(points, values[values.length - 1]).forEach(gap => points.push({ x: gap.x, y: null, absolute: null, raw: null }));
 		const unique = new Map();
 		points.forEach(point => unique.set(point.x + "|" + String(point.y), point));
 		return Live.compactHistory(Array.from(unique.values()), now);
@@ -780,14 +815,14 @@
 				const key = String(tuple[0]) + "|" + String(tuple[1]);
 				const history = histories.get(uuid) || [];
 				const previous = history.slice().reverse().find(point => point.y !== null);
-				const decision = Live.readingDecision(previous, x, y, key, lastTuple.get(uuid), meta);
+				const decision = Live.readingDecision(previous, x, y, key, lastTuple.get(uuid), meta, Live.estimateSampleInterval(history));
 				if (!decision.accept) {
 					if (decision.rememberKey) lastTuple.set(uuid, key);
 					return;
 				}
 				if (Live.isEnergy(meta) && !energySegments.has(String(meta.serial || "unknown"))) energySegments.set(String(meta.serial || "unknown"), [{ start: x, bases: { [uuid]: y }, reset: false }]);
 				if (decision.gap) {
-					const gap = { uuid, x: previous.x + 1 };
+					const gap = { uuid, x: previous.x + 1, previousX: previous.x, nextX: x };
 					history.push({ x: gap.x, y: null, absolute: null, raw: null }); gaps.push(gap);
 				}
 				if (decision.reset) registerEnergyReset(String(meta.serial || "unknown"), x, uuid, y);
@@ -858,8 +893,9 @@
 		return {
 			label: (meta.head_name ? meta.head_name + " – " : "") + channelName(item),
 			data: points,
-			yAxisID: "unit-" + String(meta.unit || "value"), borderColor: colorWithAlpha(style.color, 0.82), backgroundColor: colorWithAlpha(style.color, 0.82),
-			borderDash: style.dash, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, spanGaps: false,
+			yAxisID: "unit-" + String(meta.unit || "value"), borderColor: colorWithAlpha(style.color, 0.95), backgroundColor: colorWithAlpha(style.color, 0.04),
+			fill: Live.isPower(meta) ? { target: "origin" } : false,
+			borderDash: style.dash, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, pointHitRadius: 8, spanGaps: false,
 			cubicInterpolationMode: "monotone", tension: 0.15, metaInfo: meta, uuid: item.uuid, order: 0
 		};
 	}
@@ -867,6 +903,8 @@
 	function updateChart() {
 		if (typeof Chart === "undefined") return;
 		const items = channels.filter(item => selected.has(item.uuid));
+		const visibility = new Map();
+		if (chart) chart.data.datasets.forEach((dataset, index) => visibility.set(dataset.uuid, chart.isDatasetVisible(index)));
 		const datasets = items.map(datasetFor);
 		const units = [];
 		datasets.forEach(dataset => { const unit = String(dataset.metaInfo.unit || ""); if (!units.includes(unit)) units.push(unit); });
@@ -889,36 +927,23 @@
 				interaction: { mode: "index", intersect: false }, scales,
 				plugins: {
 					decimation: { enabled: true, algorithm: "min-max" },
-					legend: { position: "bottom", labels: { usePointStyle: true }, onClick: (_event, legendItem) => focusDataset(legendItem.datasetIndex) },
+					legend: { position: "bottom", labels: { usePointStyle: true } },
 					tooltip: { callbacks: { label: context => {
 						const dataset = context.dataset, unit = dataset.metaInfo.unit || "", point = dataset.data[context.dataIndex];
 						let text = dataset.label + ": " + formatNumber(context.parsed.y) + (unit ? " " + unit : "");
 						if (energyMode === "since-open" && Live.isEnergy(dataset.metaInfo) && point && Number.isFinite(point.absolute)) text += " (" + i18n.absolute + ": " + formatNumber(point.absolute) + (unit ? " " + unit : "") + ")";
 						return text;
 					} } }
-				},
-				onHover: (_event, active) => focusDataset(active.length ? active[0].datasetIndex : -1)
+				}
 			}
 		};
 		if (chart) {
 			chart.data.datasets = datasets;
+			datasets.forEach((dataset, index) => { if (visibility.has(dataset.uuid)) chart.setDatasetVisibility(index, visibility.get(dataset.uuid)); });
 			chart.options.scales = scales;
 			chart.update("none");
 		} else chart = new Chart(document.getElementById("live-chart"), config);
-		focusedDataset = -1;
 		renderSummary();
-	}
-
-	function focusDataset(index) {
-		if (!chart || focusedDataset === index) return;
-		focusedDataset = index;
-		chart.data.datasets.forEach((dataset, datasetIndex) => {
-			const style = Live.styleFor(dataset.uuid);
-			dataset.borderColor = colorWithAlpha(style.color, index < 0 || datasetIndex === index ? 0.82 : 0.3);
-			dataset.borderWidth = datasetIndex === index ? 3.5 : 2;
-			dataset.order = datasetIndex === index ? -1 : 0;
-		});
-		chart.update("none");
 	}
 
 	function colorWithAlpha(hex, alpha) {
