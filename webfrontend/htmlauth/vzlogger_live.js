@@ -413,6 +413,7 @@
 	const energySegments = new Map();
 
 	function esc(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+	function diagnosticHtml(message, hint) { return esc(message) + (hint ? '<span class="diagnostic-hint">' + esc(hint) + "</span>" : ""); }
 	function readableName(value) { return String(value || i18n.unnamed).replace(/_/g, " "); }
 	function formatNumber(value, digits) { return new Intl.NumberFormat(locale, { maximumFractionDigits: digits === undefined ? 6 : digits, useGrouping: false }).format(value); }
 	function channelUuid(channel) { return String(channel.uuid || channel.id || "").toLowerCase(); }
@@ -847,7 +848,7 @@
 	function renderTable(data) {
 		if (data && data.error) throw new Error(data.error);
 		const liveChannels = Array.isArray(data && data.data) ? data.data : (Array.isArray(data) ? data : []);
-		if (!liveChannels.length) { document.getElementById("state").innerHTML = '<div class="empty">' + esc(i18n.noChannels) + "</div>"; return; }
+		if (!liveChannels.length) { document.getElementById("state").innerHTML = '<div class="empty">' + diagnosticHtml(i18n.noChannels, i18n.noChannelsHint) + "</div>"; return; }
 		const groups = new Map();
 		liveChannels.forEach((channel, index) => {
 			const uuid = channelUuid(channel), meta = metadata.channels[uuid] || {}, serial = meta.serial || "unknown";
@@ -1022,7 +1023,7 @@
 			pollFailures++;
 			if (!document.hidden) {
 				document.getElementById("status").className = "status error";
-				document.getElementById("status").textContent = error.message;
+				document.getElementById("status").innerHTML = diagnosticHtml(error.message, error.message === i18n.dataFailed ? i18n.dataFailedHint : "");
 			}
 		} finally { refreshing = false; schedule(); }
 	}
