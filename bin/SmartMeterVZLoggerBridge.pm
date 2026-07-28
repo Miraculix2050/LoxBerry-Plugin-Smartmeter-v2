@@ -4,13 +4,15 @@ use strict;
 use warnings;
 use Exporter qw(import);
 use JSON::PP;
+use Time::Local qw(timegm);
 use SmartMeterVZLoggerChannels qw(ordered_output_names);
 
-our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
+our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
 
 my $json_decoder = JSON::PP->new->utf8;
 my $uuid_pattern = qr/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
 my $loxone_epoch = 1230768000;
+my ($cached_offset_epoch, $cached_utc_offset);
 
 sub timestamp_epoch
 {
@@ -23,20 +25,38 @@ sub timestamp_epoch
 
 sub loxone_timestamp
 {
-	my ($timestamp) = @_;
+	my ($timestamp, $offset) = @_;
 	my $epoch = timestamp_epoch($timestamp);
 	return undef if (!defined($epoch));
-	return $epoch - $loxone_epoch;
+	$offset = local_utc_offset($epoch) if (!defined($offset));
+	return undef if (!defined($offset));
+	return $epoch - $loxone_epoch + $offset;
 }
 
-sub bridge_timestamp_values
+sub local_utc_offset
 {
 	my ($timestamp) = @_;
 	my $epoch = timestamp_epoch($timestamp);
 	return undef if (!defined($epoch));
+	return $cached_utc_offset if (defined($cached_offset_epoch) && $cached_offset_epoch == $epoch);
+
+	my @local = localtime($epoch);
+	return undef if (!@local);
+	my $local_as_utc = eval { timegm(@local[0 .. 5]) };
+	return undef if ($@ || !defined($local_as_utc));
+	$cached_offset_epoch = $epoch;
+	$cached_utc_offset = $local_as_utc - $epoch;
+	return $cached_utc_offset;
+}
+
+sub bridge_timestamp_values
+{
+	my ($timestamp, $offset) = @_;
+	my $epoch = timestamp_epoch($timestamp);
+	return undef if (!defined($epoch));
 	return {
 		Last_UpdateUnix => $epoch,
-		Last_UpdateLoxEpoche => loxone_timestamp($epoch),
+		Last_UpdateLoxEpoche => loxone_timestamp($epoch, $offset),
 	};
 }
 
