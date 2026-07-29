@@ -9,7 +9,7 @@ use POSIX qw(isfinite);
 use Time::Local qw(timegm);
 use SmartMeterVZLoggerChannels qw(ordered_output_names);
 
-our @EXPORT_OK = qw(parse_mosquitto_envelope parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
+our @EXPORT_OK = qw(parse_mosquitto_envelope parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic throttle_log_event recover_log_event);
 
 my $json_decoder = JSON::PP->new->utf8;
 my $uuid_pattern = qr/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
@@ -70,6 +70,60 @@ sub bridge_topic
 	$source_topic =~ s{\A/+|/+$}{}g;
 	return "" if ($source_topic eq "");
 	return $source_topic =~ m{/vzlogger\z} ? substr($source_topic, 0, -9) . "/bridge" : "$source_topic/bridge";
+}
+
+sub throttle_log_event
+{
+	my ($state, $key, $now, $window, $maximum_keys, $signature) = @_;
+	return { emit => 1, suppressed => 0, elapsed => 0 } if (ref($state) ne "HASH");
+	$key = "unknown" if (!defined($key) || ref($key) || $key eq "");
+	$signature = "" if (!defined($signature) || ref($signature));
+	$now = time() if (!defined($now) || ref($now) || $now !~ /\A\d+(?:\.\d+)?\z/);
+	$window = 60 if (!defined($window) || ref($window) || $window <= 0);
+	$maximum_keys = 128 if (!defined($maximum_keys) || ref($maximum_keys) || $maximum_keys < 1);
+	delete($state->{$key}) if (exists($state->{$key}) && ($state->{$key}->{signature} || "") ne $signature);
+
+	if (!exists($state->{$key})) {
+		if (scalar(keys %$state) >= $maximum_keys) {
+			my ($oldest) = sort {
+				($state->{$a}->{last_seen} || 0) <=> ($state->{$b}->{last_seen} || 0)
+			} keys %$state;
+			delete($state->{$oldest}) if (defined($oldest));
+		}
+		$state->{$key} = {
+			first_seen => $now,
+			last_seen => $now,
+			last_emitted => $now,
+			suppressed => 0,
+			signature => $signature,
+		};
+		return { emit => 1, suppressed => 0, elapsed => 0 };
+	}
+
+	my $entry = $state->{$key};
+	$entry->{last_seen} = $now;
+	if ($now - $entry->{last_emitted} >= $window) {
+		my $suppressed = $entry->{suppressed} || 0;
+		my $elapsed = $now - $entry->{last_emitted};
+		$entry->{last_emitted} = $now;
+		$entry->{suppressed} = 0;
+		return { emit => 1, suppressed => $suppressed, elapsed => $elapsed };
+	}
+
+	$entry->{suppressed}++;
+	return { emit => 0, suppressed => $entry->{suppressed}, elapsed => $now - $entry->{last_emitted} };
+}
+
+sub recover_log_event
+{
+	my ($state, $key, $now) = @_;
+	return undef if (ref($state) ne "HASH" || !defined($key) || !exists($state->{$key}));
+	$now = time() if (!defined($now) || ref($now) || $now !~ /\A\d+(?:\.\d+)?\z/);
+	my $entry = delete($state->{$key});
+	return {
+		suppressed => $entry->{suppressed} || 0,
+		elapsed => $now - (defined($entry->{first_seen}) ? $entry->{first_seen} : $now),
+	};
 }
 
 sub normalize_mapping_keys
