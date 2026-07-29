@@ -13,7 +13,7 @@ use LoxBerry::Log;
 use LoxBerry::System;
 use lib $FindBin::Bin;
 use SmartMeterVZLoggerChannels qw(output_order_mapping ordered_output_names read_json);
-use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping normalize_mapping_keys effective_channel_topics send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
+use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping instantaneous_power_directions normalize_mapping_keys effective_channel_topics send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
 use SmartMeterVZLoggerConfig qw(clean_boolean clean_number clean_qos sanitize_topic);
 
 my $home = $lbhomedir;
@@ -84,11 +84,13 @@ my $http_cache_enabled = clean_boolean($plugin_cfg->param("VZLOGGER.HTTPCACHEENA
 my $bridge_mqtt_configured = clean_boolean($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED"), 0);
 my $source_timestamps_enabled = $runtime_mqtt->{timestamp} ? 1 : 0;
 my $bridge_mqtt_enabled = $bridge_mqtt_configured && $source_timestamps_enabled;
+my $cache_udp_enabled = $http_cache_enabled || $send_udp;
 my $debug_enabled = ($plugin_cfg->param("VZLOGGER.DEBUG") || "0") eq "1";
 my $udp_port = clean_number($plugin_cfg->param("MAIN.UDPPORT"), 7000);
 my $mqtt = read_mqtt_settings();
 my %uuid_by_channel = channel_mapping($mapping);
 my $output_order_by_serial = output_order_mapping($mapping);
+my $instantaneous_power_by_serial = instantaneous_power_directions($mapping);
 my @udp_targets = $send_udp ? miniserver_targets() : ();
 
 $bridge_log->loglevel(7) if ($debug_enabled);
@@ -121,6 +123,7 @@ my %dirty_serials;
 my %bridge_timestamps;
 my %timestamp_warning_by_serial;
 my %output_timestamp_warning_by_serial;
+my %power_state_by_file;
 my $last_update_cycle = 0;
 
 while (my $line = <$mqtt_fh>) {
@@ -140,16 +143,18 @@ while (my $line = <$mqtt_fh>) {
 
 	my $source_epoch = timestamp_epoch($reading->{timestamp});
 	publish_bridge_timestamp($reading, $source_epoch, \%bridge_timestamps) if ($bridge_mqtt_enabled);
-	update_timestamp($reading, $source_epoch, $values_by_serial{$reading->{serial}});
-	my $cache_value = normalize_cache_value($reading);
-	$values_by_serial{$reading->{serial}}->{$reading->{name}} = $cache_value;
-	update_calculated_power($reading, $values_by_serial{$reading->{serial}});
-	$dirty_serials{$reading->{serial}} = 1;
+	if ($cache_udp_enabled) {
+		update_timestamp($reading, $source_epoch, $values_by_serial{$reading->{serial}});
+		my $cache_value = normalize_cache_value($reading);
+		$values_by_serial{$reading->{serial}}->{$reading->{name}} = $cache_value;
+		update_calculated_power($reading, $values_by_serial{$reading->{serial}}, $instantaneous_power_by_serial);
+		$dirty_serials{$reading->{serial}} = 1 if ($http_cache_enabled);
 
-	if (time() - $last_update_cycle >= $update_interval) {
-		flush_cache(\%values_by_serial, \%dirty_serials, $output_order_by_serial) if ($http_cache_enabled);
-		send_udp_cycle(\%values_by_serial, $udp_port, $output_order_by_serial, \@udp_targets, \&create_udp_socket, \&log_line, $debug_callback) if ($send_udp);
-		$last_update_cycle = time();
+		if (time() - $last_update_cycle >= $update_interval) {
+			flush_cache(\%values_by_serial, \%dirty_serials, $output_order_by_serial) if ($http_cache_enabled);
+			send_udp_cycle(\%values_by_serial, $udp_port, $output_order_by_serial, \@udp_targets, \&create_udp_socket, \&log_line, $debug_callback) if ($send_udp);
+			$last_update_cycle = time();
+		}
 	}
 }
 
@@ -271,7 +276,7 @@ sub format_number
 
 sub update_calculated_power
 {
-	my ($reading, $values) = @_;
+	my ($reading, $values, $instantaneous_power_by_serial) = @_;
 	my $direction = "";
 	my $target_name = "";
 	if (($reading->{identifier} || "") =~ /\A1-0:1\.8\.0(?:\*\d+)?\z/) {
@@ -283,6 +288,7 @@ sub update_calculated_power
 	} else {
 		return;
 	}
+	return if (ref($instantaneous_power_by_serial->{$reading->{serial}}) eq "HASH" && $instantaneous_power_by_serial->{$reading->{serial}}->{$direction});
 
 	my $power = calculate_power($reading->{serial}, $direction, $reading->{value});
 	$values->{$target_name} = $power if (defined($power));
@@ -295,13 +301,18 @@ sub calculate_power
 
 	my $state_file = "$runtime_dir/$serial.last$direction";
 	my $now = time();
-	my ($last_time, $last_reading);
-	if (-e $state_file && open(my $fh, "<", $state_file)) {
-		my $line = <$fh> || "";
-		close($fh);
-		chomp($line);
-		($last_time, $last_reading) = split(/\|/, $line, 2);
+	if (!exists($power_state_by_file{$state_file})) {
+		my ($last_time, $last_reading);
+		if (-e $state_file && open(my $fh, "<", $state_file)) {
+			my $line = <$fh> || "";
+			close($fh);
+			chomp($line);
+			($last_time, $last_reading) = split(/\|/, $line, 2);
+		}
+		$power_state_by_file{$state_file} = { time => $last_time, reading => $last_reading };
 	}
+	my $last_time = $power_state_by_file{$state_file}->{time};
+	my $last_reading = $power_state_by_file{$state_file}->{reading};
 
 	if (!defined($last_time) || !defined($last_reading) || $last_time !~ /\A\d+\z/ || $last_reading !~ /\A-?\d+(?:\.\d+)?\z/ || $reading < $last_reading) {
 		write_power_state($state_file, $now, $reading);
@@ -325,7 +336,9 @@ sub write_power_state
 	my ($state_file, $time, $reading) = @_;
 	if (open(my $fh, ">", $state_file)) {
 		print $fh "$time|$reading\n";
-		close($fh);
+		if (close($fh)) {
+			$power_state_by_file{$state_file} = { time => $time, reading => $reading };
+		}
 	}
 }
 

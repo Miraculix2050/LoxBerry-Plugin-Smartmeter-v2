@@ -8,7 +8,7 @@ use POSIX ();
 use Test::More;
 use Time::Local qw(timegm);
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
+use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
 
 my $uuid = "11111111-2222-3333-4444-555555555555";
 my $second = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -48,6 +48,17 @@ is($channels{chn0}, $uuid, "channel index fallback is mapped");
 is($channels{chn1}, $second, "explicit channel name is mapped");
 my %identifiers = identifier_mapping($mapping);
 is($identifiers{"1-0:1.8.0"}, $uuid, "non-ambiguous identifier maps to UUID");
+my $power_directions = instantaneous_power_directions({
+	$uuid => { serial => "reader", identifier => "1-0:1.7.0" },
+	$second => { serial => "reader", identifier => "1-0:2.7.0*4" },
+	"bbbbbbbb-cccc-dddd-eeee-ffffffffffff" => { serial => "second_reader", identifier => "1-0:16.7.0" },
+	"cccccccc-dddd-eeee-ffff-000000000000" => { serial => "phase_reader", identifier => "1-0:21.7.0" },
+});
+is_deeply(
+	$power_directions,
+	{ reader => { cons => 1, del => 1 }, second_reader => { cons => 1, del => 1 } },
+	"directional and signed total instantaneous power are detected from structured OBIS identifiers",
+);
 
 my @debug;
 my $reading = parse_reading("smartmeter/vzlogger/chn0/raw", "123.5", $mapping, \%channels, sub { push @debug, @_ });

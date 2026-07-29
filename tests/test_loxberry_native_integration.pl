@@ -39,6 +39,8 @@ unlike($bridge, qr/push \@command, \("-P"/, "bridge does not expose the MQTT pas
 like($bridge, qr/\["-u", \$settings->\{user\}\], \["-P", \$settings->\{pass\}\]/, "protected Mosquitto configs carry authentication outside the process arguments");
 like($bridge, qr/flush_cache\([^\n]+if \(\$http_cache_enabled\)/, "HTTP cache writes are conditional");
 like($bridge, qr/publish_bridge_timestamp\(\$reading/, "bridge publishes converted timestamps from parsed source readings");
+like($bridge, qr/publish_bridge_timestamp\(\$reading.*?if \(\$cache_udp_enabled\) \{/s, "MQTT timestamp publication remains outside the optional cache and UDP processing path");
+like($bridge, qr/my \$cache_udp_enabled = \$http_cache_enabled \|\| \$send_udp;/, "cache and UDP message processing is disabled when neither cyclic output is active");
 like($bridge, qr/effective_channel_topics\(\$runtime_config, \$mapping\)/, "bridge derives exact subscriptions from the applied output mapping");
 like($bridge, qr/push \@command, map \{ \("-t", \$_\) \} \@subscribe_topics/, "bridge passes one exact subscription per SmartMeter output channel");
 unlike($bridge, qr/\$source_topic\/#/, "bridge does not subscribe to the vzLogger wildcard tree");
@@ -58,6 +60,10 @@ like($web, qr/glob\("\$lbplogdir\/\*_\$name\.log"\)/, "web interface discovers t
 like($web, qr/name => "webui"/, "web actions use a dedicated native log session");
 like($web, qr/\$logger->INF\("web-action=\$action"\)/, "web action logging uses the native object method");
 unlike($web, qr/vzlogger_(?:control|apply|mqtt_bridge)\.log/, "web interface no longer targets private fixed action logs");
+
+my $http_endpoint = read_source("webfrontend/html/index.php");
+like($http_endpoint, qr/\@readfile\(\$directory\.\$file\)/, "HTTP cache files are streamed directly");
+unlike($http_endpoint, qr/fopen\(\$directory\.\$file/, "HTTP cache files are not opened a second time before streaming");
 
 my $generator = read_source("bin/vzlogger_config.pl");
 like($generator, qr/\$ENV\{SMARTMETER_CONFIG_DIR\} \|\| \$lbpconfigdir/, "generator defaults to the exported plugin config directory");
