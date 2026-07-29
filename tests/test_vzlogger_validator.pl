@@ -99,6 +99,11 @@ is($exit, 0, "valid generated configuration passes");
 like($output, qr/<OK>/, "success marker is emitted");
 
 ($config, $mapping, $definitions) = base_case();
+$config->{local}->{port} = 65535;
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
+is($exit, 0, "local HTTP accepts port 65535");
+
+($config, $mapping, $definitions) = base_case();
 $config->{upstream_extension} = { retained => JSON::PP::true };
 $mapping = { invalid => "ignored in expert mode" };
 ($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, expert=>1);
@@ -124,7 +129,7 @@ isnt($exit, 0, "vzLogger mode requires an active meter");
 like($output, qr/No active meter/, "missing active meter is explained");
 
 ($config, $mapping, $definitions) = base_case();
-$config->{local}->{port} = 70000;
+$config->{local}->{port} = 65536;
 ($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
 like($output, qr/local\.port.*1 and 65535/, "port range is checked");
 

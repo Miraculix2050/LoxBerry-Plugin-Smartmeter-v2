@@ -1,43 +1,32 @@
 # SmartMeter v2 for LoxBerry
 
-SmartMeter v2 is a LoxBerry plugin for reading smart meters with optical I/R reading heads. It provides meter values through the plugin web frontend and can forward them by HTTP, UDP, and MQTT depending on the selected configuration.
+SmartMeter v2 reads smart meters through optical I/R reading heads on LoxBerry. The standard implementation uses vzLogger; a separate Legacy implementation remains available for existing configurations.
 
-The `master` branch and its documentation describe the currently implemented development state. For documentation matching an installed release, select that version under [Releases](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/releases) or [Tags](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/tags). Planned but unimplemented behavior is not documented as current.
+SmartMeter v2 liest Smart Meter über optische I/R-Leseköpfe am LoxBerry aus. Standardmäßig kommt vzLogger zum Einsatz; für bestehende Konfigurationen bleibt eine getrennte Legacy-Implementierung verfügbar.
 
-The standard implementation uses the external `vzlogger` package. The plugin generates `vzlogger.conf`, consumes selected vzLogger MQTT channels, and maintains an in-process value set for optional HTTP-cache writes and UDP sends. Only enabled HTTP output writes the RAM-backed `.data` files read by the HTTP endpoint.
-
-The legacy reader remains available for existing installations and meter setups that are not covered by vzLogger yet.
-
-## Documentation
+## User documentation / Benutzerdokumentation
 
 - [English user guide](docs/User-Guide.en.md)
 - [Deutsche Benutzerdokumentation](docs/User-Guide.de.md)
-- [User documentation](docs/Readme.md)
-- [Developer documentation](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/master/docs/development/README.md)
+- [Documentation index / Dokumentationsübersicht](docs/Readme.md)
+- [Known limitations / Bekannte Einschränkungen](docs/known-limitations.md)
+- [Tested platforms / Geprüfte Plattformen](docs/support-matrix.md)
 
-## Main Features
+The documentation on `master` describes the current development tree. Use the documentation linked from an installed release for version-specific instructions.
 
-- Detects optical I/R reading heads below `/dev/serial/smartmeter/`.
-- Generates and validates vzLogger configuration files.
-- Supports vzLogger MQTT publishing with a local SmartMeter cache.
-- Provides optional HTTP `.data` cache output and UDP output from the same ordered bridge value set.
-- Includes a bridge service for MQTT-to-cache processing.
-- Provides diagnostic logging for service state, generated config, channel mapping, bridge logs, cache files, and MQTT parser samples.
+Die Dokumentation auf `master` beschreibt den aktuellen Entwicklungsstand. Verwende für versionsgenaue Anweisungen die von der installierten Version verlinkte Dokumentation.
 
-## Quick Links
+## Main features / Hauptfunktionen
 
-- Standard source topics: `<base topic>/vzlogger/...`
-- Optional standard bridge output: `<base topic>/bridge`
-- Legacy output only: `<base topic>/<meter>/<value name>`
-- Default base topic: `smartmeter`
-- UDP sends the same value set to all configured Miniservers.
-- HTTP access remains available through the plugin web frontend.
-- vzLogger live readings can optionally be opened through the local vzLogger HTTP daemon.
+- Detection of reading heads below `/dev/serial/smartmeter/`
+- Guided SML, D0, and OMS configuration plus custom JSONC
+- OBIS discovery and channel selection
+- Live readings and browser-local charts
+- MQTT, optional HTTP-cache, and UDP output
+- Direct vzLogger targets for Volkszähler, InfluxDB, and MySmartGrid
+- Reversible Legacy fallback
 
-## Release Notes
+## Development
 
-See [CHANGELOG.md](CHANGELOG.md) for notable changes and release notes.
-
-## Known Issues
-
-See [Known Issues](docs/known-limitations.md) for confirmed limitations, security exceptions, and compatibility follow-up work.
+- [Developer documentation](docs/development/README.md)
+- [Changelog](CHANGELOG.md)

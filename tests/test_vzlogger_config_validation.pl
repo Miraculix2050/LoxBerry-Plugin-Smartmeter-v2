@@ -19,7 +19,8 @@ is(protocol_for_meter("generic-d0"), "d0", "shared protocol mapper recognizes D0
 is(normalized_meter_mode("manual", "sml"), "sml", "manual legacy mode maps through shared protocol mapper");
 is(serial_mode(7, "even", 1), "7E1", "shared serial mode is canonical");
 is(sanitize_topic(" /smartmeter/site/ "), "smartmeter/site", "shared topic normalization trims separators");
-is(clean_qos("2", 0), 2, "shared QoS cleaner accepts supported values");
+is(clean_qos("1", 0), 1, "shared QoS cleaner accepts the highest supported value");
+is(clean_qos("2", 0), 0, "shared QoS cleaner rejects QoS 2");
 is(clean_qos("bad", 1), 1, "shared QoS cleaner retains its validated default");
 is(clean_boolean("0", 1), 0, "shared boolean cleaner preserves explicit false");
 is(clean_boolean("invalid", 1), 1, "shared boolean cleaner uses its validated fallback");
@@ -81,6 +82,9 @@ my $valid = {
 	meters => [{ serial => "reader", meter => "preset" }],
 };
 is_deeply([validate_legacy_general($valid, { preset => 1 })], [], "valid Legacy general settings pass");
+my %maximum_port = %$valid;
+$maximum_port{udpport} = "65535";
+is_deeply([validate_legacy_general(\%maximum_port, { preset => 1 })], [], "Legacy accepts the maximum UDP port");
 
 foreach my $case (
 	[implementation => "vzlogger", qr/IMPLEMENTATION/], [read => "2", qr/READ/],
@@ -145,6 +149,7 @@ like($live_data_source, qr/X-Smartmeter-Metadata-Version/, "lightweight live-dat
 like($vzlogger_cgi_source, qr/rollback_failed_vzlogger_activation\(\$previous_implementation\)/, "failed vzLogger activation restores the preceding implementation mode");
 like($vzlogger_cgi_source, qr/qw\(allowskip aggfixedinterval uselocaltime\)/, "submitted fixed aggregation interval must be a boolean");
 like($vzlogger_cgi_source, qr/AGGFIXEDINTERVAL.*?clean_boolean.*?0/s, "missing fixed aggregation interval defaults to false");
+like($vzlogger_cgi_source, qr/vzlogger_localport\s*=>\s*\[1,\s*65535\].*?udpport\s*=>\s*\[1,\s*65535\]/s, "standard form backend validates local HTTP and bridge UDP through port 65535");
 like($vzlogger_cgi_source, qr/else \{\s*# GET builds.*?ensure_vzlogger_defaults\(0\).*?ensure_head_defaults\(0, \@heads\).*?load_or_migrate_channel_document\(0, \@heads\)/s, "vzLogger GET builds defaults and migrations without persistence");
 like($vzlogger_cgi_source, qr/write_json_atomic\(\$file, \$channel_document\) if \(\$changed && \$persist\)/, "channel migration writes only on an explicit persistent path");
 like($vzlogger_cgi_source, qr/SMARTMETER_LEGACY_LOCK_HELD/, "vzLogger activation passes its held Legacy polling guard to the service controller");

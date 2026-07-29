@@ -141,6 +141,18 @@ like($vzlogger, qr/new FormData\(form\)/, "configuration actions retain form-bas
 my $help = read_file("webfrontend/htmlauth/help.cgi");
 like($help, qr/LoxBerry::Web::lbheader\s*\([^;]*["']nojqm["']/s, "local help uses the V4 header without jQuery Mobile");
 like($help, qr/templates?\/plugins|lbptemplatedir/, "local help uses the installed plugin template");
-like(read_file("templates/multi/help.html"), qr/\bHELP\.IMPLEMENTATIONS_TITLE\b/, "local help is language-resource driven");
+my $help_template = read_file("templates/multi/help.html");
+like($help_template, qr/\bHELP\.IMPLEMENTATIONS_TITLE\b/, "local help is language-resource driven");
+like($help_template, qr/MANUAL_URL/, "local help receives a version-bound manual URL");
+unlike($help_template, qr/(?:tree|blob)\/master\/docs/, "local help does not hard-code development documentation");
+like($help, qr/Smartmeter-V\$version.*User-Guide\.\$language\.md/s, "local help builds a language-specific release-tag URL");
+
+my $legacy_settings = read_file("templates/multi/main.html");
+like($legacy_settings, qr/name="udpport".*?data-validation-allowing="range\[1;65535\]"/s, "Legacy UDP accepts the complete port range");
+like($vzlogger, qr/name="vzlogger_localport".*?data-validation-allowing="range\[1;65535\]"/s, "local vzLogger HTTP accepts the complete port range");
+like($vzlogger, qr/name="udpport".*?data-validation-allowing="range\[1;65535\]"/s, "bridge UDP accepts the complete port range");
+unlike($legacy_settings . $vzlogger, qr/data-validation-allowing="range\[1;(?:65000|65534)\]"/, "port controls have no outdated upper browser limit");
+like($vzlogger, qr/id="vzlogger_mqttqos".*?<option value="0">0<\/option><option value="1">1<\/option>/s, "standard MQTT QoS offers only 0 and 1");
+unlike($vzlogger, qr/id="vzlogger_mqttqos"(?:(?!<\/select>).)*<option value="2">/s, "standard MQTT QoS does not offer 2");
 
 done_testing();

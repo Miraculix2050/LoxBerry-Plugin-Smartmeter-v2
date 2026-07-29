@@ -15,6 +15,10 @@ my $template = HTML::Template->new(
 	die_on_bad_params => 0,
 );
 my %L = LoxBerry::System::readlanguage($template, "language.ini");
+my $version = LoxBerry::System::pluginversion() || "";
+my $language = (($L{'COMMON.LANGUAGE_CODE'} || "en") eq "de") ? "de" : "en";
+my $manual_ref = $version =~ /\A\d+(?:\.\d+){2,3}\z/ ? "Smartmeter-V$version" : "master";
+my $manual_url = "https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/$manual_ref/docs/User-Guide.$language.md";
 my $runtime_dir = "/var/run/shm/$lbpplugindir";
 my $runtime_link = "$lbplogdir/shm";
 
@@ -45,7 +49,7 @@ $template->param(
 my $title = $L{'COMMON.PLUGIN_TITLE'} || "SmartMeter v2";
 LoxBerry::Web::lbheader(
 	"$title - " . ($L{'LEGACY.LOGFILETABLEROWS_TITLE'} || "Logs"),
-	"https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/master/docs/Readme.md",
+	$manual_url,
 	"",
 	"nojqm",
 );

@@ -30,6 +30,7 @@ Changes to a normative contract require review, a recorded rationale, and matchi
 - [Known issues and compatibility limitations](../known-limitations.md)
 - [Tested support matrix](../support-matrix.md)
 - [`CHANGELOG.md`](../../CHANGELOG.md) — historical release notes, not a normative specification
+- [Developer changelog](CHANGELOG.md) — implementation detail for the current development cycle
 - [`tests/`](../../tests) and [CI workflow](../../.github/workflows/syntax-check.yml) — executable regression evidence
 
 The completed vzLogger migration plan was removed after its accepted behavior was

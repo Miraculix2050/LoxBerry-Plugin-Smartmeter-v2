@@ -151,6 +151,12 @@ is(
 	"embedded JSON quotes are parsed without visible escape backslashes",
 );
 like($english->{'VZLOGGER.MQTT_BASE_TOPIC_HELP'}, qr/&lt;base&gt;/, "HTML entities remain intact");
+like($english->{'VZLOGGER.LOCAL_INDEX_HELP'}, qr/never.*Internet/i, "English local-index help states the public-exposure prohibition");
+like($german->{'VZLOGGER.LOCAL_INDEX_HELP'}, qr/niemals.*Internet/i, "German local-index help states the public-exposure prohibition");
+like($english->{'HELP.OBIS_TEXT'}, qr/background.*Save and apply/i, "English OBIS help distinguishes discovery persistence from Apply");
+like($german->{'HELP.OBIS_TEXT'}, qr/Hintergrund.*Speichern und anwenden/i, "German OBIS help distinguishes discovery persistence from Apply");
+like($english->{'LEGACY.FORMTABLE_UDP_PORT_VALIDATION'}, qr/65535/, "English Legacy port error documents the backend limit");
+like($german->{'LEGACY.FORMTABLE_UDP_PORT_VALIDATION'}, qr/65535/, "German Legacy port error documents the backend limit");
 
 my $live_cgi = slurp_utf8("$repo/webfrontend/htmlauth/vzlogger_live.cgi");
 unlike($live_cgi, qr/vzLogger Live-Daten|Daten werden geladen|Kanal-Metadaten konnten/, "live-data CGI contains no embedded German UI phrases");

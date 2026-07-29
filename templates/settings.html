@@ -230,7 +230,7 @@
 				</tr>
 				<tr>
 					<td><label for="vzlogger_localport"><TMPL_VAR NAME=VZLOGGER.HTTP_PORT></label><span class="config-key"><code>local.port</code></span></td>
-					<td><input id="vzlogger_localport" name="vzlogger_localport" type="text" data-validation="number" value="<TMPL_VAR VZLOGGER_LOCALPORT>" data-validation-allowing="range[1024;65000]"></td>
+					<td><input id="vzlogger_localport" name="vzlogger_localport" type="text" data-validation="number" value="<TMPL_VAR VZLOGGER_LOCALPORT>" data-validation-allowing="range[1;65535]"></td>
 					<td>&nbsp;</td>
 					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.HTTP_PORT_HELP></font></td>
 				</tr>
@@ -467,7 +467,7 @@
 				</tr>
 				<tr>
 					<td><label id="labeludpport" for="udpport"><TMPL_VAR NAME=VZLOGGER.PORT></label></td>
-					<td><input id="udpport" name="udpport" type="text" data-validation="number" value="<TMPL_VAR UDPPORT>" data-validation-allowing="range[1;65000]"></td>
+					<td><input id="udpport" name="udpport" type="text" data-validation="number" value="<TMPL_VAR UDPPORT>" data-validation-allowing="range[1;65535]"></td>
 					<td>&nbsp;</td>
 					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.UDP_PORT_HELP></font></td>
 				</tr>

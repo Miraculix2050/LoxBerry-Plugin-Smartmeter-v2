@@ -148,6 +148,7 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 - **SM-VER-004** — Preserve remote configuration and service state during tests. Verify checksums around failed, concurrent, or read-only actions.
 - **SM-VER-005** — Update both user guides and `CHANGELOG.md` when behavior, configuration, dependencies, compatibility, or upgrade steps change. Record confirmed limitations in `../known-limitations.md` rather than presenting them as supported.
 - **SM-VER-006** — Local packages and official releases follow `local-builds.md` and `release-process.md`; suffixless release archives are produced only by the GitHub release workflow.
+- **SM-VER-007** — `PLUGIN.WEBSITE` and in-product manual links in an installed package target `docs/Readme.md` or the selected language guide at the matching `Smartmeter-V<PLUGIN.VERSION>` tag. Only development documentation links may target `master`.
 
 ## Detailed References
 

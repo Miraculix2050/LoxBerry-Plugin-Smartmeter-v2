@@ -24,7 +24,8 @@ sub fixture
 	my $version = $args{version} || "2.0.0.99";
 	my $stable_version = $args{stable_version} || "2.0.0.10";
 	my $prerelease_version = $args{prerelease_version} || $version;
-	write_file("$dir/plugin.cfg", "[PLUGIN]\nVERSION=$version\n");
+	my $documentation = "https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/Smartmeter-V$version/docs/Readme.md";
+	write_file("$dir/plugin.cfg", "[PLUGIN]\nVERSION=$version\nWEBSITE=$documentation\n");
 	foreach my $entry ([release => $stable_version], [prerelease => $prerelease_version]) {
 		my ($name, $channel_version) = @$entry;
 		my $tag = "Smartmeter-V$channel_version";
@@ -49,5 +50,10 @@ is(system($^X, $validator, "--root", $stable, "--version", "2.0.0.11", "--channe
 write_file("$development/prerelease.cfg", "[AUTOUPDATE]\nVERSION=2.0.0.99\nARCHIVEURL=https://example.invalid/source.zip\nINFOURL=https://example.invalid/\n");
 ok((system($^X, $validator, "--root", $development, "--version", "2.0.0.99", "--channel", "prerelease") >> 8) != 0,
 	"a release rejects URLs that do not identify its generated asset and tag");
+
+my $wrong_documentation = fixture();
+write_file("$wrong_documentation/plugin.cfg", "[PLUGIN]\nVERSION=2.0.0.99\nWEBSITE=https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/master/docs/Readme.md\n");
+ok((system($^X, $validator, "--root", $wrong_documentation, "--channel", "development") >> 8) != 0,
+	"metadata rejects documentation that is not bound to the plugin version tag");
 
 done_testing();

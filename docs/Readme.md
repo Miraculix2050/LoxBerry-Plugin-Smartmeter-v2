@@ -1,13 +1,23 @@
-# SmartMeter v2 Documentation
+# SmartMeter v2 documentation / Dokumentation
 
-- **Audience:** SmartMeter v2 users and LoxBerry administrators
-- **Status:** Current implemented development state on `master`
+This directory follows the implementation on `master`. Documentation opened from an installed release is tied to that release tag.
 
-This documentation follows the code currently present on `master`. It does not describe speculative future work and may differ from an installed release. Select the matching version under [Releases](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/releases) or [Tags](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/tags) for release-specific documentation.
+Dieses Verzeichnis folgt der Implementierung auf `master`. Die aus einer installierten Version geöffnete Dokumentation ist an deren Release-Tag gebunden.
 
-Choose the detailed guide in your preferred language:
+## English
 
-- [English user guide](User-Guide.en.md)
-- [Deutsche Benutzerdokumentation](User-Guide.de.md)
-- [Known issues and compatibility limitations](known-limitations.md)
-- [Tested support matrix](support-matrix.md)
+- [User guide](User-Guide.en.md)
+- [Known limitations](known-limitations.en.md)
+- [Tested support matrix](support-matrix.en.md)
+
+## Deutsch
+
+- [Benutzerdokumentation](User-Guide.de.md)
+- [Bekannte Einschränkungen](known-limitations.de.md)
+- [Geprüfte Supportmatrix](support-matrix.de.md)
+
+## Development / Entwicklung
+
+- [Developer documentation](development/README.md)
+- [Releases](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/releases)
+- [Tags](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/tags)
