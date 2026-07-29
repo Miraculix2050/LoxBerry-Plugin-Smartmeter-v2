@@ -30,6 +30,8 @@ The two update channels have deliberately independent metadata:
 
 Existing metadata for an older already-published release may retain its historical URL. Every newly published release must use the generated release asset URL, never GitHub's automatic source archive.
 
+On `master`, an implemented but unpublished development version may already be present in `plugin.cfg` and `prerelease.cfg`, including the planned tag and asset URLs. The tag, GitHub Release, and ZIP are not required to exist until publication. Normal branch CI checks only internal development-metadata consistency; the release workflow enforces the matching channel, tag, and generated asset URL at publication time.
+
 Current tag format:
 
 ```text
@@ -71,7 +73,7 @@ git tag -a Smartmeter-V<version> -m "Smartmeter V<version>"
 git push origin Smartmeter-V<version>
 ```
 
-12. Wait for the `Release asset` GitHub Actions workflow to finish. It builds `Smartmeter-V<version>.zip` from the tag with `git archive --worktree-attributes`, verifies `plugin.cfg`, creates a draft GitHub Release with the generated ZIP asset, and initially publishes it as a prerelease.
+12. Wait for the `Release asset` GitHub Actions workflow to finish. It verifies that the tag version equals `PLUGIN.VERSION`, detects the matching stable or prerelease channel, validates that channel's tag and generated-asset URLs, builds `Smartmeter-V<version>.zip` from the tag with `git archive --worktree-attributes`, creates a draft GitHub Release with the generated ZIP asset, and initially publishes it as a prerelease.
    - The workflow uploads the ZIP while the release is still a draft because published GitHub Releases can be immutable.
    - If the tag workflow did not run, dispatch `Release asset` manually with the same tag.
 13. Verify the GitHub Release title, release notes, and uploaded `Smartmeter-V<version>.zip` asset.

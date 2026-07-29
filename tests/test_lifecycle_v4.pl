@@ -37,12 +37,19 @@ like($postroot, qr/Removed obsolete SmartMeter boot daemon/, "postroot removes t
 ok(!-e "$FindBin::Bin/../daemon/daemon", "obsolete daemon is absent from the package");
 ok(-e "$FindBin::Bin/../sbin/install_vzlogger_bridge_service.sh", "bridge helper is packaged below sbin");
 ok(-e "$FindBin::Bin/../sbin/install_vzlogger_service_override.sh", "override helper is packaged below sbin");
+ok(-e "$FindBin::Bin/../sbin/smartmeter_config_lock.sh", "shared lifecycle configuration lock helper is packaged below sbin");
+
+foreach my $hook (qw(preroot.sh postinstall.sh postroot.sh postupgrade.sh)) {
+	my $source = read_file($hook);
+	like($source, qr/\. "\$LOCK_HELPER".*?smartmeter_acquire_config_lock/s, "$hook acquires the shared configuration lock");
+}
 
 my $control = read_file("bin/vzlogger_control.pl");
 like($control, qr/\$ENV\{LBPSBIN\}\s*\|\|\s*"\$lbhomedir\/sbin\/plugins"/, "runtime control uses V4 sbin path with a 4.0.0-compatible fallback");
 like($postinstall, qr/LBPCGI=\$\{LBPCGI:-\$\{LBPHTMLAUTH:-\}\}/, "postinstall accepts the original LoxBerry 4.0.0 authenticated web-root name");
 like($postroot, qr/LBPSBIN=\$\{LBPSBIN:-"\$LBHOMEDIR\/sbin\/plugins"\}/, "postroot provides the original LoxBerry 4.0.0 sbin fallback");
 like($postroot, qr/install -o root -g root -m 0755/, "postroot installs privileged helpers from the archive");
+like($postroot, qr/CONFIG_LOCK_HELPER.*?for helper in .*?CONFIG_LOCK_HELPER/s, "postroot installs the lock helper for uninstall");
 like($postroot, qr/chown loxberry:loxberry "\$CONFIG_FILE"/, "postroot repairs smartmeter.cfg ownership");
 like($postroot, qr/chmod 0640 "\$CONFIG_FILE"/, "postroot limits smartmeter.cfg permissions");
 unlike($control, qr{sudo.*?/bin/sh.*?install_vzlogger_}, "runtime does not sudo a writable bin shell script");
@@ -65,5 +72,6 @@ like($uninstall, qr/\$LBPCONFIG\/\$PDIR/, "uninstaller resolves the ownership ma
 like($uninstall, qr/vzlogger\.installed-by-plugin/, "uninstaller protects pre-existing vzLogger packages");
 like($uninstall, qr/repository-installed-by-plugin/, "uninstaller protects a pre-existing apt source");
 like($uninstall, qr/keyring-installed-by-plugin/, "uninstaller protects a pre-existing apt keyring");
+like($uninstall, qr/\. "\$LOCK_HELPER".*?smartmeter_acquire_config_lock/s, "uninstaller acquires the shared configuration lock before cleanup");
 
 done_testing();

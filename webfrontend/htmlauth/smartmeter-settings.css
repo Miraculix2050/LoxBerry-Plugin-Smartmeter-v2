@@ -286,6 +286,15 @@
 	@media (max-width: 420px) {
 		.configuration-section { padding: 8px; }
 		.service-panel { padding: 8px; }
+		.recovery-settings-panel .service-controls > .lb-btn {
+			display: block;
+			box-sizing: border-box;
+			width: 100%;
+			max-width: 100%;
+			margin: 4px 0;
+			white-space: normal;
+			overflow-wrap: anywhere;
+		}
 		.meter-panel .lb-collapsible-content { padding: 7px; }
 		.obis-channel-card { padding: 7px; }
 		.obis-channel-details[open] > .obis-channel-grid { padding: 7px; }

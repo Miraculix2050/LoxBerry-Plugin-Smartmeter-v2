@@ -30,6 +30,7 @@ BRIDGE_SERVICE="smartmeter-v2-vzlogger-bridge.service"
 BRIDGE_INSTALLER="$LBPSBIN/$PDIR/install_vzlogger_bridge_service.sh"
 VZLOGGER_CONTROL="$LBPBIN/$PDIR/vzlogger_control.pl"
 VZLOGGER_OVERRIDE_INSTALLER="$LBPSBIN/$PDIR/install_vzlogger_service_override.sh"
+CONFIG_LOCK_HELPER="$LBPSBIN/$PDIR/smartmeter_config_lock.sh"
 PREUPGRADE_ACTIVE_FILE="$LBPCONFIG/$PDIR/vzlogger.preupgrade-service-active"
 SMARTMETER_UDEV_RULE="/etc/udev/rules.d/99-smartmeter.rules"
 RUNTIME_DIR="/var/run/shm/$PDIR"
@@ -42,6 +43,14 @@ if [ "$(id -u)" != "0" ]; then
 	echo "<ERROR> postroot.sh must run as root."
 	exit 2
 fi
+
+LOCK_HELPER="$PTEMPPATH/sbin/smartmeter_config_lock.sh"
+if [ ! -r "$LOCK_HELPER" ]; then
+	echo "<ERROR> SmartMeter configuration lock helper is missing."
+	exit 2
+fi
+. "$LOCK_HELPER"
+smartmeter_acquire_config_lock "$RUNTIME_DIR" || exit 4
 
 implementation=""
 if [ -f "$CONFIG_FILE" ]; then
@@ -74,7 +83,7 @@ prepare_privileged_helpers()
 		return 1
 	fi
 	mkdir -p "$LBPSBIN/$PDIR"
-	for helper in "$BRIDGE_INSTALLER" "$VZLOGGER_OVERRIDE_INSTALLER"
+	for helper in "$BRIDGE_INSTALLER" "$VZLOGGER_OVERRIDE_INSTALLER" "$CONFIG_LOCK_HELPER"
 	do
 		source_helper="$PTEMPPATH/sbin/$(basename "$helper")"
 		if [ ! -f "$source_helper" ]; then

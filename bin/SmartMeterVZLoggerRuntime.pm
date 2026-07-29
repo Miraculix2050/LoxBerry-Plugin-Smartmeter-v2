@@ -13,15 +13,41 @@ our @EXPORT_OK = qw(acquire_config_lock promote_files_atomic);
 sub acquire_config_lock
 {
 	my ($runtime_dir) = @_;
-	return (1, "") if (($ENV{SMARTMETER_CONFIG_LOCK_HELD} || "") eq "1");
 	make_path($runtime_dir, { mode => 0750 }) if (!-d $runtime_dir);
 	chmod(0750, $runtime_dir);
 	my $file = "$runtime_dir/vzlogger_config.lock";
+	my $inherited = _inherited_config_lock($file);
+	return ($inherited, "") if ($inherited);
 	open(my $fh, ">>", $file) or return (undef, "Could not open configuration lock $file: $!");
 	chmod(0640, $file);
 	return (undef, "Another SmartMeter configuration or service action is already running.")
 		if (!flock($fh, LOCK_EX | LOCK_NB));
+	_publish_config_lock($fh, $file);
 	return ($fh, "");
+}
+
+sub _inherited_config_lock
+{
+	my ($file) = @_;
+	my $fd = $ENV{SMARTMETER_CONFIG_LOCK_FD};
+	return if (!defined($fd) || $fd !~ /\A\d+\z/ || $fd < 3 || $fd > 255);
+	return if (!defined($ENV{SMARTMETER_CONFIG_LOCK_FILE}) || $ENV{SMARTMETER_CONFIG_LOCK_FILE} ne $file);
+	open(my $fh, ">&", $fd) or return;
+	my @handle_stat = stat($fh);
+	my @file_stat = stat($file);
+	return if (!@handle_stat || !@file_stat || $handle_stat[0] != $file_stat[0] || $handle_stat[1] != $file_stat[1]);
+	return $fh;
+}
+
+sub _publish_config_lock
+{
+	my ($fh, $file) = @_;
+	my $fd = fileno($fh);
+	return if (!defined($fd));
+	my $setfd = eval { Fcntl::F_SETFD() };
+	fcntl($fh, $setfd, 0) if (defined($setfd));
+	$ENV{SMARTMETER_CONFIG_LOCK_FD} = $fd;
+	$ENV{SMARTMETER_CONFIG_LOCK_FILE} = $file;
 }
 
 sub promote_files_atomic

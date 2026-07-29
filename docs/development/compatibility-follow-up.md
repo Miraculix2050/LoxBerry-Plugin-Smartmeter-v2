@@ -5,8 +5,9 @@
 - **Authority:** Non-normative work list; `docs/known-limitations.md` remains authoritative for current claims
 
 This document tracks the work needed to narrow confirmed compatibility limitations.
-Completing an item does not expand support by itself: record the evidence, update
-`docs/known-limitations.md`, and adjust the user guides before making a broader claim.
+Completing an item does not expand support by itself: update `docs/support-matrix.md`
+after the target run, revise `docs/known-limitations.md`, and adjust the user guides
+before making a broader claim. Do not commit raw device logs or detailed reports.
 
 ## Platform coverage
 

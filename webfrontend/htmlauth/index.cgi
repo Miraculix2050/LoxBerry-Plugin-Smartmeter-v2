@@ -157,7 +157,6 @@ if( $q->{ajax} ) {
 			my ($lock, $error) = acquire_config_lock($csrf_runtime_dir);
 			die "$error\n" if (!$lock);
 			$request_lock = $lock;
-			$ENV{SMARTMETER_CONFIG_LOCK_HELD} = "1";
 		}
 		if ($action eq "obis-start") {
 			my $config_file = "$lbpconfigdir/smartmeter.cfg";
@@ -275,7 +274,6 @@ sub form_vzlogger
 		die "Configuration changes require POST.\n" if (!$is_post);
 		my ($form_lock, $lock_error) = acquire_config_lock("/var/run/shm/$lbpplugindir");
 		die "$lock_error\n" if (!$form_lock);
-		local $ENV{SMARTMETER_CONFIG_LOCK_HELD} = "1";
 		my $action = $q->{submitaction} || "apply";
 		if (expert_mode_enabled()) {
 			my $status = expert_draft_status();
