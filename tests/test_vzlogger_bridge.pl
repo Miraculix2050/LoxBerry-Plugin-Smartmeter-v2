@@ -8,7 +8,7 @@ use POSIX ();
 use Test::More;
 use Time::Local qw(timegm);
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerBridge qw(parse_mosquitto_envelope parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
+use SmartMeterVZLoggerBridge qw(parse_mosquitto_envelope parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic throttle_log_event recover_log_event);
 
 my $uuid = "11111111-2222-3333-4444-555555555555";
 my $second = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -215,5 +215,34 @@ is(scalar(@created_sockets), 1, "failed UDP socket is not recreated within the s
 is(scalar(@udp_log), 1, "UDP send failure remains visible in the normal log");
 send_udp_cycle($udp_values, 7000, {}, \@targets, $socket_factory, sub { push @udp_log, @_ }, sub { push @udp_debug, @_ });
 is(scalar(@created_sockets), 2, "failed UDP socket is recreated on the next cycle");
+
+my %log_throttle;
+my $decision = throttle_log_event(\%log_throttle, "cache-write\0reader", 100, 60, 3, "permission denied");
+ok($decision->{emit}, "the first operational error is emitted immediately");
+$decision = throttle_log_event(\%log_throttle, "cache-write\0reader", 110, 60, 3, "permission denied");
+ok(!$decision->{emit}, "an identical operational error inside the window is suppressed");
+$decision = throttle_log_event(\%log_throttle, "cache-write\0reader", 120, 60, 3, "permission denied");
+is($decision->{suppressed}, 2, "the throttle counts every suppressed repetition");
+$decision = throttle_log_event(\%log_throttle, "cache-write\0reader", 160, 60, 3, "permission denied");
+ok($decision->{emit}, "the operational error is emitted again after the window");
+is($decision->{suppressed}, 2, "the periodic message reports repetitions from the previous window");
+is($decision->{elapsed}, 60, "the periodic message reports the elapsed window");
+
+throttle_log_event(\%log_throttle, "cache-write\0reader", 170, 60, 3, "permission denied");
+my $recovery = recover_log_event(\%log_throttle, "cache-write\0reader", 180);
+is($recovery->{suppressed}, 1, "recovery reports repetitions suppressed since the last periodic message");
+is($recovery->{elapsed}, 80, "recovery reports the complete incident duration");
+ok(!recover_log_event(\%log_throttle, "cache-write\0reader", 181), "recovery clears the active incident");
+
+throttle_log_event(\%log_throttle, "cache-write\0reader", 200, 60, 3, "permission denied");
+$decision = throttle_log_event(\%log_throttle, "cache-write\0reader", 201, 60, 3, "no space left");
+ok($decision->{emit}, "a changed error detail is emitted immediately instead of being hidden by the throttle");
+
+my %bounded_throttle;
+throttle_log_event(\%bounded_throttle, "oldest", 1, 60, 2, "same");
+throttle_log_event(\%bounded_throttle, "newer", 2, 60, 2, "same");
+throttle_log_event(\%bounded_throttle, "newest", 3, 60, 2, "same");
+is(scalar(keys %bounded_throttle), 2, "the throttle state never exceeds its configured key limit");
+ok(!exists($bounded_throttle{oldest}), "the least recently used throttle entry is evicted first");
 
 done_testing();

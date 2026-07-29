@@ -5,6 +5,7 @@ All notable user-visible changes should be documented in this file. Use the late
 ## Unreleased
 
 - Unify Bridge, Control, and Web UI logging under the central SmartMeter v2 LoxBerry log level, avoid empty successful sessions at restrictive levels, register on-demand diagnostics, move OBIS discovery logs to RAM, retain native vzLogger logging as the clearly named `vzlogger-native.log`, and rely on LoxBerry's existing rotation and retention.
+- Rate-limit identical recurring Bridge errors and warnings to one immediate entry plus a suppressed-repeat summary per minute, keep throttle memory bounded, preserve complete Debug output, and classify UDP output failures as errors.
 - Show current vzLogger readings while browser-local history loads in small parallel batches, spread periodic history compaction across idle tasks, and reduce recurring chart-summary allocation and sorting work.
 - Harden the maintained vzLogger paths with user-bound CSRF tokens, contextual HTML/script escaping, bounded and strictly typed Mosquitto JSON input, and a size- and time-limited localhost live-data proxy; add explicit trusted-LAN warnings for port 18080, HTTP cache, and recovery while leaving frozen Legacy behavior unchanged.
 - Skip cache, UDP, timestamp-formatting, and calculated-power work when the bridge runs with MQTT timestamp output alone; suppress each calculated-power direction when its matching instantaneous output exists, reuse power state in memory, and serve each HTTP cache file with one open operation.
