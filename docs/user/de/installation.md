@@ -42,6 +42,8 @@ Ein Update bewahrt den gespeicherten Modus `vzlogger`, `legacy` oder `none`, die
 
 Ein Neustart ist nicht erforderlich. Beim Legacy-Intervall **Beim Systemstart** wird nach einem erfolgreichen Update sofort eine Messung gestartet.
 
+Für das Update auf 2.0.1.0 ist keine manuelle Konfigurationsmigration erforderlich. 2.0.1.0 ist die letzte Version mit Legacy; wechsle vor einem späteren Upgrade auf 2.1.0.0 zu vzLogger und führe **Speichern/Anwenden** erfolgreich aus.
+
 ## Deinstallieren
 
 Deinstalliere SmartMeter v2 über die LoxBerry-Pluginverwaltung. Dabei werden Plugin-eigene Konfigurationen, Dienste, Drop-ins, Udev-Regeln, Laufzeit-/Cachedateien und Pluginverzeichnisse entfernt.

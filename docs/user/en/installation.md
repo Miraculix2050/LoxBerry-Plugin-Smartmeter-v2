@@ -42,6 +42,8 @@ An update preserves the saved `vzlogger`, `legacy`, or `none` mode, a valid gene
 
 No reboot is required. For the Legacy **At system startup** interval, one reading runs immediately after a successful update.
 
+No manual configuration migration is required when updating to 2.0.1.0. Version 2.0.1.0 is the final release containing Legacy; before a later upgrade to 2.1.0.0, switch to vzLogger and complete **Save/Apply** successfully.
+
 ## Uninstall
 
 Uninstall SmartMeter v2 through LoxBerry Plugin Management. This removes plugin-owned configuration, services, drop-ins, Udev rules, runtime/cache files, and plugin directories.
