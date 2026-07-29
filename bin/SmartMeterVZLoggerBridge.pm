@@ -7,7 +7,7 @@ use JSON::PP;
 use Time::Local qw(timegm);
 use SmartMeterVZLoggerChannels qw(ordered_output_names);
 
-our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
+our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
 
 my $json_decoder = JSON::PP->new->utf8;
 my $uuid_pattern = qr/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
@@ -280,6 +280,27 @@ sub identifier_mapping
 	}
 	delete $identifiers{$_} foreach keys %ambiguous;
 	return %identifiers;
+}
+
+sub instantaneous_power_directions
+{
+	my ($mapping) = @_;
+	my %directions;
+	foreach my $uuid (keys %{ref($mapping) eq "HASH" ? $mapping : {}}) {
+		my $entry = $mapping->{$uuid};
+		next if (ref($entry) ne "HASH");
+		my $serial = $entry->{serial};
+		my $identifier = $entry->{identifier};
+		next if (!defined($serial) || ref($serial) || $serial eq "");
+		next if (!defined($identifier) || ref($identifier));
+		$directions{$serial}->{cons} = 1 if ($identifier =~ /\A1-0:1\.7\.0(?:\*\d+)?\z/);
+		$directions{$serial}->{del} = 1 if ($identifier =~ /\A1-0:2\.7\.0(?:\*\d+)?\z/);
+		if ($identifier =~ /\A1-0:16\.7\.0(?:\*\d+)?\z/) {
+			$directions{$serial}->{cons} = 1;
+			$directions{$serial}->{del} = 1;
+		}
+	}
+	return \%directions;
 }
 
 sub clean_scalar_payload

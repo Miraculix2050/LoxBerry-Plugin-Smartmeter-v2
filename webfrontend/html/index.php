@@ -46,14 +46,9 @@ if (is_dir($directory))
 			$file_data = pathinfo($file);
 		  if(in_array($file_data['extension'],$dateitypen))
 		  {
-			  if (file_exists($directory.$file))
+			  if (is_file($directory.$file) && is_readable($directory.$file))
 			  {
-			    $f = @fopen($directory.$file, "r");
-			    if ($f !== false)
-			    {
-				    readfile($directory.$file);	
-						fclose($f);
-			    }
+			    @readfile($directory.$file);
 			  }
 			}
 		}
