@@ -82,7 +82,11 @@ prepare_privileged_helpers()
 		echo "<ERROR> Privileged helper source folder is missing from the installation archive."
 		return 1
 	fi
-	mkdir -p "$LBPSBIN/$PDIR"
+	# The runtime verifies the root-owned helpers before invoking their exact
+	# sudoers commands.  A fresh directory must therefore remain traversable by
+	# the loxberry user; mkdir under this root hook's 0027 umask would create it
+	# as root:root 0750 and make every helper appear to be missing.
+	install -d -o root -g root -m 0755 "$LBPSBIN/$PDIR"
 	for helper in "$BRIDGE_INSTALLER" "$VZLOGGER_OVERRIDE_INSTALLER" "$CONFIG_LOCK_HELPER"
 	do
 		source_helper="$PTEMPPATH/sbin/$(basename "$helper")"

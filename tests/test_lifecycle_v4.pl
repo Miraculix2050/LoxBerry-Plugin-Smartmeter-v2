@@ -48,6 +48,7 @@ my $control = read_file("bin/vzlogger_control.pl");
 like($control, qr/\$ENV\{LBPSBIN\}\s*\|\|\s*"\$lbhomedir\/sbin\/plugins"/, "runtime control uses V4 sbin path with a 4.0.0-compatible fallback");
 like($postinstall, qr/LBPCGI=\$\{LBPCGI:-\$\{LBPHTMLAUTH:-\}\}/, "postinstall accepts the original LoxBerry 4.0.0 authenticated web-root name");
 like($postroot, qr/LBPSBIN=\$\{LBPSBIN:-"\$LBHOMEDIR\/sbin\/plugins"\}/, "postroot provides the original LoxBerry 4.0.0 sbin fallback");
+like($postroot, qr/install -d -o root -g root -m 0755 "\$LBPSBIN\/\$PDIR"/, "fresh privileged-helper directory remains traversable by the runtime user");
 like($postroot, qr/install -o root -g root -m 0755/, "postroot installs privileged helpers from the archive");
 like($postroot, qr/CONFIG_LOCK_HELPER.*?for helper in .*?CONFIG_LOCK_HELPER/s, "postroot installs the lock helper for uninstall");
 like($postroot, qr/chown loxberry:loxberry "\$CONFIG_FILE"/, "postroot repairs smartmeter.cfg ownership");
