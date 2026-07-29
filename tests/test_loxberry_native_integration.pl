@@ -29,9 +29,11 @@ my $bridge = read_source("bin/vzlogger_mqtt_bridge.pl");
 like($bridge, qr/use LoxBerry::Log;/, "bridge uses native LoxBerry logging");
 like($bridge, qr/my \$config_file = "\$lbpconfigdir\/smartmeter\.cfg";/, "bridge uses the exported plugin config directory");
 like($bridge, qr/my \$plugin_log_dir = \$lbplogdir;/, "bridge uses the exported plugin log directory");
-like($bridge, qr/\$bridge_log->loglevel\(7\) if \(\$debug_enabled\);/, "dedicated bridge debug switch still enables debug output");
-like($bridge, qr/\$bridge_log->INF\(\$message\)/, "bridge information uses the native object method");
-like($bridge, qr/\$bridge_log->DEB\(\$message\)/, "bridge debug output uses the native object method");
+like($bridge, qr/pluginloglevel\(\$psubfolder\)/, "bridge uses the shared LoxBerry plugin log level");
+like($bridge, qr/\$now - \$cached_log_level_at >= 5/, "bridge caches the shared level on its high-frequency path");
+like($bridge, qr/return if \(\$level == 0 \|\| \$threshold\{\$severity\} > \$level\);/, "bridge avoids sessions when the message is filtered");
+like($bridge, qr/my %method = \( error => "ERR", warning => "WARN", info => "INF", debug => "DEB" \);/, "bridge maps messages to native severity methods");
+like($bridge, qr/print STDOUT "\$message\\n" if \(\$severity eq "debug" && \$level >= 7\);/, "bridge mirrors debug output to the service journal");
 unlike($bridge, qr/vzlogger_mqtt_bridge\.log/, "bridge no longer maintains a private fixed log");
 unlike($bridge, qr/sub bound_log_file/, "bridge log retention is delegated to LoxBerry");
 like($bridge, qr/local \$ENV\{XDG_CONFIG_HOME\} = \$mqtt_client_config_dir/, "bridge keeps MQTT credentials in protected client config files");
@@ -58,8 +60,19 @@ my $web = read_source("webfrontend/htmlauth/index.cgi");
 like($web, qr/use LoxBerry::Log;/, "web interface uses native LoxBerry logging");
 like($web, qr/glob\("\$lbplogdir\/\*_\$name\.log"\)/, "web interface discovers the newest native log session");
 like($web, qr/name => "webui"/, "web actions use a dedicated native log session");
-like($web, qr/\$logger->INF\("web-action=\$action"\)/, "web action logging uses the native object method");
+like($web, qr/pluginloglevel\(\$lbpplugindir\)/, "web actions use the shared LoxBerry plugin log level");
+like($web, qr/return undef if \(\$level == 0 \|\| \$threshold\{\$severity \|\| "info"\} > \$level\);/, "web actions avoid sessions when the message is filtered");
 unlike($web, qr/vzlogger_(?:control|apply|mqtt_bridge)\.log/, "web interface no longer targets private fixed action logs");
+
+my $override = read_source("sbin/install_vzlogger_service_override.sh");
+like($override, qr/LOG_FILE="\$LOG_DIR\/vzlogger-native\.log"/, "vzLogger override uses the distinct native log name");
+like($override, qr/if grep -Fq .*?\$LOG_FILE.*? \"\$CONFIG_FILE\"; then\s+touch \"\$LOG_FILE\"/s, "disabled native logging does not create an empty file");
+like($override, qr/StandardOutput=null/, "native vzLogger routine stdout is discarded");
+like($override, qr/StandardError=journal/, "native vzLogger errors remain available in the journal");
+
+my $bridge_unit = read_source("templates/systemd/smartmeter-vzlogger-bridge.service.in");
+like($bridge_unit, qr/^StandardOutput=journal$/m, "bridge debug stdout is available in the journal");
+like($bridge_unit, qr/^LogRateLimitBurst=200$/m, "bridge journal output is rate-limited");
 
 my $http_endpoint = read_source("webfrontend/html/index.php");
 like($http_endpoint, qr/\@readfile\(\$directory\.\$file\)/, "HTTP cache files are streamed directly");
@@ -68,7 +81,7 @@ unlike($http_endpoint, qr/fopen\(\$directory\.\$file/, "HTTP cache files are not
 my $generator = read_source("bin/vzlogger_config.pl");
 like($generator, qr/\$ENV\{SMARTMETER_CONFIG_DIR\} \|\| \$lbpconfigdir/, "generator defaults to the exported plugin config directory");
 like($generator, qr/\$ENV\{SMARTMETER_OBIS_CATALOG_FILE\} \|\| "\$lbptemplatedir\/obis_catalog\.json"/, "generator defaults to the exported template directory");
-like($generator, qr/\$debug_enabled \? "\$lbplogdir\/vzlogger\.log"/, "external vzLogger debug path uses the exported plugin log directory");
+like($generator, qr/\$debug_enabled \? "\$lbplogdir\/vzlogger-native\.log"/, "external vzLogger debug path is clearly distinguished in the plugin log directory");
 
 my $validator = read_source("bin/vzlogger_validate.pl");
 like($validator, qr/\$ENV\{SMARTMETER_CONFIG_DIR\} \|\| \$lbpconfigdir/, "validator defaults to the exported plugin config directory");

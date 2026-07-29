@@ -381,12 +381,11 @@
 					<button id="bridge_start_button" class="service-control-button" type="button" onclick="run_service_action('start-bridge');" title="<TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP>" data-help-title="<TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP>" disabled <TMPL_IF BRIDGE_SERVICE_RUNNING>style="display:none"</TMPL_IF>><TMPL_VAR NAME=VZLOGGER.START_SERVICE></button>
 					<button id="bridge_stop_button" class="service-control-button" type="button" onclick="run_service_action('stop-bridge');" title="<TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP>" data-help-title="<TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP>" disabled <TMPL_IF BRIDGE_SERVICE_RUNNING><TMPL_ELSE>style="display:none"</TMPL_IF>><TMPL_VAR NAME=VZLOGGER.STOP_SERVICE></button>
 					<a href="<TMPL_VAR BRIDGE_LOG_URL ESCAPE=HTML>" target="log" class="<TMPL_VAR BRIDGE_LOG_DISABLED ESCAPE=HTML>"><TMPL_VAR NAME=VZLOGGER.SHOW_LOG></a>
-					<span class="service-inline-setting"><span><TMPL_VAR NAME=VZLOGGER.DEBUG_LOG></span><input id="vzlogger_debug_value" name="vzlogger_debug" type="hidden" value="<TMPL_VAR VZLOGGER_DEBUG>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.DEBUG_LOG>"><input id="vzlogger_debug" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></span>
 				</div>
 				<div id="bridge_service_action_reason" class="service-action-reason" aria-live="polite"></div>
 			</td>
 			<td class="service-spacer">&nbsp;</td>
-			<td class="service-help"><TMPL_VAR BRIDGE_AVAILABILITY_HELP><br><TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP><br><TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP><br><TMPL_VAR NAME=VZLOGGER.RESTART_SERVICE_HELP><br><TMPL_VAR NAME=VZLOGGER.DEBUG_LOG_HELP></td>
+			<td class="service-help"><TMPL_VAR BRIDGE_AVAILABILITY_HELP><br><TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP><br><TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP><br><TMPL_VAR NAME=VZLOGGER.RESTART_SERVICE_HELP></td>
 		</tr>
 		</table>
 	</div>
@@ -1126,7 +1125,6 @@
 			} else {
 				data.append("implementation", smartmeterToggleValue("implementation"));
 				data.append("read", smartmeterToggleValue("read"));
-				data.append("vzlogger_debug", smartmeterToggleValue("vzlogger_debug"));
 			}
 			append_csrf(data);
 			fetch("./index.cgi", { method: "POST", body: data, credentials: "same-origin", cache: "no-store" })
@@ -1855,7 +1853,6 @@
 		$("#rescan_ir_heads, #http_cache_link, #vzlogger_live_link, #vzlogger_rendered_link").off("click.smartmeterDisabled").on("click.smartmeterDisabled", function (event) {
 			if ($(this).attr("aria-disabled") == "true") event.preventDefault();
 		});
-		smartmeterSetToggleValue("vzlogger_debug", "<TMPL_VAR VZLOGGER_DEBUG>");
 		smartmeterSetToggleValue("vzlogger_service_debug", "<TMPL_VAR VZLOGGER_SERVICE_DEBUG>");
 		$("#vzlogger_loglevel").val("<TMPL_VAR VZLOGGER_LOGLEVEL>");
 		smartmeterSetToggleValue("vzlogger_localenabled", "<TMPL_VAR VZLOGGER_LOCALENABLED>");
@@ -1973,7 +1970,7 @@
 
 			set_control_disabled("#read", !ui.bridge_available);
 			$("#bridge_configuration_section").toggleClass("configuration-disabled", !ui.bridge);
-			set_control_disabled("#vzlogger_debug, #http_cache_enabled, #sendudp", !ui.bridge);
+			set_control_disabled("#http_cache_enabled, #sendudp", !ui.bridge);
 			set_control_disabled("#bridge_mqtt_enabled", !ui.bridge || !ui.source_timestamp);
 			$("#bridge_mqtt_timestamp_unavailable").prop("hidden", !!ui.source_timestamp);
 			$("#bridge_settings_panel > p").toggleClass("setting-disabled-inline", !ui.bridge);

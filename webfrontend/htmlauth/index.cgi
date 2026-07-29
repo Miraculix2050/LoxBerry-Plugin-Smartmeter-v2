@@ -377,7 +377,6 @@ sub form_vzlogger
 	my $cache_udp_interval = clean_udp_interval($plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL") || $plugin_cfg->param("VZLOGGER.UDPINTERVAL"), "5");
 	$template->param("VZLOGGER_CACHEUDPINTERVAL" => $cache_udp_interval);
 	$template->param("VZLOGGER_CACHEUDPINTERVAL_OPTIONS" => udp_interval_options($cache_udp_interval));
-	$template->param("VZLOGGER_DEBUG" => $plugin_cfg->param("VZLOGGER.DEBUG") || 0);
 	$template->param("VZLOGGER_SERVICE_DEBUG" => $plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG") || 0);
 	$template->param("VZLOGGER_LOGLEVEL" => clean_log_level($plugin_cfg->param("VZLOGGER.LOGLEVEL"), "0"));
 	$template->param("VZLOGGER_MQTTENABLED" => clean_boolean($plugin_cfg->param("VZLOGGER.MQTTENABLED"), 1));
@@ -439,8 +438,8 @@ sub add_service_template_params
 	$template->param("BRIDGE_SERVICE_RUNNING" => $bridge_state eq "active");
 	$template->param("VZLOGGER_LIVE_DISABLED" => ($vzlogger_state eq "active" ? "" : "is-disabled"));
 
-	my $vzlogger_log = "$lbplogdir/vzlogger.log";
-	$template->param("VZLOGGER_LOG_URL" => log_url("plugins/$lbpplugindir/vzlogger.log"));
+	my $vzlogger_log = "$lbplogdir/vzlogger-native.log";
+	$template->param("VZLOGGER_LOG_URL" => log_url("plugins/$lbpplugindir/vzlogger-native.log"));
 	$template->param("VZLOGGER_LOG_DISABLED" => (-e $vzlogger_log ? "" : "is-disabled"));
 
 	my $bridge_log = latest_plugin_log_name("bridge");
@@ -825,7 +824,7 @@ sub run_service_ajax_action
 	if ($exit == 0 && $running != $expected_running) {
 		$exit = 1;
 		$output .= "\n" . $L{'VZLOGGER.UI_FINAL_STATE_FAILED'} . "\n";
-		write_control_log("$action-state-check", "Requested running=$expected_running, observed running=$running.\n");
+		write_control_log("$action-state-check", "Requested running=$expected_running, observed running=$running.\n", "error");
 	}
 	my $warning = $output =~ /\bwarning\b/i ? 1 : 0;
 	my $failure_output = $output;
@@ -876,7 +875,7 @@ sub run_form_ajax_action
 		$response->{config_url} = "./vzlogger_config.cgi?lang=" . ($L{'COMMON.LANGUAGE_CODE'} || "en");
 		$response->{channel_indices} = runtime_channel_indices();
 		$response->{channel_topics} = runtime_channel_topics();
-		write_apply_log($output, \$output);
+		write_apply_log($output, \$output, ($status->{valid} && $exit == 0) ? "info" : "error");
 		return $response;
 	}
 	return run_draft_validation_ajax() if ($action eq "validate");
@@ -920,7 +919,7 @@ sub run_form_ajax_action
 		$operation_ok = 0;
 		$output .= "\n" . $L{'VZLOGGER.UI_APPLY_BRIDGE_NOT_STOPPED'} . "\n";
 	}
-	write_apply_log($output, \$output);
+	write_apply_log($output, \$output, $operation_ok ? "info" : "error");
 	$response->{ok} = $operation_ok ? JSON::PP::true : JSON::PP::false;
 	$response->{action} = $action;
 	$response->{message} = $output;
@@ -1046,12 +1045,10 @@ sub save_service_log_settings
 		$plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG", $q->{vzlogger_service_debug});
 		$plugin_cfg->param("VZLOGGER.LOGLEVEL", $q->{vzlogger_loglevel});
 	} else {
-		die $L{'VZLOGGER.UI_INVALID_BRIDGE_DEBUG'} if (!defined($q->{vzlogger_debug}) || $q->{vzlogger_debug} !~ /\A[01]\z/);
 		if ($starting) {
 			die $L{'VZLOGGER.UI_INVALID_ACTIVATION'} if (!defined($q->{implementation}) || $q->{implementation} ne "vzlogger");
 			die $L{'VZLOGGER.UI_INVALID_BRIDGE_ACTIVATION'} if (!defined($q->{read}) || $q->{read} ne "1");
 		}
-		$plugin_cfg->param("VZLOGGER.DEBUG", $q->{vzlogger_debug});
 	}
 	$plugin_cfg->save;
 }
@@ -1295,7 +1292,6 @@ sub save_expert_allowed_form
 	$plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED", $source_timestamps ? $bridge_mqtt : "0");
 	$plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED", clean_config_value($q->{http_cache_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED")) ? $plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED") : "1"));
 	$plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL", clean_udp_interval($q->{vzlogger_cacheudpinterval}, $plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL") || $plugin_cfg->param("VZLOGGER.UDPINTERVAL") || "5"));
-	$plugin_cfg->param("VZLOGGER.DEBUG", clean_config_value($q->{vzlogger_debug}, qr/\A[01]\z/, $plugin_cfg->param("VZLOGGER.DEBUG") || "0"));
 	$plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG", clean_config_value($q->{vzlogger_service_debug}, qr/\A[01]\z/, $plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG") || "0"));
 	$plugin_cfg->param("VZLOGGER.LOGLEVEL", clean_log_level($q->{vzlogger_loglevel}, $plugin_cfg->param("VZLOGGER.LOGLEVEL") || "0"));
 	$plugin_cfg->save;
@@ -1307,7 +1303,7 @@ sub save_expert_allowed_form
 	my ($updated, $result) = update_expert_log_settings(
 		$text,
 		$debug ? $level : 0,
-		$debug ? "$lbplogdir/vzlogger.log" : "/dev/null",
+		$debug ? "$lbplogdir/vzlogger-native.log" : "/dev/null",
 	);
 	return format_expert_validation(localize_expert_validation($result, \%L)) . $L{'VZLOGGER.UI_EXPERT_LOG_UPDATE_FAILED'} . "\n" if (!defined($updated));
 	return $L{'VZLOGGER.UI_EXPERT_LOG_SAVE_FAILED'} . "\n" if (!write_text_atomic(expert_config_file(), $updated));
@@ -1503,7 +1499,6 @@ sub save_vzlogger_form
 	$plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED", clean_config_value($q->{bridge_mqtt_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED")) ? $plugin_cfg->param("VZLOGGER.BRIDGEMQTTENABLED") : "0"));
 	$plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED", clean_config_value($q->{http_cache_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED")) ? $plugin_cfg->param("VZLOGGER.HTTPCACHEENABLED") : "1"));
 	$plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL", clean_udp_interval($q->{vzlogger_cacheudpinterval}, $plugin_cfg->param("VZLOGGER.CACHEUDPINTERVAL") || $plugin_cfg->param("VZLOGGER.UDPINTERVAL") || "5"));
-	$plugin_cfg->param("VZLOGGER.DEBUG", clean_config_value($q->{vzlogger_debug}, qr/\A[01]\z/, $plugin_cfg->param("VZLOGGER.DEBUG") || "0"));
 	$plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG", clean_config_value($q->{vzlogger_service_debug}, qr/\A[01]\z/, $plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG") || "0"));
 	$plugin_cfg->param("VZLOGGER.LOGLEVEL", clean_log_level($q->{vzlogger_loglevel}, $plugin_cfg->param("VZLOGGER.LOGLEVEL") || "0"));
 	$plugin_cfg->param("VZLOGGER.MQTTENABLED", clean_config_value($q->{vzlogger_mqttenabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.MQTTENABLED")) ? $plugin_cfg->param("VZLOGGER.MQTTENABLED") : "1"));
@@ -1622,7 +1617,7 @@ sub validate_submitted_vzlogger_form
 		push @errors, "$field must be at least $minimum" if (defined($minimum) && $q->{$field} < $minimum);
 		push @errors, "$field must not exceed $maximum" if (defined($maximum) && $q->{$field} > $maximum);
 	}
-	foreach my $field (qw(read sendudp bridge_mqtt_enabled http_cache_enabled vzlogger_localenabled vzlogger_localindex vzlogger_debug vzlogger_service_debug vzlogger_mqttenabled vzlogger_mqttretain vzlogger_mqttrawandagg vzlogger_mqtttimestamp)) {
+	foreach my $field (qw(read sendudp bridge_mqtt_enabled http_cache_enabled vzlogger_localenabled vzlogger_localindex vzlogger_service_debug vzlogger_mqttenabled vzlogger_mqttretain vzlogger_mqttrawandagg vzlogger_mqtttimestamp)) {
 		push @errors, "$field must be 0 or 1" if (defined($q->{$field}) && $q->{$field} !~ /\A[01]\z/);
 	}
 	if (($q->{read} || "0") eq "1") {
@@ -1788,6 +1783,8 @@ sub remove_meter_artifacts
 		pending_obis_channels_file($serial),
 		pending_meter_draft_file($serial),
 		"$lbpconfigdir/vzLogger_IrTest_$safe_serial.conf",
+		"/var/run/shm/$lbpplugindir/vzLogger_IrTest_$safe_serial.output.log",
+		"/var/run/shm/$lbpplugindir/vzLogger_$safe_serial.log",
 		"$lbpconfigdir/vzLogger_IrTest_$safe_serial.conf.output.log",
 		"$lbplogdir/vzLogger_$safe_serial.log",
 		"/var/run/shm/$lbpplugindir/$safe_serial.data",
@@ -1867,7 +1864,6 @@ sub read_obis_channels
 			my $vzlogger_output = run_vzlogger_obis_test($test_config, $test_log, $was_active);
 			write_control_log("read-obis-vzlogger", "config=$test_config\nlog=$test_log\n$vzlogger_output");
 			$output .= "vzLogger OBIS discovery completed. Details were written to the control log.\n";
-			$output .= "Discovery log: $test_log\n";
 
 			my @channels = channels_from_vzlogger_log($test_log);
 			if (@channels) {
@@ -1877,6 +1873,9 @@ sub read_obis_channels
 			} else {
 				$output .= "No OBIS channels detected for $target_serial. Check the vzLogger discovery log and meter settings.\n";
 			}
+			unlink($test_log) if (-e $test_log);
+			my $console_log = "/var/run/shm/$lbpplugindir/vzLogger_IrTest_" . safe_filename($target_serial) . ".output.log";
+			unlink($console_log) if (-e $console_log);
 		}
 	}
 
@@ -2133,7 +2132,8 @@ sub write_vzlogger_obis_test_config
 	}
 
 	my $safe_serial = safe_filename($serial);
-	my $log_file = "$lbplogdir/vzLogger_$safe_serial.log";
+	my $runtime_dir = "/var/run/shm/$lbpplugindir";
+	my $log_file = "$runtime_dir/vzLogger_$safe_serial.log";
 	my $config_file = "$lbpconfigdir/vzLogger_IrTest_$safe_serial.conf";
 	my $local_port = clean_number($plugin_cfg->param("VZLOGGER.LOCALPORT"), 18080);
 	my $config = {
@@ -2153,7 +2153,7 @@ sub write_vzlogger_obis_test_config
 		meters => [ $meter_config ],
 	};
 
-	make_path($lbplogdir) if (!-d $lbplogdir);
+	make_path($runtime_dir) if (!-d $runtime_dir);
 	make_path($lbpconfigdir) if (!-d $lbpconfigdir);
 	open(my $fh, ">", $config_file) or return ("", "", ui_text($L{'VZLOGGER.UI_DISCOVERY_CONFIG_WRITE_FAILED'}, file => $config_file, error => $!) . "\n");
 	print $fh JSON::PP->new->utf8->pretty->canonical->encode($config);
@@ -2165,8 +2165,9 @@ sub write_vzlogger_obis_test_config
 sub run_vzlogger_obis_test
 {
 	my ($config_file, $test_log, $restart_service, $serial, $job_id, $background) = @_;
-	my $console_log = "$config_file.output.log";
 	my $runtime_dir = "/var/run/shm/$lbpplugindir";
+	my $safe_serial = safe_filename($serial || "unknown");
+	my $console_log = "$runtime_dir/vzLogger_IrTest_$safe_serial.output.log";
 	my $watchdog_pid_file = "$runtime_dir/vzlogger_obis_watchdog.pid";
 	unlink($console_log) if (-e $console_log);
 	return $L{'VZLOGGER.UI_OBIS_TIMEOUT_MISSING'} . "\n" if (!command_exists("timeout"));
@@ -2287,7 +2288,7 @@ sub run_vzlogger_obis_test
 				$details = do { local $/; <$detail_fh> };
 				close($detail_fh);
 			}
-			write_control_log("read-obis-vzlogger", "config=$config_file\nlog=$test_log\nstate=$state\n$message\n" . ($warning ? "warning=$warning\n" : "") . $details);
+			write_control_log("read-obis-vzlogger", "config=$config_file\nlog=$test_log\nstate=$state\n$message\n" . ($warning ? "warning=$warning\n" : "") . $details, $state eq "failed" ? "error" : "info");
 			write_obis_discovery_status_file({
 				ok => $state eq "failed" ? JSON::PP::false : JSON::PP::true,
 				state => $state,
@@ -2302,6 +2303,8 @@ sub run_vzlogger_obis_test
 				finished_at => time(),
 			});
 			unlink(obis_discovery_cancel_file()) if (-e obis_discovery_cancel_file());
+			unlink($console_log) if (-e $console_log);
+			unlink($test_log) if (-e $test_log);
 		}
 		unlink($watchdog_pid_file);
 		exit($test_exit);
@@ -2322,6 +2325,7 @@ sub run_vzlogger_obis_test
 		$output = do { local $/; <$fh> };
 		close($fh);
 	}
+	unlink($console_log) if (-e $console_log);
 	$output .= "\n" if ($output ne "" && $output !~ /\n\z/);
 	$output .= "$status\n";
 	return $output || "vzlogger discovery run produced no console output.\n";
@@ -3078,29 +3082,40 @@ sub run_control_result
 		$output .= "\n" . $L{'VZLOGGER.UI_CONFIG_TIMEOUT'} . "\n";
 	}
 	$output ||= $L{'VZLOGGER.UI_NO_OUTPUT'};
-	write_control_log($action, $output);
+	write_control_log($action, $output, $exit ? "error" : "info");
 	return ($output, $exit);
 }
 
 sub write_control_log
 {
-	my ($action, $output) = @_;
-	my $logger = webui_logger();
-	$logger->INF("web-action=$action");
-	$logger->INF($output) if (defined($output) && $output ne "");
+	my ($action, $output, $severity) = @_;
+	$severity ||= "info";
+	my $logger = webui_logger($severity);
+	return if (!$logger);
+	my $method = $severity eq "error" ? "ERR" : $severity eq "warning" ? "WARN" : "INF";
+	$logger->$method("web-action=$action");
+	$logger->$method($output) if (defined($output) && $output ne "");
 }
 
 sub write_apply_log
 {
-	my ($output, $display_output) = @_;
-	my $logger = webui_logger();
-	$logger->INF("apply result:\n$output");
+	my ($output, $display_output, $severity) = @_;
+	$severity ||= $output =~ /(?:<FAIL>|\berror\b|\bfailed\b|\bcould not\b)/i ? "error" : "info";
+	my $logger = webui_logger($severity);
+	return if (!$logger);
+	my $method = $severity eq "error" ? "ERR" : "INF";
+	$logger->$method("apply result:\n$output");
 	my $notice = "\nApply log: " . $logger->filename() . "\n";
 	${$display_output} .= $notice if ($display_output);
 }
 
 sub webui_logger
 {
+	my ($severity) = @_;
+	my %threshold = ( error => 3, warning => 4, info => 6, debug => 7 );
+	my $level = LoxBerry::System::pluginloglevel($lbpplugindir);
+	$level = 7 if (!defined($level) || $level < 0 || $level > 7);
+	return undef if ($level == 0 || $threshold{$severity || "info"} > $level);
 	return $webui_log if ($webui_log);
 	$webui_log = LoxBerry::Log->new(
 		name => "webui",

@@ -94,12 +94,22 @@ do
 	fi
 done
 LOG_DIR="$LBPLOG/$PLUGINFOLDER"
-LOG_FILE="$LOG_DIR/vzlogger.log"
+LOG_FILE="$LOG_DIR/vzlogger-native.log"
+OLD_LOG_FILE="$LOG_DIR/vzlogger.log"
 RUNTIME_DIR="/var/run/shm/$PLUGINFOLDER"
 mkdir -p "$LOG_DIR"
-touch "$LOG_FILE"
-chown "_vzlogger:loxberry" "$LOG_FILE"
-chmod 0640 "$LOG_FILE"
+if [ -f "$OLD_LOG_FILE" ]; then
+	if [ ! -e "$LOG_FILE" ]; then
+		mv "$OLD_LOG_FILE" "$LOG_FILE"
+	elif [ ! -e "$LOG_DIR/vzlogger-native-legacy.log" ]; then
+		mv "$OLD_LOG_FILE" "$LOG_DIR/vzlogger-native-legacy.log"
+	fi
+fi
+if grep -Fq "\"$LOG_FILE\"" "$CONFIG_FILE"; then
+	touch "$LOG_FILE"
+	chown "_vzlogger:loxberry" "$LOG_FILE"
+	chmod 0640 "$LOG_FILE"
+fi
 mkdir -p "$RUNTIME_DIR"
 chown "loxberry:loxberry" "$RUNTIME_DIR"
 chmod 0750 "$RUNTIME_DIR"
@@ -122,6 +132,9 @@ trap 'rm -f "$TEMP_FILE"' 0 HUP INT TERM
 	echo "UMask=0027"
 	echo "Restart=on-failure"
 	echo "RestartSec=5s"
+	echo "StandardOutput=null"
+	echo "StandardError=journal"
+	echo "SyslogIdentifier=vzlogger"
 } > "$TEMP_FILE"
 UNIT_CHANGED=0
 if [ ! -f "$DROPIN_FILE" ] || ! cmp -s "$TEMP_FILE" "$DROPIN_FILE"; then

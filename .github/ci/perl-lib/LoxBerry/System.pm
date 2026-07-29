@@ -27,6 +27,7 @@ sub import {
 }
 
 sub pluginversion { return '0.0.0'; }
+sub pluginloglevel { return 7; }
 sub readlanguage { return (); }
 
 1;

@@ -26,7 +26,7 @@ my $plugin_cfg = Config::Simple->new($config_file) or die "Could not read $confi
 my $obis_catalog = load_catalog($catalog_file);
 my $debug_enabled = ($plugin_cfg->param("VZLOGGER.VZLOGGERDEBUG") || "0") eq "1";
 my $log_level = int(clean_log_level($plugin_cfg->param("VZLOGGER.LOGLEVEL"), 0));
-my $log_file = $debug_enabled ? "$lbplogdir/vzlogger.log" : "/dev/null";
+my $log_file = $debug_enabled ? "$lbplogdir/vzlogger-native.log" : "/dev/null";
 
 my %flat_config;
 Config::Simple->import_from($config_file, \%flat_config);
