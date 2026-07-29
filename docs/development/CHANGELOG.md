@@ -4,6 +4,7 @@ This file records implementation detail that is intentionally omitted from user-
 
 ## Unreleased
 
+- Keep the root-owned privileged-helper directory traversable on a fresh installation so the unprivileged runtime can verify the exact sudoers-approved service helpers before Save/Apply invokes them.
 - Clarify development-versus-release documentation, tested support claims, standard and Legacy MQTT topics, HTTP-cache versus UDP data flow, meter-template evidence, LoxBerry log-retention provenance, and actual plugin-folder paths; serialize all top-level configuration, lifecycle, discovery, recovery, and service-state mutations through one verified non-blocking lock; keep recovery actions inside the 320-pixel mobile viewport; and validate channel metadata when the GitHub release asset is published.
 - Reorganize documentation by audience, assign stable identifiers to normative developer requirements, separate compatibility limitations from the maintainer evidence backlog, clarify stable versus prerelease metadata, and remove the completed vzLogger migration plan.
 - Reduce UI and CGI load with a dedicated authenticated OBIS-status endpoint, systemd-free initial HTML rendering, debounced channel serialization, versioned settings/live assets, batched browser-history writes, a one-second atomic RAM cache for successful live JSON responses, and a browser-local live refresh interval from 2 seconds through 5 minutes while retaining 2 seconds as the default.
