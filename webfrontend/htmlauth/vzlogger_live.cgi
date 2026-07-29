@@ -4,11 +4,11 @@ use warnings;
 use CGI;
 use Config::Simple;
 use HTML::Template;
-use IO::Socket::INET;
 use JSON::PP;
 use LoxBerry::System;
 use lib $lbpbindir;
 use SmartMeterVZLoggerChannels qw(load_catalog lookup_obis);
+use SmartMeterVZLoggerHttp qw(fetch_local_json);
 
 my $cgi = CGI->new;
 my $template = HTML::Template->new(
@@ -88,12 +88,8 @@ sub read_channel_metadata {
 
 sub read_live_json {
 	my ($port) = @_;
-	my $socket = IO::Socket::INET->new(PeerHost => "127.0.0.1", PeerPort => $port, Proto => "tcp", Timeout => 3);
-	return JSON::PP->new->encode({ error => $L{'VZLOGGER.LIVE_HTTP_UNAVAILABLE'} }) if (!$socket);
-	print $socket "GET / HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
-	local $/;
-	my $response = <$socket> || "";
-	close($socket);
-	$response =~ s/\A.*?\r?\n\r?\n//s;
-	return $response =~ /^\s*[\[{]/ ? $response : JSON::PP->new->encode({ error => $L{'VZLOGGER.LIVE_INVALID_RESPONSE'} });
+	my ($json, $error) = fetch_local_json($port);
+	return $json if (defined($json));
+	my $message = $error eq "unavailable" ? $L{'VZLOGGER.LIVE_HTTP_UNAVAILABLE'} : $L{'VZLOGGER.LIVE_INVALID_RESPONSE'};
+	return JSON::PP->new->encode({ error => $message });
 }

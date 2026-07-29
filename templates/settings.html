@@ -112,6 +112,7 @@
 	.configuration-heading h2 { margin: 0; }
 	.expert-mode-control { display: inline-flex; align-items: center; gap: .5em; white-space: nowrap; }
 	.expert-mode-notice { margin: 0 0 10px 0; padding: 8px 10px; border: 1px solid #d6a23c; border-radius: 4px; background: #fff4d6; color: #6f4700; }
+	.security-notice { margin: 8px 0 12px; padding: 8px 10px; border-left: 4px solid #d6a23c; background: #fff8e6; color: #5f4300; overflow-wrap: anywhere; }
 	.generated-config-path { margin: 0 0 .45em 0; overflow-wrap: anywhere; }
 	.generated-config-path code { display: block; }
 	.generated-config-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .4em; }
@@ -310,6 +311,7 @@
 	</div>
 	<form method="post" name="vzlogger_form" id="vzlogger_form" action="./index.cgi">
 	<input type="hidden" name="saveformdata" value="1">
+	<input type="hidden" id="csrf_token" name="csrf_token" value="<TMPL_VAR NAME=CSRF_TOKEN ESCAPE=HTML>">
 	<input type="hidden" id="implementation_changed" name="implementation_changed" value="0">
 	<span id="expert_mode_enable_failed_text" hidden><TMPL_VAR NAME=VZLOGGER.EXPERT_MODE_ENABLE_FAILED></span>
 	<span id="expert_mode_overwrite_confirm_text" hidden><TMPL_VAR NAME=VZLOGGER.EXPERT_MODE_OVERWRITE_CONFIRM></span>
@@ -347,12 +349,12 @@
 					<button id="vzlogger_restart_button" class="service-control-button" type="button" onclick="run_service_action('restart-vzlogger');" title="<TMPL_VAR NAME=VZLOGGER.RESTART_SERVICE_HELP>" data-help-title="<TMPL_VAR NAME=VZLOGGER.RESTART_SERVICE_HELP>" disabled><TMPL_VAR NAME=VZLOGGER.RESTART_SERVICE></button>
 					<button id="vzlogger_start_button" class="service-control-button" type="button" onclick="run_service_action('start-vzlogger');" title="<TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP>" data-help-title="<TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP>" disabled <TMPL_IF VZLOGGER_SERVICE_RUNNING>style="display:none"</TMPL_IF>><TMPL_VAR NAME=VZLOGGER.START_SERVICE></button>
 					<button id="vzlogger_stop_button" class="service-control-button" type="button" onclick="run_service_action('stop-vzlogger');" title="<TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP>" data-help-title="<TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP>" disabled <TMPL_IF VZLOGGER_SERVICE_RUNNING><TMPL_ELSE>style="display:none"</TMPL_IF>><TMPL_VAR NAME=VZLOGGER.STOP_SERVICE></button>
-					<a href="<TMPL_VAR VZLOGGER_LOG_URL>" target="log" class="<TMPL_VAR VZLOGGER_LOG_DISABLED>"><TMPL_VAR NAME=VZLOGGER.SHOW_LOG></a>
+					<a href="<TMPL_VAR VZLOGGER_LOG_URL ESCAPE=HTML>" target="log" class="<TMPL_VAR VZLOGGER_LOG_DISABLED ESCAPE=HTML>"><TMPL_VAR NAME=VZLOGGER.SHOW_LOG></a>
 					<span class="service-inline-setting"><span><TMPL_VAR NAME=VZLOGGER.DEBUG_LOG></span><span class="config-key"><code>log</code></span><input id="vzlogger_service_debug_value" name="vzlogger_service_debug" type="hidden" value="<TMPL_VAR VZLOGGER_SERVICE_DEBUG>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.DEBUG_LOG>"><input id="vzlogger_service_debug" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></span>
 					<span class="service-inline-setting"><label for="vzlogger_loglevel"><TMPL_VAR NAME=VZLOGGER.LOG_LEVEL></label><span class="config-key"><code>verbosity</code></span><select id="vzlogger_loglevel" name="vzlogger_loglevel"><option value="0">0 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_0></option><option value="1">1 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_1></option><option value="3">3 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_3></option><option value="5">5 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_5></option><option value="10">10 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_10></option><option value="15">15 - <TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_15></option></select></span>
 				</div>
 				<div id="vzlogger_service_action_reason" class="service-action-reason" aria-live="polite"></div>
-				<div class="vzlogger-live-links"><a id="vzlogger_live_link" class="inline-link <TMPL_VAR VZLOGGER_LIVE_DISABLED>" href="<TMPL_VAR VZLOGGER_LIVEURL>" target="_blank"><TMPL_VAR NAME=VZLOGGER.OPEN_LIVE_READINGS></a><a id="vzlogger_rendered_link" class="inline-link <TMPL_VAR VZLOGGER_LIVE_DISABLED>" href="<TMPL_VAR VZLOGGER_RENDERED_URL>" target="_blank"><TMPL_VAR NAME=VZLOGGER.OPEN_RENDERED_READINGS></a></div>
+				<div class="vzlogger-live-links"><a id="vzlogger_live_link" class="inline-link <TMPL_VAR VZLOGGER_LIVE_DISABLED ESCAPE=HTML>" href="<TMPL_VAR VZLOGGER_LIVEURL ESCAPE=HTML>" target="_blank" rel="noopener"><TMPL_VAR NAME=VZLOGGER.OPEN_LIVE_READINGS></a><a id="vzlogger_rendered_link" class="inline-link <TMPL_VAR VZLOGGER_LIVE_DISABLED ESCAPE=HTML>" href="<TMPL_VAR VZLOGGER_RENDERED_URL ESCAPE=HTML>" target="_blank" rel="noopener"><TMPL_VAR NAME=VZLOGGER.OPEN_RENDERED_READINGS></a></div>
 			</td>
 			<td class="service-spacer">&nbsp;</td>
 			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.VZLOGGER_SERVICE_CONTROL_HELP><br><TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP><br><TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP><br><TMPL_VAR NAME=VZLOGGER.RESTART_SERVICE_HELP><br><TMPL_VAR NAME=VZLOGGER.VZLOGGER_DEBUG_HELP><br><TMPL_VAR NAME=VZLOGGER.LOG_LEVEL_HELP></td>
@@ -378,7 +380,7 @@
 					<button id="bridge_restart_button" class="service-control-button" type="button" onclick="run_service_action('restart-bridge');" title="<TMPL_VAR NAME=VZLOGGER.RESTART_SERVICE_HELP>" data-help-title="<TMPL_VAR NAME=VZLOGGER.RESTART_SERVICE_HELP>" disabled><TMPL_VAR NAME=VZLOGGER.RESTART_SERVICE></button>
 					<button id="bridge_start_button" class="service-control-button" type="button" onclick="run_service_action('start-bridge');" title="<TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP>" data-help-title="<TMPL_VAR NAME=VZLOGGER.START_SERVICE_HELP>" disabled <TMPL_IF BRIDGE_SERVICE_RUNNING>style="display:none"</TMPL_IF>><TMPL_VAR NAME=VZLOGGER.START_SERVICE></button>
 					<button id="bridge_stop_button" class="service-control-button" type="button" onclick="run_service_action('stop-bridge');" title="<TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP>" data-help-title="<TMPL_VAR NAME=VZLOGGER.STOP_SERVICE_HELP>" disabled <TMPL_IF BRIDGE_SERVICE_RUNNING><TMPL_ELSE>style="display:none"</TMPL_IF>><TMPL_VAR NAME=VZLOGGER.STOP_SERVICE></button>
-					<a href="<TMPL_VAR BRIDGE_LOG_URL>" target="log" class="<TMPL_VAR BRIDGE_LOG_DISABLED>"><TMPL_VAR NAME=VZLOGGER.SHOW_LOG></a>
+					<a href="<TMPL_VAR BRIDGE_LOG_URL ESCAPE=HTML>" target="log" class="<TMPL_VAR BRIDGE_LOG_DISABLED ESCAPE=HTML>"><TMPL_VAR NAME=VZLOGGER.SHOW_LOG></a>
 					<span class="service-inline-setting"><span><TMPL_VAR NAME=VZLOGGER.DEBUG_LOG></span><input id="vzlogger_debug_value" name="vzlogger_debug" type="hidden" value="<TMPL_VAR VZLOGGER_DEBUG>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.DEBUG_LOG>"><input id="vzlogger_debug" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></span>
 				</div>
 				<div id="bridge_service_action_reason" class="service-action-reason" aria-live="polite"></div>
@@ -392,6 +394,7 @@
 		<summary><TMPL_VAR NAME=VZLOGGER.RECOVERY_TITLE></summary>
 		<div class="lb-collapsible-content">
 		<p class="service-panel-description"><TMPL_VAR NAME=VZLOGGER.RECOVERY_DESCRIPTION></p>
+		<p class="security-notice"><TMPL_VAR NAME=VZLOGGER.RECOVERY_LAN_WARNING></p>
 		<table border="0">
 		<tr>
 			<td class="service-label"><label for="recovery_enabled"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ENABLED></label></td>
@@ -484,7 +487,7 @@
 		<span id="recovery_request_failed_text" hidden><TMPL_VAR NAME=VZLOGGER.RECOVERY_REQUEST_FAILED></span>
 		</div>
 	</details>
-	<div class="service-control-log"><span><TMPL_VAR NAME=VZLOGGER.SERVICE_CONTROL_LOG_LABEL></span> <a href="<TMPL_VAR CONTROL_LOG_URL>" target="log" class="<TMPL_VAR CONTROL_LOG_DISABLED>"><TMPL_VAR NAME=VZLOGGER.SHOW_CONTROL_LOG></a></div>
+	<div class="service-control-log"><span><TMPL_VAR NAME=VZLOGGER.SERVICE_CONTROL_LOG_LABEL></span> <a href="<TMPL_VAR CONTROL_LOG_URL ESCAPE=HTML>" target="log" class="<TMPL_VAR CONTROL_LOG_DISABLED ESCAPE=HTML>"><TMPL_VAR NAME=VZLOGGER.SHOW_CONTROL_LOG></a></div>
 
 	<div id="vzlogger_configuration_section" class="configuration-section <TMPL_IF VZLOGGER_EXPERT_MODE>configuration-disabled</TMPL_IF>">
 	<div class="configuration-heading"><h2><TMPL_VAR NAME=VZLOGGER.VZLOGGER_CONFIGURATION></h2><span class="expert-mode-control"><span><TMPL_VAR NAME=VZLOGGER.EXPERT_MODE></span><input id="expert_mode_value" type="hidden" value="<TMPL_VAR VZLOGGER_EXPERT_MODE_VALUE>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.EXPERT_MODE>"><input id="expert_mode" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); set_expert_mode(smartmeterToggleValue(this));"><span class="lb-toggle-slider" aria-hidden="true"></span></label></span></div>
@@ -514,6 +517,7 @@
 				<summary><TMPL_VAR NAME=VZLOGGER.LOCAL_SETTINGS></summary>
 				<div class="lb-collapsible-content">
 				<p><TMPL_VAR NAME=VZLOGGER.LOCAL_SETTINGS_HELP></p>
+				<p class="security-notice"><TMPL_VAR NAME=VZLOGGER.LOCAL_LAN_WARNING></p>
 				<table border="0" class="settings-table compact-settings">
 				<tr>
 					<td width="20%"><label for="vzlogger_localenabled"><TMPL_VAR NAME=VZLOGGER.LOCAL_ENABLED></label><span class="config-key"><code>local.enabled</code></span></td>
@@ -566,7 +570,7 @@
 				</tr>
 				<tr>
 					<td><label for="vzlogger_mqtthost"><TMPL_VAR NAME=VZLOGGER.MQTT_HOST></label><span class="config-key"><code>mqtt.host</code></span></td>
-					<td><input id="vzlogger_mqtthost" name="vzlogger_mqtthost" type="text" value="<TMPL_VAR VZLOGGER_MQTTHOST>"></td>
+					<td><input id="vzlogger_mqtthost" name="vzlogger_mqtthost" type="text" value="<TMPL_VAR VZLOGGER_MQTTHOST ESCAPE=HTML>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_HOST_HELP></font></td>
 				</tr>
 				<tr>
@@ -581,12 +585,12 @@
 				</tr>
 				<tr>
 					<td><label for="mqtttopic"><TMPL_VAR NAME=VZLOGGER.MQTT_BASE_TOPIC></label><span class="config-key"><code>mqtt.topic</code></span></td>
-					<td><input id="mqtttopic" name="mqtttopic" type="text" class="textfield" value="<TMPL_VAR MQTTTOPIC>" data-validation="custom" data-validation-regexp="^[^#+]+$"></td>
+					<td><input id="mqtttopic" name="mqtttopic" type="text" class="textfield" value="<TMPL_VAR MQTTTOPIC ESCAPE=HTML>" data-validation="custom" data-validation-regexp="^[^#+]+$"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_BASE_TOPIC_HELP></font></td>
 				</tr>
 				<tr>
 					<td><label for="vzlogger_mqttid"><TMPL_VAR NAME=VZLOGGER.MQTT_ID></label><span class="config-key"><code>mqtt.id</code></span></td>
-					<td><input id="vzlogger_mqttid" name="vzlogger_mqttid" type="text" value="<TMPL_VAR VZLOGGER_MQTTID>"></td>
+					<td><input id="vzlogger_mqttid" name="vzlogger_mqttid" type="text" value="<TMPL_VAR VZLOGGER_MQTTID ESCAPE=HTML>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_ID_HELP></font></td>
 				</tr>
 				<tr>
@@ -612,13 +616,13 @@
 				<tr><td colspan="4"><h4><TMPL_VAR NAME=VZLOGGER.MQTT_USER_AUTH></h4></td></tr>
 				<tr>
 					<td><label for="vzlogger_mqttuser"><TMPL_VAR NAME=VZLOGGER.MQTT_USER></label><span class="config-key"><code>mqtt.user</code></span></td>
-					<td><input id="vzlogger_mqttuser" name="vzlogger_mqttuser" type="text" value="<TMPL_VAR VZLOGGER_MQTTUSER>" autocomplete="username"></td>
+					<td><input id="vzlogger_mqttuser" name="vzlogger_mqttuser" type="text" value="<TMPL_VAR VZLOGGER_MQTTUSER ESCAPE=HTML>" autocomplete="username"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_USER_HELP></font></td>
 				</tr>
 				<tr>
 					<td><label for="vzlogger_mqttpass"><TMPL_VAR NAME=VZLOGGER.MQTT_PASSWORD></label><span class="config-key"><code>mqtt.pass</code></span></td>
 					<td>
-						<input id="vzlogger_mqttpass" name="vzlogger_mqttpass" type="password" value="" autocomplete="new-password" placeholder="<TMPL_VAR VZLOGGER_MQTTPASS_STATUS>">
+						<input id="vzlogger_mqttpass" name="vzlogger_mqttpass" type="password" value="" autocomplete="new-password" placeholder="<TMPL_VAR VZLOGGER_MQTTPASS_STATUS ESCAPE=HTML>">
 						<label for="vzlogger_mqttpass_reset"><input id="vzlogger_mqttpass_reset" name="vzlogger_mqttpass_reset" type="checkbox" value="1"><TMPL_VAR NAME=VZLOGGER.MQTT_PASSWORD_RESET></label>
 					</td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_PASSWORD_HELP></font></td>
@@ -626,22 +630,22 @@
 				<tr><td colspan="4"><h4><TMPL_VAR NAME=VZLOGGER.MQTT_CERT_AUTH></h4></td></tr>
 				<tr>
 					<td><label for="vzlogger_mqttcafile"><TMPL_VAR NAME=VZLOGGER.MQTT_CAFILE></label><span class="config-key"><code>mqtt.cafile</code></span></td>
-					<td><input id="vzlogger_mqttcafile" name="vzlogger_mqttcafile" type="text" value="<TMPL_VAR VZLOGGER_MQTTCAFILE>"></td>
+					<td><input id="vzlogger_mqttcafile" name="vzlogger_mqttcafile" type="text" value="<TMPL_VAR VZLOGGER_MQTTCAFILE ESCAPE=HTML>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_CAFILE_HELP></font></td>
 				</tr>
 				<tr>
 					<td><label for="vzlogger_mqttcapath"><TMPL_VAR NAME=VZLOGGER.MQTT_CAPATH></label><span class="config-key"><code>mqtt.capath</code></span></td>
-					<td><input id="vzlogger_mqttcapath" name="vzlogger_mqttcapath" type="text" value="<TMPL_VAR VZLOGGER_MQTTCAPATH>"></td>
+					<td><input id="vzlogger_mqttcapath" name="vzlogger_mqttcapath" type="text" value="<TMPL_VAR VZLOGGER_MQTTCAPATH ESCAPE=HTML>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_CAPATH_HELP></font></td>
 				</tr>
 				<tr>
 					<td><label for="vzlogger_mqttcertfile"><TMPL_VAR NAME=VZLOGGER.MQTT_CERTFILE></label><span class="config-key"><code>mqtt.certfile</code></span></td>
-					<td><input id="vzlogger_mqttcertfile" name="vzlogger_mqttcertfile" type="text" value="<TMPL_VAR VZLOGGER_MQTTCERTFILE>"></td>
+					<td><input id="vzlogger_mqttcertfile" name="vzlogger_mqttcertfile" type="text" value="<TMPL_VAR VZLOGGER_MQTTCERTFILE ESCAPE=HTML>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_CERTFILE_HELP></font></td>
 				</tr>
 				<tr>
 					<td><label for="vzlogger_mqttkeyfile"><TMPL_VAR NAME=VZLOGGER.MQTT_KEYFILE></label><span class="config-key"><code>mqtt.keyfile</code></span></td>
-					<td><input id="vzlogger_mqttkeyfile" name="vzlogger_mqttkeyfile" type="text" value="<TMPL_VAR VZLOGGER_MQTTKEYFILE>"></td>
+					<td><input id="vzlogger_mqttkeyfile" name="vzlogger_mqttkeyfile" type="text" value="<TMPL_VAR VZLOGGER_MQTTKEYFILE ESCAPE=HTML>"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_KEYFILE_HELP></font></td>
 				</tr>
 				<tr>
@@ -743,7 +747,7 @@
 					<td><label for="http_cache_enabled"><TMPL_VAR NAME=VZLOGGER.HTTP_CACHE_ENABLED></label></td>
 					<td><input id="http_cache_enabled_value" name="http_cache_enabled" type="hidden" value="<TMPL_VAR HTTP_CACHE_ENABLED>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.HTTP_CACHE_ENABLED>"><input id="http_cache_enabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); update_bridge_output_controls();"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td>
 					<td>&nbsp;</td>
-					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.HTTP_CACHE_ENABLED_HELP></font></td>
+					<td><font size="-1"><TMPL_VAR NAME=VZLOGGER.HTTP_CACHE_ENABLED_HELP><br><strong><TMPL_VAR NAME=VZLOGGER.HTTP_CACHE_LAN_WARNING></strong></font></td>
 				</tr>
 				<tr id="http_cache_status_row">
 					<td><TMPL_VAR NAME=VZLOGGER.HTTP_CACHE_STATUS></td>
@@ -912,6 +916,12 @@
 			return "./index.cgi?ajax=1&ajaxaction=" + encodeURIComponent(action) + "&lang=" + encodeURIComponent(ui_language) + "&_=" + Date.now();
 		}
 
+		function append_csrf(data) {
+			var token = document.getElementById("csrf_token");
+			if (token) data.set("csrf_token", token.value);
+			return data;
+		}
+
 		function update_recovery_controls() {
 			var enabled = document.getElementById("recovery_ip_check_enabled").checked;
 			var input = document.getElementById("recovery_allowed_ips");
@@ -931,6 +941,7 @@
 			data.append("recovery_ip_check_enabled", document.getElementById("recovery_ip_check_enabled").checked ? "1" : "0");
 			data.append("recovery_allowed_ips", document.getElementById("recovery_allowed_ips").value);
 			data.append("recovery_cooldown", document.getElementById("recovery_cooldown").value);
+			append_csrf(data);
 			feedback.textContent = "…";
 			fetch("./index.cgi", { method: "POST", body: data, credentials: "same-origin", cache: "no-store" })
 				.then(function (response) { return response.json(); })
@@ -1117,6 +1128,7 @@
 				data.append("read", smartmeterToggleValue("read"));
 				data.append("vzlogger_debug", smartmeterToggleValue("vzlogger_debug"));
 			}
+			append_csrf(data);
 			fetch("./index.cgi", { method: "POST", body: data, credentials: "same-origin", cache: "no-store" })
 				.then(function (response) {
 					if (!response.ok) throw new Error("HTTP " + response.status);
@@ -1240,7 +1252,8 @@
 			var failedText = obis_text("configuration_action_failed_text");
 			var timeoutText = obis_text("configuration_action_debug_timeout_text");
 			var endpoint = new URL("./index.cgi?ajax=1&ajaxaction=debug-log&lang=" + encodeURIComponent(ui_language) + "&_=" + Date.now(), window.location.href).href;
-			var script = '(function(){var elapsed=0;var elapsedNode=document.getElementById("elapsed");var spinner=document.getElementById("spinner");var message=document.getElementById("message");var details=document.getElementById("details");var timer=setInterval(function(){elapsed++;elapsedNode.textContent=' + JSON.stringify(elapsedText) + '.replace("{seconds}",elapsed);},1000);var controller=window.AbortController?new AbortController():null;var browserTimeout=setTimeout(function(){if(controller)controller.abort();},52000);var data=new FormData();data.append("ajax","1");data.append("ajaxaction","debug-log");data.append("lang",' + JSON.stringify(ui_language) + ');fetch(' + JSON.stringify(endpoint) + ',{method:"POST",body:data,credentials:"same-origin",cache:"no-store",signal:controller?controller.signal:undefined}).then(function(result){if(!result.ok)throw new Error("HTTP "+result.status);return result.json();}).then(function(response){if(!response.ok||!response.log_url)throw new Error(response.message||' + JSON.stringify(failedText) + ');try{if(window.opener)window.opener.debug_log_tab=null;}catch(ignore){}window.location.replace(response.log_url);}).catch(function(error){spinner.style.display="none";message.textContent=(error.name==="AbortError"?' + JSON.stringify(timeoutText) + ':' + JSON.stringify(failedText) + ');details.textContent=error.name==="AbortError"?"":(error.message||"");details.hidden=!details.textContent;}).then(function(){clearInterval(timer);clearTimeout(browserTimeout);});})();';
+			var csrfToken = (document.getElementById("csrf_token") || {}).value || "";
+			var script = '(function(){var elapsed=0;var elapsedNode=document.getElementById("elapsed");var spinner=document.getElementById("spinner");var message=document.getElementById("message");var details=document.getElementById("details");var timer=setInterval(function(){elapsed++;elapsedNode.textContent=' + JSON.stringify(elapsedText) + '.replace("{seconds}",elapsed);},1000);var controller=window.AbortController?new AbortController():null;var browserTimeout=setTimeout(function(){if(controller)controller.abort();},52000);var data=new FormData();data.append("ajax","1");data.append("ajaxaction","debug-log");data.append("lang",' + JSON.stringify(ui_language) + ');data.append("csrf_token",' + JSON.stringify(csrfToken) + ');fetch(' + JSON.stringify(endpoint) + ',{method:"POST",body:data,credentials:"same-origin",cache:"no-store",signal:controller?controller.signal:undefined}).then(function(result){if(!result.ok)throw new Error("HTTP "+result.status);return result.json();}).then(function(response){if(!response.ok||!response.log_url)throw new Error(response.message||' + JSON.stringify(failedText) + ');try{if(window.opener)window.opener.debug_log_tab=null;}catch(ignore){}window.location.replace(response.log_url);}).catch(function(error){spinner.style.display="none";message.textContent=(error.name==="AbortError"?' + JSON.stringify(timeoutText) + ':' + JSON.stringify(failedText) + ');details.textContent=error.name==="AbortError"?"":(error.message||"");details.hidden=!details.textContent;}).then(function(){clearInterval(timer);clearTimeout(browserTimeout);});})();';
 			tab.document.write('<!doctype html><html><head><meta charset="utf-8"><title>' + title + '</title><style>body{margin:0;background:#f3f5f7;color:#222;font:16px/1.5 system-ui,sans-serif;display:grid;min-height:100vh;place-items:center}.box{width:min(42rem,calc(100% - 3rem));text-align:center;padding:2rem}.spinner{width:42px;height:42px;margin:0 auto 1rem;border:4px solid #ccd3da;border-top-color:#2b6dad;border-radius:50%;animation:s .8s linear infinite}pre{padding:1rem;background:#fff;border:1px solid #ccd3da;text-align:left;white-space:pre-wrap}@keyframes s{to{transform:rotate(360deg)}}</style></head><body><main class="box"><div id="spinner" class="spinner"></div><h1>' + title + '</h1><p id="message">' + wait + '</p><p id="elapsed"></p><pre id="details" hidden></pre></main><script>' + script + '<\/script></body></html>');
 			tab.document.close();
 			return tab;
@@ -1483,6 +1496,7 @@
 			data.append("ajax", "1");
 			data.append("ajaxaction", "ir-scan");
 			data.append("lang", ui_language);
+			append_csrf(data);
 			document.querySelectorAll(".meter-remove-marker:not(:disabled)").forEach(function (marker) {
 				data.append("staged_removed", marker.value);
 			});
@@ -1784,6 +1798,7 @@
 			data.append("ajaxaction", "obis-cancel");
 			data.append("lang", ui_language);
 			data.append("job_id", obis_job_id);
+			append_csrf(data);
 			fetch("./index.cgi", { method: "POST", body: data, credentials: "same-origin", cache: "no-store" })
 				.then(function (response) { return response.json(); })
 				.then(function (status) {
@@ -1993,6 +2008,7 @@
 			data.append("ajaxaction", "expert-mode");
 			data.append("lang", ui_language);
 			data.append("enabled", value == "1" ? "1" : "0");
+			append_csrf(data);
 			fetch("./index.cgi", { method: "POST", body: data, credentials: "same-origin", cache: "no-store" })
 				.then(function (response) { return response.json(); })
 				.then(function (response) {
@@ -2047,6 +2063,7 @@
 			data.append("ajax", "1");
 			data.append("ajaxaction", "expert-reset");
 			data.append("lang", ui_language);
+			append_csrf(data);
 			fetch("./index.cgi", { method: "POST", body: data, credentials: "same-origin", cache: "no-store" })
 				.then(function (response) { return response.json(); })
 				.then(function (response) {

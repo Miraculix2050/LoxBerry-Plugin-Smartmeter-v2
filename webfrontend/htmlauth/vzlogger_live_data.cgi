@@ -4,13 +4,14 @@ use strict;
 use warnings;
 use Cwd qw(abs_path);
 use File::Basename qw(basename);
-use IO::Socket::INET;
 use JSON::PP;
 
 my $script_file = abs_path(__FILE__);
 $script_file =~ s{[/\\][^/\\]+\z}{};
 my $plugin_folder = basename($script_file);
 my $install_folder = abs_path("$script_file/../../../..");
+require "$install_folder/bin/plugins/$plugin_folder/SmartMeterVZLoggerHttp.pm";
+SmartMeterVZLoggerHttp->import(qw(fetch_local_json));
 my $config_dir = "$install_folder/config/plugins/$plugin_folder";
 my $template_dir = "$install_folder/templates/plugins/$plugin_folder";
 my $port = read_local_port("$config_dir/smartmeter.cfg");
@@ -47,12 +48,7 @@ sub metadata_version
 sub read_live_json
 {
 	my ($port) = @_;
-	my $socket = IO::Socket::INET->new(PeerHost => "127.0.0.1", PeerPort => $port, Proto => "tcp", Timeout => 3);
-	return JSON::PP->new->encode({ error_code => "unavailable" }) if (!$socket);
-	print $socket "GET / HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n";
-	local $/;
-	my $response = <$socket> || "";
-	close($socket);
-	$response =~ s/\A.*?\r?\n\r?\n//s;
-	return $response =~ /^\s*[\[{]/ ? $response : JSON::PP->new->encode({ error_code => "invalid_response" });
+	my ($json, $error) = fetch_local_json($port);
+	return $json if (defined($json));
+	return JSON::PP->new->encode({ error_code => $error eq "unavailable" ? "unavailable" : "invalid_response" });
 }
