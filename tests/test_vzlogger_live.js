@@ -61,6 +61,12 @@ assert.equal(Live.readingDecision(previousReading, 11000, 11, "normal|11", "1000
 assert.equal(Live.readingDecision(previousReading, 1001, 9, "1001|9", "1000|10", { category: "active_energy_import" }).reset, true, "an accepted decreasing energy reading requests a new baseline");
 assert.equal(Live.liveDataSignature({ data: [] }), Live.liveDataSignature({ data: [] }), "equivalent live responses have a stable signature");
 assert.notEqual(Live.liveDataSignature({ data: [] }), Live.liveDataSignature({ data: [{ tuples: [[1, 2]] }] }), "changed live responses have a different signature");
+const readingsWithGaps = [{ x: 1, y: 1 }, { x: 2, y: null }, { x: 3, y: 3 }, { x: 4, y: 4 }];
+assert.equal(Live.latestReading(readingsWithGaps).x, 4, "latest-reading lookup finds the newest value without copying history");
+assert.equal(Live.latestReading(readingsWithGaps, 3).x, 3, "latest-reading lookup honors an energy-reset timestamp");
+assert.deepEqual(Live.powerPeaks([{ value: 2, x: 1 }, { value: -3, x: 2 }, { value: 8, x: 3 }, { value: -5, x: 4 }]), {
+	importPeak: { value: 8, x: 3 }, exportPeak: { value: -5, x: 4 }
+}, "power peaks are found in one pass without sorting history");
 
 const history = new Map([["total", [{ x: 1000, y: 12, absolute: 12, raw: 12 }, { x: 1001, y: null, absolute: null, raw: null }]]]);
 const lastTuples = new Map([["total", "1|12"]]);

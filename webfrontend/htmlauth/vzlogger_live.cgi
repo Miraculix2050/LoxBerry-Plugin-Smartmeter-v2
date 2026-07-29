@@ -11,23 +11,26 @@ use SmartMeterVZLoggerChannels qw(load_catalog lookup_obis);
 use SmartMeterVZLoggerHttp qw(fetch_local_json);
 
 my $cgi = CGI->new;
+my $mapping_file = "$lbpconfigdir/vzlogger_channels.json";
+if ($cgi->param("meta")) {
+	my $cfg = Config::Simple->new("$lbpconfigdir/smartmeter.cfg");
+	my $catalog = load_catalog("$lbptemplatedir/obis_catalog.json");
+	my $metadata_version = metadata_version($mapping_file, "$lbpconfigdir/smartmeter.cfg", "$lbptemplatedir/obis_catalog.json");
+	print $cgi->header(-type => "application/json", -charset => "utf-8", -expires => "now");
+	print JSON::PP->new->utf8->canonical->encode(read_channel_metadata($mapping_file, $cfg, $metadata_version, $catalog));
+	exit 0;
+}
+
 my $template = HTML::Template->new(
 	filename => "$lbptemplatedir/vzlogger_live.html",
 	global_vars => 1,
 	die_on_bad_params => 0,
 );
 my %L = LoxBerry::System::readlanguage($template, "language.ini");
-my $cfg = Config::Simple->new("$lbpconfigdir/smartmeter.cfg");
-my $port = $cfg ? ($cfg->param("VZLOGGER.LOCALPORT") || 18080) : 18080;
-my $mapping_file = "$lbpconfigdir/vzlogger_channels.json";
-my $catalog = load_catalog("$lbptemplatedir/obis_catalog.json");
-my $metadata_version = metadata_version($mapping_file, "$lbpconfigdir/smartmeter.cfg", "$lbptemplatedir/obis_catalog.json");
-if ($cgi->param("meta")) {
-	print $cgi->header(-type => "application/json", -charset => "utf-8", -expires => "now");
-	print JSON::PP->new->utf8->canonical->encode(read_channel_metadata($mapping_file, $cfg, $metadata_version, $catalog));
-	exit 0;
-}
 if ($cgi->param("json")) {
+	my $cfg = Config::Simple->new("$lbpconfigdir/smartmeter.cfg");
+	my $port = $cfg ? ($cfg->param("VZLOGGER.LOCALPORT") || 18080) : 18080;
+	my $metadata_version = metadata_version($mapping_file, "$lbpconfigdir/smartmeter.cfg", "$lbptemplatedir/obis_catalog.json");
 	my $json = read_live_json($port);
 	print $cgi->header(
 		-type => "application/json",
