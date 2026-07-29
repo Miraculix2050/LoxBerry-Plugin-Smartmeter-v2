@@ -99,6 +99,7 @@ jobs:
           perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_config_validation.pl
           perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_bridge.pl
           perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_http.pl
+          perl -I .github/ci/perl-lib -I bin tests/test_obis_status.pl
           perl -I .github/ci/perl-lib -I bin tests/test_web_security.pl
           perl -I .github/ci/perl-lib -I bin tests/test_loxberry_native_integration.pl
           perl tests/test_lifecycle_v4.pl

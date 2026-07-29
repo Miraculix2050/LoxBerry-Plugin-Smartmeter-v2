@@ -176,6 +176,9 @@ open(my $vzlogger_template_fh, "<", "$FindBin::Bin/../templates/settings.html") 
 local $/;
 my $vzlogger_template = <$vzlogger_template_fh>;
 close($vzlogger_template_fh);
+open(my $vzlogger_script_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/smartmeter-settings.js") or die $!;
+$vzlogger_template .= <$vzlogger_script_fh>;
+close($vzlogger_script_fh);
 like($vzlogger_template, qr/action == "apply" && response\.ok/, "failed vzLogger apply keeps the saved tab and activation state unchanged");
 like($vzlogger_template, qr/service_status\.cgi\?details=" \+ \(!last_service_snapshot \? "1" : "0"\)/, "only the first status poll requests full details from the lightweight endpoint");
 like($vzlogger_template, qr/setTimeout\(poll_service_status, 10000\)/, "lightweight service polling uses the ten-second interval");

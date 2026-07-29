@@ -21,11 +21,12 @@ BEGIN {
 	} split(/&/, $ENV{QUERY_STRING} || "");
 	if (($ENV{REQUEST_METHOD} || "GET") eq "GET"
 		&& ($query{ajax} || "") eq "1"
-		&& ($query{ajaxaction} || "") eq "service-status") {
+		&& ($query{ajaxaction} || "") =~ /\A(?:service-status|obis-status)\z/) {
 		require FindBin;
-		$ENV{QUERY_STRING} = "details=1";
-		exec $^X, "$FindBin::Bin/service_status.cgi";
-		die "Cannot delegate service status request: $!";
+		my $endpoint = $query{ajaxaction} eq "service-status" ? "service_status.cgi" : "obis_status.cgi";
+		$ENV{QUERY_STRING} = "details=1" if ($query{ajaxaction} eq "service-status");
+		exec $^X, "$FindBin::Bin/$endpoint";
+		die "Cannot delegate $query{ajaxaction} request: $!";
 	}
 }
 
@@ -62,6 +63,7 @@ use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
 use SmartMeterVZLoggerConfig qw(protocol_for_meter normalized_meter_mode serial_mode clean_qos set_implementation_mode read_webserver_settings);
 use SmartMeterWebSecurity qw(csrf_token validate_csrf_token);
 use SmartMeterLegacyRuntime qw(initialize_legacy_heads acquire_legacy_fetch_lock synchronize_legacy_runtime remove_legacy_cronjobs);
+use SmartMeterVZLoggerObisStatus qw(read_obis_status write_obis_status resolved_obis_status watchdog_running watchdog_pid_running);
 
 ##########################################################################
 # Variables
@@ -82,6 +84,12 @@ my $cgi = CGI->new;
 my $q = $cgi->Vars;
 
 my $version = LoxBerry::System::pluginversion();
+my $asset_mtime = 0;
+for my $asset (qw(smartmeter-v4.css smartmeter-vzlogger.css smartmeter-ui.js smartmeter-vzlogger.js smartmeter-settings.css smartmeter-settings.js)) {
+	my $mtime = (stat("$FindBin::Bin/$asset"))[9] || 0;
+	$asset_mtime = $mtime if $mtime > $asset_mtime;
+}
+my $asset_version = "$version-$asset_mtime";
 my $template;
 my $plugin_cfg;
 my $initial_request = scalar(keys %{$q}) == 0;
@@ -351,6 +359,7 @@ sub form_vzlogger
 		($L{'VZLOGGER.MQTT_PASSWORD_NONE_STATUS'} || "No password configured");
 
 	$template->param("FORM_VZLOGGER", 1);
+	$template->param("ASSET_VERSION" => $asset_version);
 	$template->param("CSRF_TOKEN" => csrf_token($csrf_runtime_dir, $ENV{REMOTE_USER}));
 	my $implementation = implementation_mode();
 	$template->param("IMPLEMENTATION" => $implementation);
@@ -423,20 +432,17 @@ sub form_vzlogger
 
 sub add_service_template_params
 {
-	my $vzlogger_expected_active = implementation_mode() eq "vzlogger";
-	my $mqtt_enabled = effective_vzlogger_mqtt_enabled();
-	my $bridge_expected_active = $vzlogger_expected_active && $mqtt_enabled && (($plugin_cfg->param("MAIN.READ") || "0") eq "1");
-	my $vzlogger_state = service_state("vzlogger");
-	my $bridge_state = service_state("smartmeter-v2-vzlogger-bridge");
-
-	$template->param("VZLOGGER_SERVICE_STATUS" => service_summary("vzlogger"));
-	$template->param("BRIDGE_SERVICE_STATUS" => service_summary("smartmeter-v2-vzlogger-bridge"));
+	my $loading = $L{'VZLOGGER.UI_SERVICE_STATUS_LOADING'} || "Loading service status...";
+	# Keep page generation independent from systemd. The authenticated lightweight
+	# endpoint fills both service snapshots immediately after pageshow.
+	$template->param("VZLOGGER_SERVICE_STATUS" => $loading);
+	$template->param("BRIDGE_SERVICE_STATUS" => $loading);
 	$template->param("BRIDGE_AVAILABILITY_HELP" => ($L{'VZLOGGER.BRIDGE_SERVICE_CONTROL_HELP'} || "Manual control of the SmartMeter bridge."));
-	$template->param("VZLOGGER_SERVICE_STATUS_CLASS" => service_status_class($vzlogger_state, $vzlogger_expected_active));
-	$template->param("BRIDGE_SERVICE_STATUS_CLASS" => service_status_class($bridge_state, $bridge_expected_active));
-	$template->param("VZLOGGER_SERVICE_RUNNING" => $vzlogger_state eq "active");
-	$template->param("BRIDGE_SERVICE_RUNNING" => $bridge_state eq "active");
-	$template->param("VZLOGGER_LIVE_DISABLED" => ($vzlogger_state eq "active" ? "" : "is-disabled"));
+	$template->param("VZLOGGER_SERVICE_STATUS_CLASS" => "service-status-idle");
+	$template->param("BRIDGE_SERVICE_STATUS_CLASS" => "service-status-idle");
+	$template->param("VZLOGGER_SERVICE_RUNNING" => 0);
+	$template->param("BRIDGE_SERVICE_RUNNING" => 0);
+	$template->param("VZLOGGER_LIVE_DISABLED" => "is-disabled");
 
 	my $vzlogger_log = "$lbplogdir/vzlogger-native.log";
 	$template->param("VZLOGGER_LOG_URL" => log_url("plugins/$lbpplugindir/vzlogger-native.log"));
@@ -1957,51 +1963,22 @@ sub obis_discovery_cancel_file
 sub write_obis_discovery_status_file
 {
 	my ($status) = @_;
-	my $runtime_dir = obis_discovery_runtime_dir();
-	make_path($runtime_dir) if (!-d $runtime_dir);
-	my $file = obis_discovery_status_file();
-	my $tmp = "$file.$$";
-	return 0 if (!open(my $fh, ">", $tmp));
-	print $fh JSON::PP->new->utf8->canonical->encode($status);
-	close($fh);
-	return rename($tmp, $file) ? 1 : 0;
+	return write_obis_status(obis_discovery_runtime_dir(), $status);
 }
 
 sub read_obis_discovery_status_file
 {
-	my $file = obis_discovery_status_file();
-	return { state => "idle" } if (!-e $file || !open(my $fh, "<", $file));
-	local $/;
-	my $json = <$fh>;
-	close($fh);
-	my $status = eval { JSON::PP->new->utf8->decode($json || "") };
-	return ref($status) eq "HASH" ? $status : { state => "idle" };
+	return read_obis_status(obis_discovery_runtime_dir());
 }
 
 sub obis_discovery_watchdog_is_active
 {
-	my $pid_file = obis_discovery_runtime_dir() . "/vzlogger_obis_watchdog.pid";
-	return 0 if (!-e $pid_file || !open(my $fh, "<", $pid_file));
-	my $pid = <$fh>;
-	close($fh);
-	chomp($pid) if (defined($pid));
-	return obis_watchdog_running($pid);
+	return watchdog_running(obis_discovery_runtime_dir(), $lbpplugindir);
 }
 
 sub obis_discovery_status
 {
-	my $status = read_obis_discovery_status_file();
-	if (($status->{state} || "") =~ /\A(?:starting|running|cancelling)\z/ && !obis_discovery_watchdog_is_active()) {
-		my $started_at = int($status->{started_at} || 0);
-		if (!$started_at || time() - $started_at > 2) {
-			$status->{state} = "failed";
-			$status->{message} = "The OBIS discovery process ended unexpectedly.";
-			$status->{finished_at} = time();
-			write_obis_discovery_status_file($status);
-		}
-	}
-	$status->{ok} = JSON::PP::true;
-	return $status;
+	return resolved_obis_status(obis_discovery_runtime_dir(), $lbpplugindir);
 }
 
 sub cancel_obis_discovery
@@ -2376,12 +2353,7 @@ sub wait_status_exit_code
 sub obis_watchdog_running
 {
 	my ($pid) = @_;
-	return 0 if (!$pid || $pid !~ /\A\d+\z/ || !kill(0, int($pid)));
-	open(my $cmdline_fh, "<", "/proc/$pid/cmdline") or return 0;
-	local $/;
-	my $cmdline = <$cmdline_fh>;
-	close($cmdline_fh);
-	return ($cmdline || "") =~ /\A\Q$lbpplugindir-vzlogger-obis-watchdog\E(?:\0|\s|\z)/ ? 1 : 0;
+	return watchdog_pid_running($pid, $lbpplugindir);
 }
 
 sub channels_from_vzlogger_log

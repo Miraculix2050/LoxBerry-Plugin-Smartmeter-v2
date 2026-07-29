@@ -38,6 +38,7 @@ ok(!validate_csrf_token($alice, $runtime, "alice"), "token becomes invalid after
 
 my $index = read_file("webfrontend/htmlauth/index.cgi");
 my $settings = read_file("templates/settings.html");
+my $settings_script = read_file("webfrontend/htmlauth/smartmeter-settings.js");
 my $expert = read_file("webfrontend/htmlauth/vzlogger_config.cgi");
 my $expert_template = read_file("templates/vzlogger_config_editor.html");
 my $result_template = read_file("templates/vzlogger_config_result.html");
@@ -47,7 +48,7 @@ like($index, qr/validate_csrf_token\(\$q->\{csrf_token\}/, "modern CGI validates
 like($index, qr/qw\([^)]*obis-start[^)]*debug-log[^)]*recovery-settings[^)]*\)/, "every modern mutating AJAX action is classified");
 like($index, qr/__METHOD__.*REQUEST_METHOD.*POST/s, "mutating AJAX actions require POST before locking");
 like($settings, qr/name="csrf_token" value="<TMPL_VAR NAME=CSRF_TOKEN ESCAPE=HTML>"/, "modern form renders an escaped CSRF token");
-like($settings, qr/function append_csrf\(data\)/, "standalone AJAX payloads share the CSRF appender");
+like($settings_script, qr/function append_csrf\(data\)/, "standalone AJAX payloads share the CSRF appender");
 like($expert, qr/validate_csrf_token\(\$cgi->param\("csrf_token"\)/, "expert editor validates its CSRF token");
 like($expert_template, qr/name="csrf_token" value="<TMPL_VAR NAME=CSRF_TOKEN ESCAPE=HTML>"/, "expert editor renders an escaped CSRF token");
 unlike($legacy, qr/csrf_token|SmartMeterWebSecurity/, "Legacy CGI remains unchanged by the modern CSRF implementation");
