@@ -90,6 +90,7 @@ like($shared, qr/\bpi-save\b/, "shared UI applies PrimeIcons to primary actions"
 
 my $styles = $sources{'webfrontend/htmlauth/smartmeter-v4.css'} . $sources{'webfrontend/htmlauth/smartmeter-vzlogger.css'} . $sources{'webfrontend/htmlauth/smartmeter-settings.css'};
 like($styles, qr/\.recovery-loxone-fields\s*\{[^}]*grid-template-columns/s, "Loxone copy-and-paste fields use a responsive grid");
+like($styles, qr/recovery-settings-panel \.service-controls > \.lb-btn\s*\{[^}]*width:\s*100%[^}]*white-space:\s*normal/s, "recovery actions fit and wrap in compact mobile controls");
 like($styles, qr/implementation-tabs \.lb-btn-active/, "active implementation tab has an explicit V4 state");
 like($styles, qr/implementation-tabs\s*\{[^}]*border:\s*0\s*!important/s, "implementation tab group has no redundant outer border");
 like($styles, qr/implementation-tabs \.lb-btn\s*\{[^}]*margin:\s*0\s*!important/s, "implementation tabs do not retain framework margins that clip the last border");

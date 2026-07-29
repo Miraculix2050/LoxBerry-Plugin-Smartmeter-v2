@@ -22,10 +22,22 @@ for required in LBHOMEDIR LBPCONFIG LBPBIN LBPCGI; do
 		exit 2
 	fi
 done
+if [ -z "$PTEMPPATH" ]; then
+	echo "<ERROR> LoxBerry did not provide the full installation temporary path in argument 6."
+	exit 2
+fi
 
 PCONFIG="$LBPCONFIG/$PDIR"
 PBIN="$LBPBIN/$PDIR"
 PCGI="$LBPCGI/$PDIR"
+LOCK_HELPER="$PTEMPPATH/sbin/smartmeter_config_lock.sh"
+
+if [ ! -r "$LOCK_HELPER" ]; then
+	echo "<ERROR> SmartMeter configuration lock helper is missing."
+	exit 2
+fi
+. "$LOCK_HELPER"
+smartmeter_acquire_config_lock "/var/run/shm/$PDIR" || exit 4
 
 /bin/sed -i "s#REPLACEBYSUBFOLDER#$PDIR#" "$PCONFIG/smartmeter.cfg"
 /bin/sed -i "s#REPLACEBYNAME#$PSHNAME#" "$PCONFIG/smartmeter.cfg"

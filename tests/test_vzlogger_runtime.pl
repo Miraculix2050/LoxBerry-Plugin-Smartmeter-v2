@@ -11,9 +11,41 @@ use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
 my $dir = tempdir(CLEANUP => 1);
 my ($lock, $error) = acquire_config_lock($dir);
 ok($lock, "first configuration lock succeeds") or diag($error);
-my $code = 'use SmartMeterVZLoggerRuntime qw(acquire_config_lock); my ($l)=acquire_config_lock($ARGV[0]); exit($l ? 1 : 0);';
-my $status = system($^X, "-I$FindBin::Bin/../bin", "-MSmartMeterVZLoggerRuntime", "-e", $code, $dir);
-is($status >> 8, 0, "second process is rejected while lock is held");
+my ($nested_lock, $nested_error) = acquire_config_lock($dir);
+ok($nested_lock, "a verified inherited descriptor reuses the held lock") or diag($nested_error);
+undef $nested_lock;
+
+my $nested_code = 'use SmartMeterVZLoggerRuntime qw(acquire_config_lock); my ($l)=acquire_config_lock($ARGV[0]); exit($l ? 0 : 1);';
+my $status;
+SKIP: {
+	skip "inherited POSIX descriptors are not available on Windows", 1 if ($^O eq "MSWin32");
+	$status = system($^X, "-I$FindBin::Bin/../bin", "-MSmartMeterVZLoggerRuntime", "-e", $nested_code, $dir);
+	is($status >> 8, 0, "a child coordinator reuses the verified inherited lock");
+}
+
+my $contention_code = 'use SmartMeterVZLoggerRuntime qw(acquire_config_lock); my ($l)=acquire_config_lock($ARGV[0]); unlink($ARGV[1]) if ($l); exit($l ? 1 : 0);';
+my $sentinel = "$dir/contention-state";
+open(my $sentinel_fh, ">", $sentinel) or die $!;
+print $sentinel_fh "unchanged";
+close($sentinel_fh);
+{
+	local $ENV{SMARTMETER_CONFIG_LOCK_FD};
+	local $ENV{SMARTMETER_CONFIG_LOCK_FILE};
+	$status = system($^X, "-I$FindBin::Bin/../bin", "-MSmartMeterVZLoggerRuntime", "-e", $contention_code, $dir, $sentinel);
+}
+is($status >> 8, 0, "an unrelated second process is rejected while the lock is held");
+ok(-e $sentinel, "a rejected busy action makes no state change");
+
+open(my $wrong_fh, ">", "$dir/not-the-lock") or die $!;
+{
+	local $ENV{SMARTMETER_CONFIG_LOCK_FD} = fileno($wrong_fh);
+	local $ENV{SMARTMETER_CONFIG_LOCK_FILE} = "$dir/vzlogger_config.lock";
+	my ($invalid_lock, $invalid_error) = acquire_config_lock($dir);
+	ok(!$invalid_lock, "a descriptor for another inode cannot bypass lock contention");
+	like($invalid_error, qr/already running/i, "invalid inherited descriptor returns the busy error");
+}
+close($wrong_fh);
+
 undef $lock;
 ($lock, $error) = acquire_config_lock($dir);
 ok($lock, "configuration lock is reusable after release") or diag($error);

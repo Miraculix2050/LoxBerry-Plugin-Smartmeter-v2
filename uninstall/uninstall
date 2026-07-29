@@ -36,6 +36,14 @@ SOURCE_LIST="/etc/apt/sources.list.d/volkszaehler-volkszaehler-org-project.list"
 KEYRING="/usr/share/keyrings/volkszaehler-volkszaehler-org-project-archive-keyring.gpg"
 OLD_DAEMON="$LBHOMEDIR/system/daemons/plugins/$PSHNAME"
 PLUGIN_SBIN_DIR="$LBPSBIN/$PDIR"
+LOCK_HELPER="$PLUGIN_SBIN_DIR/smartmeter_config_lock.sh"
+
+if [ ! -r "$LOCK_HELPER" ]; then
+	echo "<ERROR> SmartMeter configuration lock helper is missing."
+	exit 2
+fi
+. "$LOCK_HELPER"
+smartmeter_acquire_config_lock "$RUNTIME_DIR" || exit 4
 
 if [ -f "$BRIDGE_UNIT" ]; then
 	echo "<INFO> Removing SmartMeter vzLogger bridge service."
@@ -95,7 +103,8 @@ rm -f "$OLD_DAEMON"
 if [ -d "$PLUGIN_SBIN_DIR" ]; then
 	rm -f \
 		"$PLUGIN_SBIN_DIR/install_vzlogger_bridge_service.sh" \
-		"$PLUGIN_SBIN_DIR/install_vzlogger_service_override.sh"
+		"$PLUGIN_SBIN_DIR/install_vzlogger_service_override.sh" \
+		"$PLUGIN_SBIN_DIR/smartmeter_config_lock.sh"
 	rmdir "$PLUGIN_SBIN_DIR" >/dev/null 2>&1 || true
 fi
 

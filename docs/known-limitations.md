@@ -11,13 +11,7 @@ Maintainer actions and evidence-expansion work are tracked separately in
 
 ## Limited Target-Platform Coverage
 
-Confirmed coverage:
-
-- LoxBerry 4.0.0.13
-- Debian 13/trixie
-- arm64
-- vzLogger 0.8.9 from the configured Cloudsmith repository
-- Upgrade, disable/reactivate, uninstall, fresh install, service operation, SML/MQTT data flow, calculated power, HTTP cache, and UDP delivery were verified with SmartMeter v2 2.0.0.32.
+The latest confirmed versions and browser families are recorded in the [Tested Support Matrix](support-matrix.md). `LB_MINIMUM` controls installation eligibility; it does not by itself establish tested or promised support.
 
 Limitation:
 
@@ -26,7 +20,7 @@ Limitation:
 
 Impact:
 
-- Compatibility outside the confirmed platform cannot be promised from the available test evidence.
+- Compatibility outside the confirmed platform cannot be promised from the available test evidence. Coding requirements and review provide portability confidence, but do not count as device testing.
 
 ## Legacy Web Security Remains Frozen
 
@@ -42,7 +36,7 @@ Confirmed coverage:
 Limitation:
 
 - Other meter models, templates marked `limited`, OMS, and arbitrary custom OBIS identifiers have not been verified with representative hardware.
-- Template names and configured values do not by themselves prove compatibility with a specific meter firmware or optical head.
+- The historically grown template catalog records project best practices and experience. Template names and configured values do not by themselves prove compatibility with a specific meter firmware or optical head.
 
 Impact:
 

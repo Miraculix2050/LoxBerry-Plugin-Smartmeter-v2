@@ -119,6 +119,12 @@ For UI, template, CSS, navigation, or user-facing text changes, test the install
 
 Use an authenticated browser session and reach both pages through the visible implementation tabs so native LoxBerry V4 navigation and AJAX actions are exercised. At Desktop and Mobile primary sizes, check the initial render and every changed interaction, including relevant collapsibles, dialogs, validation, and action buttons. Use the compact and minimum sizes whenever layout, controls, navigation, or text lengths changed.
 
+The minimum browser matrix is:
+
+- Chrome and Firefox: full Desktop (`1280x800`) and Mobile primary (`390x844`) checks;
+- Chrome: additional Mobile compact (`360x800`) and Mobile minimum (`320x568`) smoke checks; and
+- both full browser checks: basic keyboard reachability and inspection for relevant console errors.
+
 Acceptance requires:
 
 - identical available functions and information on desktop and mobile;

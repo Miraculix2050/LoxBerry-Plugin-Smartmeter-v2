@@ -108,7 +108,6 @@ my @heads = sort keys %head_paths;
 if ($is_post) {
 	my ($initialization_lock, $lock_error) = acquire_config_lock($runtime_dir);
 	die "$lock_error\n" if (!$initialization_lock);
-	local $ENV{SMARTMETER_CONFIG_LOCK_HELD} = "1";
 	$plugin_cfg->save if (initialize_legacy_heads($plugin_cfg, @heads));
 } else {
 	initialize_legacy_heads($plugin_cfg, @heads);
@@ -231,7 +230,6 @@ sub form
 			if (!$lock) {
 				$validation_error = $lock_error;
 			} else {
-				local $ENV{SMARTMETER_CONFIG_LOCK_HELD} = "1";
 				set_implementation_mode($plugin_cfg, $implementation);
 				if ($implementation eq "legacy") {
 					$plugin_cfg->param("MAIN.READ", scalar($cgi->param('read')));

@@ -17,6 +17,10 @@ for required in LBPCONFIG; do
 		exit 2
 	fi
 done
+if [ -z "$PTEMPPATH" ]; then
+	echo "<ERROR> LoxBerry did not provide the full installation temporary path in argument 6."
+	exit 2
+fi
 
 KEYRING="/usr/share/keyrings/volkszaehler-volkszaehler-org-project-archive-keyring.gpg"
 SOURCE_LIST="/etc/apt/sources.list.d/volkszaehler-volkszaehler-org-project.list"
@@ -32,6 +36,14 @@ if [ "$(id -u)" != "0" ]; then
 	echo "<ERROR> preroot.sh must run as root."
 	exit 2
 fi
+
+LOCK_HELPER="$PTEMPPATH/sbin/smartmeter_config_lock.sh"
+if [ ! -r "$LOCK_HELPER" ]; then
+	echo "<ERROR> SmartMeter configuration lock helper is missing."
+	exit 2
+fi
+. "$LOCK_HELPER"
+smartmeter_acquire_config_lock "/var/run/shm/$PDIR" || exit 4
 
 mkdir -p "$MARKER_DIR"
 if command -v systemctl >/dev/null 2>&1 && systemctl is-active --quiet vzlogger.service; then

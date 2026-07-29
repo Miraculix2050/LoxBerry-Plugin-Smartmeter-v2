@@ -25,6 +25,14 @@ PBIN="$LBPBIN/$PDIR"
 PTEMPL="$LBPTEMPL/$PDIR"
 BACKUP="$PTEMPPATH/smartmeter-upgrade"
 configfile="$PCONFIG/smartmeter.cfg"
+LOCK_HELPER="$PTEMPPATH/sbin/smartmeter_config_lock.sh"
+
+if [ ! -r "$LOCK_HELPER" ]; then
+	echo "<ERROR> SmartMeter configuration lock helper is missing."
+	exit 2
+fi
+. "$LOCK_HELPER"
+smartmeter_acquire_config_lock "/var/run/shm/$PDIR" || exit 4
 
 cleanup_obsolete_language_files()
 {

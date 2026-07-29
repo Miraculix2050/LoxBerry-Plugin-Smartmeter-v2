@@ -49,6 +49,14 @@ jobs:
         with:
           ref: ${{ steps.release.outputs.tag }}
 
+      - name: Validate release metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          perl tools/validate-release-metadata.pl \
+            --version "${{ steps.release.outputs.version }}" \
+            --channel auto
+
       - name: Build plugin ZIP
         shell: bash
         run: |

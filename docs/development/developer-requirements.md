@@ -9,6 +9,8 @@ This document records the product and engineering contracts that must remain tru
 
 Every normative requirement has a stable `SM-<area>-<number>` identifier. Keep an identifier when wording is clarified without changing its contract. Retire an identifier instead of reusing it for different behavior. The section traceability table links each requirement area to its primary sources and verification evidence; individual tests may cover multiple requirements.
 
+Numbered requirements and lifecycle contracts define intended behavior. `../known-limitations.md` and `../support-matrix.md` bound compatibility and security claims; user guides mirror the resulting user contract; procedures describe execution; tests provide evidence and must not silently redefine a requirement. Resolve contradictions before merging. A normative change requires review, a recorded rationale, and matching updates to affected tests, user guides, and `CHANGELOG.md`.
+
 | Area | Primary source or rationale | Primary verification |
 | --- | --- | --- |
 | `ARCH`, `COMP` | Accepted product architecture and compatibility behavior | Configuration, runtime, lifecycle, and switching regression tests |
@@ -20,7 +22,7 @@ Every normative requirement has a stable `SM-<area>-<number>` identifier. Keep a
 
 ## Using Project History
 
-- This file describes the current accepted target behavior, not every behavior that existed during the migration.
+- This file and the documentation on `master` describe behavior implemented in the current development tree, not a released version, speculative future behavior, or every behavior that existed during the migration.
 - Treat `CHANGELOG.md`, older commits, target evidence, and completed historical plans as context. Do not turn an old MVP limitation, temporary workaround, retired file path, or version-specific observation into a current requirement.
 - Before adding or changing a requirement, compare the latest accepted behavior in the current user guides, executable tests, `../known-limitations.md`, recent commits, and the `Unreleased` changelog. Resolve contradictions explicitly and update or remove superseded documentation.
 - Historical evidence may justify a current rule, but the rule must be stated independently of the old version, date, test device, or implementation accident.
@@ -43,7 +45,7 @@ Every normative requirement has a stable `SM-<area>-<number>` identifier. Keep a
 
 ## 3. Save, Apply, And Service Safety
 
-- **SM-SAFE-001** — Every mutating CGI, CLI, Legacy, service, and lifecycle action uses the same non-blocking exclusive configuration lock. Status and other read-only actions stay lock-free. A busy action is rejected with an actionable message and no state change.
+- **SM-SAFE-001** — Every top-level action that changes persistent configuration, implementation mode, drafts, mappings, generated runtime artifacts, recovery settings, discovery state, cron entries, systemd units, autostart, or final service state uses the same non-blocking exclusive lock at `/var/run/shm/<actual-plugin-folder>/vzlogger_config.lock`. Mutating CGI, CLI, Legacy administration, service control, recovery control, and lifecycle entry points are included. A nested helper reuses only a verified inherited descriptor for that lock. Status, non-mutating validation and diagnostics, normal meter polling, MQTT/HTTP/UDP output, cache writes, log writes, and internal helpers coordinated by an already locked parent do not acquire it. Legacy polling keeps its separate fetch lock. A busy top-level action is rejected with an actionable message and no state change.
 - **SM-SAFE-002** — Every mutating vzLogger CGI action requires POST and a valid HMAC-based CSRF token bound to the authenticated LoxBerry user. The runtime-only CSRF secret rotates when the RAM-backed runtime directory is cleared. Legacy web behavior remains frozen and is not covered by this modern CGI contract.
 - **SM-SAFE-003** — Generated runtime artifacts are created in a protected staging directory on the same filesystem, validated as one coherent set, and then promoted atomically with backups. Any promotion failure must roll back the complete set and preserve the last valid runtime configuration.
 - **SM-SAFE-004** — Submitted user settings may remain saved after a failed Apply so they can be corrected; invalid generated runtime files must never replace the active valid set.
@@ -55,7 +57,7 @@ Every normative requirement has a stable `SM-<area>-<number>` identifier. Keep a
 
 ## 4. Legacy Contract And Validation
 
-- **SM-LEG-001** — Legacy readers, parsers, and `sm_logger.pl` are functionally frozen. Do not add Legacy features or perform an object-oriented rewrite; make only compatibility, validation, security, or critical defect fixes.
+- **SM-LEG-001** — Legacy readers, parsers, and `sm_logger.pl` are functionally frozen and are intended for eventual removal without a currently promised release. Do not add Legacy features or perform an object-oriented rewrite; make only compatibility, validation, security, or critical defect fixes. Until a separate user-facing deprecation decision is made, do not announce a removal schedule in user documentation.
 - **SM-LEG-002** — A Legacy save is atomic: if any general value is invalid, reject the complete save before changing configuration, cron, or services, and identify the affected fields in German and English.
 - **SM-LEG-003** — General Legacy inputs use these exact constraints:
   - `IMPLEMENTATION`: `none|legacy`
@@ -68,7 +70,7 @@ Every normative requirement has a stable `SM-<area>-<number>` identifier. Keep a
 
 ## 5. Meter And Channel Model
 
-- **SM-MODEL-001** — Legacy and vzLogger use one neutral meter-template catalog. Maintain meter models and serial defaults once. SML uses the operating/read baud rate; D0 retains separate initial and read baud rates.
+- **SM-MODEL-001** — Legacy and vzLogger use one neutral meter-template catalog. Maintain meter models and serial defaults once. The historically grown entries record project best practices and experience, not complete representative-hardware support. SML uses the operating/read baud rate; D0 retains separate initial and read baud rates.
 - **SM-MODEL-002** — The standard editor supports SML, D0, and OMS. Protocol-specific fields must not leak into generated objects for another protocol. Unsupported behavior must be reported rather than silently approximated.
 - **SM-MODEL-003** — Active vzLogger mode requires at least one active meter. A meter without channels may remain valid for discovery with a warning; a configuration without meters is valid only as a disabled state and must stop vzLogger/bridge and remove the plugin override.
 - **SM-MODEL-004** — OBIS discovery uses the reader's current browser settings, runs independently of the page request, survives navigation/reload, supports cancellation, and restores the regular vzLogger service afterwards. Discovered identifiers remain available for user selection; a restoration warning must not discard successful discovery results.
@@ -120,7 +122,7 @@ Every normative requirement has a stable `SM-<area>-<number>` identifier. Keep a
 - **SM-LIFE-002** — Applying vzLogger removes Legacy polling cron entries. Applying an enabled Legacy mode stops vzLogger/bridge and restores the configured polling cron. Upgrade success includes removing stale cron entries before restoring the intended polling state.
 - **SM-LIFE-003** — The plugin-managed systemd drop-in points vzLogger to the plugin-owned configuration. Never overwrite an unrelated `/etc/vzlogger.conf`.
 - **SM-LIFE-004** — Uninstall removes plugin-owned services, drop-ins, runtime/cache artifacts, udev rules, apt source/key, and only packages proven by an ownership marker to have been introduced by the plugin.
-- **SM-LIFE-005** — Broader platform or meter support must not be claimed without matching target-system or representative-hardware evidence. Current limits remain in `../known-limitations.md`.
+- **SM-LIFE-005** — Broader platform or meter support must not be claimed without matching target-system or representative-hardware evidence. `LB_MINIMUM` and architecture metadata are installation gates, not test evidence. The latest confirmed platform remains in `../support-matrix.md`; current limitations remain in `../known-limitations.md`. Coding rules and review may support an expectation of portability but must not be described as device-tested support.
 - **SM-LIFE-006** — Bridge, Control, Web UI, and on-demand diagnostics use registered LoxBerry log sessions. Continuous/action logging follows the single SmartMeter v2 plugin log level and must not create an empty session when all messages are filtered. Identical operational Bridge errors and warnings from recurring measurement work emit immediately and then no more than once per 60 seconds with a suppressed-repeat count; bounded throttle state must not alter or sample Debug output. Native vzLogger logging remains independently configurable and writes only to `vzlogger-native.log` when enabled; no plugin-specific rotation competes with LoxBerry log maintenance. Transient OBIS discovery logs remain RAM-backed and are removed after consumption.
 
 ## 10. UI, Localization, And Accessibility
@@ -142,7 +144,7 @@ Every normative requirement has a stable `SM-<area>-<number>` identifier. Keep a
 
 - **SM-VER-001** — Regression tests belong under `tests/`, must be deterministic and reusable, and should test shared modules without requiring a live MQTT broker or production filesystem where possible.
 - **SM-VER-002** — Run the repository Perl/PHP/shell checks appropriate to changed files. Installed behavior must additionally be deployed and verified on the disposable LoxBerry according to `test-device-workflow.md`.
-- **SM-VER-003** — UI changes require authenticated desktop and mobile browser checks on both vzLogger and Legacy pages. Lifecycle changes require the install/upgrade/uninstall evidence in `lifecycle-test-expectations.md`.
+- **SM-VER-003** — UI changes require authenticated Chrome and Firefox checks on both vzLogger and Legacy pages at `1280x800` and `390x844`; Chrome additionally covers `360x800` and `320x568` smoke checks. Verify keyboard reachability, overflow, clipping, relevant interactions, and browser-console errors. Lifecycle changes require the install/upgrade/uninstall evidence in `lifecycle-test-expectations.md`.
 - **SM-VER-004** — Preserve remote configuration and service state during tests. Verify checksums around failed, concurrent, or read-only actions.
 - **SM-VER-005** — Update both user guides and `CHANGELOG.md` when behavior, configuration, dependencies, compatibility, or upgrade steps change. Record confirmed limitations in `../known-limitations.md` rather than presenting them as supported.
 - **SM-VER-006** — Local packages and official releases follow `local-builds.md` and `release-process.md`; suffixless release archives are produced only by the GitHub release workflow.
@@ -152,6 +154,6 @@ Every normative requirement has a stable `SM-<area>-<number>` identifier. Keep a
 - User-visible behavior: `../User-Guide.de.md` and `../User-Guide.en.md`
 - Installed-device and browser verification: `test-device-workflow.md`
 - Lifecycle acceptance: `lifecycle-test-expectations.md`
-- Compatibility evidence and limitations: `../known-limitations.md`
+- Compatibility evidence: `../support-matrix.md`; limitations: `../known-limitations.md`
 - Release procedure: `release-process.md`
 - Historical migration context: Git history; the completed implementation plan has been removed
