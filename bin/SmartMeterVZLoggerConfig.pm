@@ -138,8 +138,8 @@ sub clean_number
 sub clean_qos
 {
 	my ($value, $default) = @_;
-	$default = 0 if (!defined($default) || ref($default) || $default !~ /\A[012]\z/);
-	return defined($value) && !ref($value) && $value =~ /\A[012]\z/ ? int($value) : int($default);
+	$default = 0 if (!defined($default) || ref($default) || $default !~ /\A[01]\z/);
+	return defined($value) && !ref($value) && $value =~ /\A[01]\z/ ? int($value) : int($default);
 }
 
 sub sanitize_topic

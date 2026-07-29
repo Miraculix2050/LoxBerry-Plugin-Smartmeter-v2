@@ -28,4 +28,29 @@ foreach my $file (sort @files) {
 	}
 }
 
+my @topics = qw(installation configuration outputs advanced legacy troubleshooting reference);
+foreach my $topic (@topics) {
+	my $de = "$root/docs/user/de/$topic.md";
+	my $en = "$root/docs/user/en/$topic.md";
+	ok(-f $de, "German $topic page exists");
+	ok(-f $en, "English $topic page exists");
+	next if (!-f $de || !-f $en);
+	my @structures;
+	foreach my $file ($de, $en) {
+		open(my $fh, "<", $file) or die "Could not read $file: $!";
+		my @levels;
+		while (my $line = <$fh>) {
+			push @levels, length($1) if ($line =~ /\A(#{1,6})\s+/);
+		}
+		close($fh);
+		push @structures, \@levels;
+	}
+	is_deeply($structures[0], $structures[1], "$topic has matching German and English heading structure");
+}
+
+foreach my $base (qw(known-limitations support-matrix)) {
+	ok(-f "$root/docs/$base.de.md", "$base has a German document");
+	ok(-f "$root/docs/$base.en.md", "$base has an English document");
+}
+
 done_testing();

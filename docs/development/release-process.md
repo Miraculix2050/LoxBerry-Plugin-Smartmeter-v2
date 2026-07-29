@@ -24,6 +24,7 @@ Official releases are created exclusively through GitHub. Do not build, rename, 
 The two update channels have deliberately independent metadata:
 
 - Every package uses its target version in `plugin.cfg`: `PLUGIN.VERSION`.
+- Every package uses the same version in the tag-bound `PLUGIN.WEBSITE` documentation URL: `.../blob/Smartmeter-V<version>/docs/Readme.md`.
 - A stable release updates `release.cfg`: `AUTOUPDATE.VERSION`, `ARCHIVEURL`, and `INFOURL`.
 - A prerelease updates `prerelease.cfg`: `AUTOUPDATE.VERSION`, `ARCHIVEURL`, and `INFOURL` and leaves `release.cfg` on the latest stable release.
 - A stable release may align `prerelease.cfg` to the same version after publication, but this is not required for creating the stable package.
@@ -49,6 +50,7 @@ Smartmeter-V2.0.0.10
 1. Confirm the target version and whether this is a stable release or prerelease.
 2. Check `git status --short`; do not include unrelated local changes.
 3. Update `plugin.cfg` and only the channel metadata required under **Release Channels**.
+   - Update `PLUGIN.WEBSITE` to the exact target tag; never publish a package whose documentation button points to `master`.
    - Use the release asset URL for `ARCHIVEURL`, not the automatic GitHub source archive:
 
 ```text
@@ -74,6 +76,7 @@ git push origin Smartmeter-V<version>
 ```
 
 12. Wait for the `Release asset` GitHub Actions workflow to finish. It verifies that the tag version equals `PLUGIN.VERSION`, detects the matching stable or prerelease channel, validates that channel's tag and generated-asset URLs, builds `Smartmeter-V<version>.zip` from the tag with `git archive --worktree-attributes`, creates a draft GitHub Release with the generated ZIP asset, and initially publishes it as a prerelease.
+	- The metadata validation also requires `PLUGIN.WEBSITE` to contain the same tag and version.
    - The workflow uploads the ZIP while the release is still a draft because published GitHub Releases can be immutable.
    - If the tag workflow did not run, dispatch `Release asset` manually with the same tag.
 13. Verify the GitHub Release title, release notes, and uploaded `Smartmeter-V<version>.zip` asset.

@@ -21,6 +21,7 @@ my $prerelease = read_cfg("$root/prerelease.cfg");
 my $plugin_version = value($plugin, "PLUGIN", "VERSION");
 die "plugin.cfg PLUGIN.VERSION is missing or invalid.\n"
 	if ($plugin_version !~ /\A\d+\.\d+\.\d+\.\d+\z/);
+validate_documentation_url($plugin, $plugin_version);
 
 if ($version ne "" && $plugin_version ne $version) {
 	die "plugin.cfg version $plugin_version does not match release version $version.\n";
@@ -61,6 +62,15 @@ sub validate_channel
 		if (value($cfg, "AUTOUPDATE", "ARCHIVEURL") ne $expected_archive);
 	die "$name INFOURL does not match the release tag URL.\n"
 		if (value($cfg, "AUTOUPDATE", "INFOURL") ne $expected_info);
+}
+
+sub validate_documentation_url
+{
+	my ($cfg, $target_version) = @_;
+	my $tag = "Smartmeter-V$target_version";
+	my $expected = "https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/$tag/docs/Readme.md";
+	die "plugin.cfg PLUGIN.WEBSITE does not match the version-bound documentation URL.\n"
+		if (value($cfg, "PLUGIN", "WEBSITE") ne $expected);
 }
 
 sub read_cfg
