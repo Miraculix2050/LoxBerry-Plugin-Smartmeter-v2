@@ -118,11 +118,15 @@ like($live, qr/function ingest\(data\).*?return changed;/s, "live ingestion repo
 like($live, qr/diagnosticHtml\(i18n\.noChannels, i18n\.noChannelsHint\)/, "empty live responses show channel-specific troubleshooting guidance");
 like($live, qr/error\.message === i18n\.dataFailed \? i18n\.dataFailedHint/, "live-data failures show service and HTTP troubleshooting guidance");
 like($live, qr/firstRender \|\| metadataChanged \|\| responseChanged \|\| historyChanged.*?renderTable\(data\); updateChart\(\);/s, "live rendering is gated by first render or changed data");
-like($live, qr/visibilitychange.*?renderTable\(currentData\); updateChart\(\);/s, "returning to the live page forces a current render");
+like($live, qr/visibilitychange.*?renderTable\(currentData\); if \(historyInitialized\) updateChart\(\);/s, "returning to the live page forces a current render after safe history initialization");
 like($live, qr/backgroundColor:\s*colorWithAlpha\(style\.color,\s*0\.04\).*?fill:\s*Live\.isPower\(meta\)\s*\?\s*\{\s*target:\s*"origin"\s*\}\s*:\s*false/s, "live power curves use a subtle fill toward zero only");
 like($live, qr/pointRadius:\s*0,\s*pointHoverRadius:\s*4,\s*pointHitRadius:\s*8/, "live hover reveals the measurement point without permanent markers");
 unlike($live, qr/function focusDataset\(|onHover:\s*\([^)]*\)\s*=>\s*focusDataset|onClick:\s*\([^)]*legendItem[^)]*\)\s*=>\s*focusDataset/, "live hover and legend clicks do not restyle or reorder datasets");
 like($live, qr/visibility\.set\(dataset\.uuid,\s*chart\.isDatasetVisible\(index\)\).*?chart\.data\.datasets\s*=\s*datasets;.*?chart\.setDatasetVisibility\(index,\s*visibility\.get\(dataset\.uuid\)\)/s, "live updates preserve legend visibility by channel UUID");
+like($live, qr/const historyInitialization = initializeHistoryStorage\(\);.*?await requestLiveData\(false\);.*?renderTable\(initial\.data\).*?await historyInitialization;/s, "the first live table renders while persistent chart history loads");
+like($live, qr/requestIdleCallback\(compactNext,\s*\{\s*timeout:\s*1000\s*\}\)/, "browser history compaction is spread across idle callbacks");
+unlike($live, qr/\.filter\(point => point\.value >= 0\)\.sort|\.filter\(point => point\.value < 0\)\.sort/, "live summary peaks do not sort complete histories");
+like($live, qr/function schedule\(immediate\).*?!historyInitialized/s, "polling cannot race browser-history initialization");
 
 my $help = read_file("webfrontend/htmlauth/help.cgi");
 like($help, qr/LoxBerry::Web::lbheader\s*\([^;]*["']nojqm["']/s, "local help uses the V4 header without jQuery Mobile");

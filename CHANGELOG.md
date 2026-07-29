@@ -4,6 +4,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Show current vzLogger readings while browser-local history loads in small parallel batches, spread periodic history compaction across idle tasks, and reduce recurring chart-summary allocation and sorting work.
 - Harden the maintained vzLogger paths with user-bound CSRF tokens, contextual HTML/script escaping, bounded and strictly typed Mosquitto JSON input, and a size- and time-limited localhost live-data proxy; add explicit trusted-LAN warnings for port 18080, HTTP cache, and recovery while leaving frozen Legacy behavior unchanged.
 - Skip cache, UDP, timestamp-formatting, and calculated-power work when the bridge runs with MQTT timestamp output alone; suppress each calculated-power direction when its matching instantaneous output exists, reuse power state in memory, and serve each HTTP cache file with one open operation.
 - Add targeted troubleshooting guidance to the rendered vzLogger live-data page for an unavailable HTTP service and for an index response without active channels.

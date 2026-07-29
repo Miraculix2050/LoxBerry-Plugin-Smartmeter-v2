@@ -208,6 +208,25 @@
 		return JSON.stringify(data);
 	}
 
+	function latestReading(points, maximumTimestamp) {
+		const hasMaximum = Number.isFinite(maximumTimestamp);
+		for (let index = (points || []).length - 1; index >= 0; index--) {
+			const point = points[index];
+			if (point && point.y !== null && (!hasMaximum || point.x <= maximumTimestamp)) return point;
+		}
+		return null;
+	}
+
+	function powerPeaks(points) {
+		let importPeak = null, exportPeak = null;
+		(points || []).forEach(point => {
+			if (!point || !Number.isFinite(point.value)) return;
+			if (point.value >= 0 && (!importPeak || point.value > importPeak.value)) importPeak = point;
+			if (point.value < 0 && (!exportPeak || point.value < exportPeak.value)) exportPeak = point;
+		});
+		return { importPeak, exportPeak };
+	}
+
 	function styleFor(uuid) {
 		let hash = 0;
 		for (const character of String(uuid)) hash = ((hash * 31) + character.charCodeAt(0)) >>> 0;
@@ -376,7 +395,7 @@
 		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, MAX_POLL_INTERVAL, GAP_INTERVAL, GAP_MULTIPLIER, SAMPLE_INTERVAL_WINDOW, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS, CHART_BUCKETS,
 		numericTimestamp, scaledValue, category, isPower, isEnergy, chartValue,
 		chooseEnergyChannel, choosePowerChannels, defaultSelection, cleanPreferences, rangeForHistory,
-		limitSelection, estimateSampleInterval, gapThreshold, hasReadingGap, filterStoredGaps, isCounterReset, readingDecision, liveDataSignature, styleFor, balanceText,
+		limitSelection, estimateSampleInterval, gapThreshold, hasReadingGap, filterStoredGaps, isCounterReset, readingDecision, liveDataSignature, latestReading, powerPeaks, styleFor, balanceText,
 		historySnapshot, cleanHistorySnapshot, channelFingerprint, mergeBucket, expandBucket, compactHistory, aggregateChartPoints, pollDelay
 	};
 }));
@@ -405,17 +424,25 @@
 	let chart = null;
 	let historyDb = null;
 	let historyStorageAvailable = false;
+	let historyInitialized = false;
 	let lastHistoryCleanup = 0;
 	let lastMemoryCompaction = 0;
+	let memoryCompactionQueue = [];
+	let memoryCompactionScheduled = false;
 	let historyWriteQueue = Promise.resolve();
 	const histories = new Map();
 	const lastTuple = new Map();
 	const energySegments = new Map();
+	const numberFormats = new Map();
 
 	function esc(value) { return String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 	function diagnosticHtml(message, hint) { return esc(message) + (hint ? '<span class="diagnostic-hint">' + esc(hint) + "</span>" : ""); }
 	function readableName(value) { return String(value || i18n.unnamed).replace(/_/g, " "); }
-	function formatNumber(value, digits) { return new Intl.NumberFormat(locale, { maximumFractionDigits: digits === undefined ? 6 : digits, useGrouping: false }).format(value); }
+	function formatNumber(value, digits) {
+		const maximumFractionDigits = digits === undefined ? 6 : digits;
+		if (!numberFormats.has(maximumFractionDigits)) numberFormats.set(maximumFractionDigits, new Intl.NumberFormat(locale, { maximumFractionDigits, useGrouping: false }));
+		return numberFormats.get(maximumFractionDigits).format(value);
+	}
 	function channelUuid(channel) { return String(channel.uuid || channel.id || "").toLowerCase(); }
 	function channelNumber(meta, index) { return Number.isInteger(meta.channel_index) ? meta.channel_index : index; }
 	function channelName(item) {
@@ -696,7 +723,11 @@
 			await reconcileHistoryChannels();
 			await migrateSessionHistory();
 			await cleanupHistoryDatabase(Date.now());
-			for (const item of channels) histories.set(item.uuid, await loadChannelHistory(item.uuid, Date.now()));
+			for (let offset = 0; offset < channels.length; offset += 4) {
+				const batch = channels.slice(offset, offset + 4);
+				const loaded = await Promise.all(batch.map(item => loadChannelHistory(item.uuid, Date.now())));
+				batch.forEach((item, index) => histories.set(item.uuid, loaded[index]));
+			}
 			rebuildEnergySegments();
 			showHistoryStorageMessage("", false);
 		} catch (_) {
@@ -792,12 +823,33 @@
 		const bases = {};
 		channels.filter(item => String(item.meta.serial || "unknown") === serial && Live.isEnergy(item.meta)).forEach(item => {
 			const history = histories.get(item.uuid) || [];
-			const latest = history.slice().reverse().find(point => point.y !== null && point.x <= timestamp);
+			const latest = Live.latestReading(history, timestamp);
 			if (latest) bases[item.uuid] = latest.absolute;
 		});
 		bases[resetUuid] = newValue;
 		segments.push({ start: timestamp, bases, reset: true });
 		energySegments.set(serial, segments);
+	}
+
+	function scheduleNextMemoryCompaction() {
+		if (memoryCompactionScheduled || !memoryCompactionQueue.length) return;
+		memoryCompactionScheduled = true;
+		const compactNext = () => {
+			memoryCompactionScheduled = false;
+			const uuid = memoryCompactionQueue.shift();
+			const points = histories.get(uuid);
+			if (points) histories.set(uuid, Live.compactHistory(points, Date.now()));
+			scheduleNextMemoryCompaction();
+		};
+		if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(compactNext, { timeout: 1000 });
+		else window.setTimeout(compactNext, 0);
+	}
+
+	function scheduleMemoryCompaction(now) {
+		if (now - lastMemoryCompaction <= 60000 || memoryCompactionQueue.length || memoryCompactionScheduled) return;
+		lastMemoryCompaction = now;
+		memoryCompactionQueue = Array.from(histories.keys());
+		scheduleNextMemoryCompaction();
 	}
 
 	function ingest(data) {
@@ -815,7 +867,7 @@
 				if (x === null || y === null) return;
 				const key = String(tuple[0]) + "|" + String(tuple[1]);
 				const history = histories.get(uuid) || [];
-				const previous = history.slice().reverse().find(point => point.y !== null);
+				const previous = Live.latestReading(history);
 				const decision = Live.readingDecision(previous, x, y, key, lastTuple.get(uuid), meta, Live.estimateSampleInterval(history));
 				if (!decision.accept) {
 					if (decision.rememberKey) lastTuple.set(uuid, key);
@@ -836,10 +888,7 @@
 		});
 		if (changed) {
 			const now = Date.now();
-			if (now - lastMemoryCompaction > 60000) {
-				histories.forEach((points, uuid) => histories.set(uuid, Live.compactHistory(points, now)));
-				lastMemoryCompaction = now;
-			}
+			scheduleMemoryCompaction(now);
 			queueHistoryWrite(samples, gaps);
 		}
 		return changed;
@@ -952,7 +1001,7 @@
 		return "rgba(" + parseInt(value.slice(0,2),16) + "," + parseInt(value.slice(2,4),16) + "," + parseInt(value.slice(4,6),16) + "," + alpha + ")";
 	}
 
-	function latestPoint(uuid) { return (histories.get(uuid) || []).slice().reverse().find(point => point.y !== null) || null; }
+	function latestPoint(uuid) { return Live.latestReading(histories.get(uuid) || []); }
 	function firstPointSince(uuid, timestamp) { return (histories.get(uuid) || []).find(point => point.y !== null && point.x >= timestamp) || null; }
 
 	function renderSummary() {
@@ -975,8 +1024,7 @@
 			let currentPower = null;
 			if (latestPowers.length === 1 && Live.category(latestPowers[0].item.meta) === "active_power_total") currentPower = latestPowers[0].point.y;
 			else if (latestPowers.length) currentPower = latestPowers.reduce((sum, entry) => sum + Live.chartValue(entry.point.y, entry.item.meta), 0);
-			const importPeak = powerValues.filter(point => point.value >= 0).sort((a,b) => b.value-a.value)[0];
-			const exportPeak = powerValues.filter(point => point.value < 0).sort((a,b) => a.value-b.value)[0];
+			const { importPeak, exportPeak } = Live.powerPeaks(powerValues);
 			const unit = imported && imported.meta.unit || exported && exported.meta.unit || "kWh";
 			const balance = Number.isFinite(importDelta) && Number.isFinite(exportDelta) ? importDelta - exportDelta : NaN;
 			const balanceSentence = Live.balanceText(balance, 0.001, { unavailable:i18n.unavailable, balanced:i18n.balanceEqual, moreImport:i18n.balanceImport, moreExport:i18n.balanceExport }, value => formatNumber(value, 3) + " " + unit);
@@ -995,18 +1043,33 @@
 	function summaryCard(label, value, unit) { return '<div class="summary-card"><span>' + esc(label) + '</span><strong>' + (Number.isFinite(value) ? esc(formatNumber(value, 6) + " " + unit) : esc(i18n.unavailable)) + "</strong></div>"; }
 	function peakCard(label, peak) { return '<div class="summary-card"><span>' + esc(label) + '</span><strong>' + (peak ? esc(formatNumber(Math.abs(peak.value), 1) + " W") + '<small>' + esc(new Date(peak.x).toLocaleTimeString(locale)) + "</small>" : esc(i18n.unavailable)) + "</strong></div>"; }
 
+	async function requestLiveData(checkMetadata) {
+		const response = await fetch("vzlogger_live_data.cgi?" + languageQuery.substring(1), { cache: "no-store" });
+		if (!response.ok) throw new Error(i18n.dataFailed);
+		const version = response.headers.get("X-Smartmeter-Metadata-Version") || "";
+		let metadataChanged = false;
+		if (checkMetadata !== false && version && version !== metadataVersion) { await loadMetadata(); metadataChanged = true; }
+		const data = await response.json();
+		if (data && data.error_code) throw new Error(i18n.dataFailed);
+		if (data && data.error) throw new Error(data.error);
+		return { data, metadataChanged, version };
+	}
+
+	function showSuccessfulUpdate() {
+		document.getElementById("status").className = "status";
+		document.getElementById("status").textContent = i18n.lastUpdate + ": " + new Date().toLocaleString(locale);
+	}
+
+	function showRefreshError(error) {
+		document.getElementById("status").className = "status error";
+		document.getElementById("status").innerHTML = diagnosticHtml(error.message, error.message === i18n.dataFailed ? i18n.dataFailedHint : "");
+	}
+
 	async function refresh() {
 		if (stopped || refreshing) return;
 		refreshing = true;
 		try {
-			const response = await fetch("vzlogger_live_data.cgi?" + languageQuery.substring(1), { cache: "no-store" });
-			if (!response.ok) throw new Error(i18n.dataFailed);
-			const version = response.headers.get("X-Smartmeter-Metadata-Version") || "";
-			let metadataChanged = false;
-			if (version && version !== metadataVersion) { await loadMetadata(); metadataChanged = true; }
-			const data = await response.json();
-			if (data && data.error_code) throw new Error(i18n.dataFailed);
-			if (data && data.error) throw new Error(data.error);
+			const { data, metadataChanged } = await requestLiveData(true);
 			pollFailures = 0;
 			const firstRender = currentData === null;
 			const signature = Live.liveDataSignature(data);
@@ -1016,27 +1079,23 @@
 			lastLiveDataSignature = signature;
 			if (!document.hidden) {
 				if (firstRender || metadataChanged || responseChanged || historyChanged) { renderTable(data); updateChart(); }
-				document.getElementById("status").className = "status";
-				document.getElementById("status").textContent = i18n.lastUpdate + ": " + new Date().toLocaleString(locale);
+				showSuccessfulUpdate();
 			}
 		} catch (error) {
 			pollFailures++;
-			if (!document.hidden) {
-				document.getElementById("status").className = "status error";
-				document.getElementById("status").innerHTML = diagnosticHtml(error.message, error.message === i18n.dataFailed ? i18n.dataFailedHint : "");
-			}
+			if (!document.hidden) showRefreshError(error);
 		} finally { refreshing = false; schedule(); }
 	}
 
 	function schedule(immediate) {
 		clearTimeout(timer);
-		if (stopped || (document.hidden && !backgroundCollection)) return;
+		if (stopped || !historyInitialized || (document.hidden && !backgroundCollection)) return;
 		timer = setTimeout(refresh, immediate ? 0 : Live.pollDelay(pollFailures));
 	}
 
 	document.addEventListener("visibilitychange", () => {
 		if (document.hidden && !backgroundCollection) { clearTimeout(timer); return; }
-		if (!document.hidden && currentData) { renderTable(currentData); updateChart(); }
+		if (!document.hidden && currentData) { renderTable(currentData); if (historyInitialized) updateChart(); }
 		schedule(true);
 	});
 	document.getElementById("energy-mode").addEventListener("change", event => { energyMode = event.target.value === "absolute" ? "absolute" : "since-open"; savePreferences(); updateChart(); });
@@ -1052,7 +1111,29 @@
 
 	initializeCollapsiblePersistence();
 	(async function initialize() {
-		try { await loadMetadata(); await initializeHistoryStorage(); selectInitialHistoryRange(); await refresh(); }
+		try {
+			await loadMetadata();
+			const historyInitialization = initializeHistoryStorage();
+			let initialVersion = "";
+			try {
+				const initial = await requestLiveData(false);
+				currentData = initial.data;
+				initialVersion = initial.version;
+				lastLiveDataSignature = Live.liveDataSignature(initial.data);
+				pollFailures = 0;
+				if (!document.hidden) { renderTable(initial.data); showSuccessfulUpdate(); }
+			} catch (error) {
+				pollFailures++;
+				if (!document.hidden) showRefreshError(error);
+			}
+			await historyInitialization;
+			if (initialVersion && initialVersion !== metadataVersion) await loadMetadata();
+			historyInitialized = true;
+			selectInitialHistoryRange();
+			if (currentData) ingest(currentData);
+			if (!document.hidden) updateChart();
+			schedule(true);
+		}
 		catch (error) { document.getElementById("status").className = "status error"; document.getElementById("status").textContent = error.message; }
 	}());
 }());
