@@ -15,6 +15,10 @@ The vzLogger and Legacy pages use the native LoxBerry V4 design without jQuery M
 - For the standard implementation: installed `vzlogger` package and `mosquitto-clients`. Both packages are installed by LoxBerry during plugin installation.
 - For MQTT transport: the LoxBerry MQTT broker settings must be available in LoxBerry.
 
+### Network Security
+
+LoxBerry and this plugin are intended exclusively for a trusted local network. Do not publish the LoxBerry web interface, vzLogger port 18080, the HTTP cache, or the recovery endpoint through router port forwarding or a public reverse proxy. The vzLogger HTTP service and optional cache are unauthenticated; live consumption data can reveal presence and activity patterns. The recovery token authorizes the action but plain HTTP does not protect it from interception on the network. Prefer HTTPS and the optional source-IP allow-list for recovery. Guest, IoT, and other untrusted segments must be isolated at the network layer.
+
 ## Standard Configuration With vzLogger
 
 Open the SmartMeter v2 plugin in the LoxBerry web interface and use the **Smartmeter Configuration (vzLogger)** page.

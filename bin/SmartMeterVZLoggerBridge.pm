@@ -2,16 +2,19 @@ package SmartMeterVZLoggerBridge;
 
 use strict;
 use warnings;
+use bytes ();
 use Exporter qw(import);
 use JSON::PP;
+use POSIX qw(isfinite);
 use Time::Local qw(timegm);
 use SmartMeterVZLoggerChannels qw(ordered_output_names);
 
-our @EXPORT_OK = qw(parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
+our @EXPORT_OK = qw(parse_mosquitto_envelope parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
 
 my $json_decoder = JSON::PP->new->utf8;
 my $uuid_pattern = qr/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/;
 my $loxone_epoch = 1230768000;
+my $maximum_mqtt_payload = 64 * 1024;
 my ($cached_offset_epoch, $cached_utc_offset);
 
 sub timestamp_epoch
@@ -157,6 +160,10 @@ sub effective_channel_topics
 sub parse_reading
 {
 	my ($topic, $payload, $mapping, $uuid_by_channel, $debug) = @_;
+	if (!defined($payload) || ref($payload) || bytes::length($payload) > $maximum_mqtt_payload) {
+		$debug->("MQTT parse failed: payload is missing, non-scalar, or too large.") if ($debug);
+		return undef;
+	}
 	my $json = $payload =~ /\A\s*\{/ ? eval { $json_decoder->decode($payload) } : undef;
 	my $uuid = "";
 	my ($value, $timestamp);
@@ -164,6 +171,10 @@ sub parse_reading
 		$uuid = $json->{uuid} || $json->{channel} || "";
 		$value = defined($json->{value}) ? $json->{value} : $json->{data};
 		$timestamp = $json->{timestamp} if (defined($json->{timestamp}));
+	}
+	if (defined($timestamp) && !defined(timestamp_epoch($timestamp))) {
+		$debug->("MQTT parse failed: timestamp is not a valid numeric epoch.") if ($debug);
+		return undef;
 	}
 	$uuid = lc($uuid) if ($uuid);
 	$uuid = $uuid_by_channel->{$uuid} if ($uuid && !exists($mapping->{$uuid}) && $uuid_by_channel->{$uuid});
@@ -175,13 +186,51 @@ sub parse_reading
 	}
 	if (!$uuid) { $debug->("MQTT parse failed: no uuid found in topic or payload.") if ($debug); return undef; }
 	if (!exists($mapping->{$uuid})) { $debug->("MQTT parse failed: uuid $uuid is not present in channel mapping.") if ($debug); return undef; }
-	$value = $payload if (!defined($value) && $payload =~ /\A-?\d+(?:\.\d+)?\z/);
+	$value = $payload if (!defined($value) && _finite_number($payload));
 	if (!defined($value)) { $debug->("MQTT parse failed: no value found for uuid $uuid.") if ($debug); return undef; }
+	if (ref($value) || !_finite_number($value)) {
+		$debug->("MQTT parse failed: value is not a finite numeric scalar.") if ($debug);
+		return undef;
+	}
 	return {
 		serial => $mapping->{$uuid}->{serial}, name => $mapping->{$uuid}->{name},
 		identifier => $mapping->{$uuid}->{identifier} || "", uuid => $uuid,
 		value => $value, timestamp => $timestamp,
 	};
+}
+
+sub parse_mosquitto_envelope
+{
+	my ($line, $allowed_topics, $warning) = @_;
+	my $message = eval { $json_decoder->decode($line) };
+	if ($@ || ref($message) ne "HASH") {
+		$warning->("invalid-envelope", "", "mosquitto_sub produced invalid JSON") if ($warning);
+		return;
+	}
+	my $topic = $message->{topic};
+	my $payload = $message->{payload};
+	if (!defined($topic) || ref($topic) || !defined($payload) || ref($payload)) {
+		$warning->("invalid-envelope", "", "MQTT topic or payload is not a scalar") if ($warning);
+		return;
+	}
+	if (ref($allowed_topics) ne "HASH" || !$allowed_topics->{$topic}) {
+		$warning->("unexpected-topic", $topic, "message arrived for an unsubscribed topic") if ($warning);
+		return;
+	}
+	if (bytes::length($payload) > $maximum_mqtt_payload) {
+		$warning->("payload-too-large", $topic, "decoded MQTT payload exceeds 65536 bytes") if ($warning);
+		return;
+	}
+	return ($topic, $payload);
+}
+
+sub _finite_number
+{
+	my ($value) = @_;
+	return 0 if (!defined($value) || ref($value));
+	return 0 if ($value !~ /\A-?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?\z/);
+	my $number = 0 + $value;
+	return isfinite($number) ? 1 : 0;
 }
 
 sub validate_channel_announcement

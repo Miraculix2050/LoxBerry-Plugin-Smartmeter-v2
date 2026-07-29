@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use bytes ();
 umask(0027);
 
 use Config::Simple;
@@ -13,7 +14,7 @@ use LoxBerry::Log;
 use LoxBerry::System;
 use lib $FindBin::Bin;
 use SmartMeterVZLoggerChannels qw(output_order_mapping ordered_output_names read_json);
-use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping instantaneous_power_directions normalize_mapping_keys effective_channel_topics send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
+use SmartMeterVZLoggerBridge qw(parse_mosquitto_envelope parse_reading channel_mapping instantaneous_power_directions normalize_mapping_keys effective_channel_topics send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic);
 use SmartMeterVZLoggerConfig qw(clean_boolean clean_number clean_qos sanitize_topic);
 
 my $home = $lbhomedir;
@@ -107,7 +108,7 @@ $mqtt_pub_fh = start_mqtt_publisher() if ($bridge_mqtt_enabled);
 
 my @command = (
 	"mosquitto_sub",
-	"-F", "%t %p",
+	"-F", "%j",
 	"-q", $mqtt->{qos},
 );
 push @command, map { ("-t", $_) } @subscribe_topics;
@@ -124,37 +125,68 @@ my %bridge_timestamps;
 my %timestamp_warning_by_serial;
 my %output_timestamp_warning_by_serial;
 my %power_state_by_file;
+my %mqtt_input_warning_at;
 my $last_update_cycle = 0;
+my %allowed_subscribe_topics = map { $_ => 1 } @subscribe_topics;
+my $maximum_envelope_line = 512 * 1024;
+my $mqtt_buffer = "";
+my $discarding_oversized_line = 0;
 
-while (my $line = <$mqtt_fh>) {
-	chomp($line);
-	next if ($line eq "");
-
-	my ($topic, $payload) = split(/\s+/, $line, 2);
-	next if (!defined($payload));
-	debug_line("MQTT raw topic=$topic payload=$payload") if ($debug_enabled);
-
-	my $reading = parse_reading($topic, $payload, $mapping, \%uuid_by_channel, $debug_callback);
-	if (!$reading) {
-		debug_line("MQTT ignored topic=$topic payload=$payload") if ($debug_enabled);
-		next;
+while (1) {
+	my $chunk = "";
+	my $read = sysread($mqtt_fh, $chunk, 8192);
+	if (!defined($read)) {
+		mqtt_input_warning("read-error", "", "could not read mosquitto_sub output: $!");
+		last;
 	}
-	debug_line("MQTT parsed serial=$reading->{serial} name=$reading->{name} uuid=$reading->{uuid} value=$reading->{value}") if ($debug_enabled);
+	last if ($read == 0);
+	$mqtt_buffer .= $chunk;
 
-	my $source_epoch = timestamp_epoch($reading->{timestamp});
-	publish_bridge_timestamp($reading, $source_epoch, \%bridge_timestamps) if ($bridge_mqtt_enabled);
-	if ($cache_udp_enabled) {
-		update_timestamp($reading, $source_epoch, $values_by_serial{$reading->{serial}});
-		my $cache_value = normalize_cache_value($reading);
-		$values_by_serial{$reading->{serial}}->{$reading->{name}} = $cache_value;
-		update_calculated_power($reading, $values_by_serial{$reading->{serial}}, $instantaneous_power_by_serial);
-		$dirty_serials{$reading->{serial}} = 1 if ($http_cache_enabled);
-
-		if (time() - $last_update_cycle >= $update_interval) {
-			flush_cache(\%values_by_serial, \%dirty_serials, $output_order_by_serial) if ($http_cache_enabled);
-			send_udp_cycle(\%values_by_serial, $udp_port, $output_order_by_serial, \@udp_targets, \&create_udp_socket, \&log_line, $debug_callback) if ($send_udp);
-			$last_update_cycle = time();
+	while ((my $newline = index($mqtt_buffer, "\n")) >= 0) {
+		my $line = substr($mqtt_buffer, 0, $newline, "");
+		substr($mqtt_buffer, 0, 1, "");
+		$line =~ s/\r\z//;
+		if ($discarding_oversized_line) {
+			$discarding_oversized_line = 0;
+			next;
 		}
+		next if ($line eq "");
+		if (bytes::length($line) > $maximum_envelope_line) {
+			mqtt_input_warning("envelope-too-large", "", "mosquitto_sub output line exceeds 524288 bytes");
+			next;
+		}
+
+		my ($topic, $payload) = parse_mosquitto_envelope($line, \%allowed_subscribe_topics, \&mqtt_input_warning);
+		next if (!defined($topic));
+		debug_line("MQTT message topic=$topic payload_bytes=" . bytes::length($payload)) if ($debug_enabled);
+
+		my $reading = parse_reading($topic, $payload, $mapping, \%uuid_by_channel, $debug_callback);
+		if (!$reading) {
+			mqtt_input_warning("invalid-reading", $topic, "payload did not contain a valid finite numeric reading");
+			next;
+		}
+		debug_line("MQTT parsed serial=$reading->{serial} name=$reading->{name} uuid=$reading->{uuid} value=$reading->{value}") if ($debug_enabled);
+
+		my $source_epoch = timestamp_epoch($reading->{timestamp});
+		publish_bridge_timestamp($reading, $source_epoch, \%bridge_timestamps) if ($bridge_mqtt_enabled);
+		if ($cache_udp_enabled) {
+			update_timestamp($reading, $source_epoch, $values_by_serial{$reading->{serial}});
+			my $cache_value = normalize_cache_value($reading);
+			$values_by_serial{$reading->{serial}}->{$reading->{name}} = $cache_value;
+			update_calculated_power($reading, $values_by_serial{$reading->{serial}}, $instantaneous_power_by_serial);
+			$dirty_serials{$reading->{serial}} = 1 if ($http_cache_enabled);
+
+			if (time() - $last_update_cycle >= $update_interval) {
+				flush_cache(\%values_by_serial, \%dirty_serials, $output_order_by_serial) if ($http_cache_enabled);
+				send_udp_cycle(\%values_by_serial, $udp_port, $output_order_by_serial, \@udp_targets, \&create_udp_socket, \&log_line, $debug_callback) if ($send_udp);
+				$last_update_cycle = time();
+			}
+		}
+	}
+	if (length($mqtt_buffer) > $maximum_envelope_line) {
+		$mqtt_buffer = "";
+		$discarding_oversized_line = 1;
+		mqtt_input_warning("envelope-too-large", "", "mosquitto_sub output line exceeds 524288 bytes");
 	}
 }
 
@@ -482,6 +514,22 @@ sub debug_line
 	my ($message) = @_;
 	return if (!$debug_enabled);
 	$bridge_log->DEB($message) if ($bridge_log);
+}
+
+sub mqtt_input_warning
+{
+	my ($category, $topic, $detail) = @_;
+	$category = "invalid-input" if (!defined($category) || $category eq "");
+	$topic = "" if (!defined($topic) || ref($topic));
+	$detail = "invalid MQTT input" if (!defined($detail) || ref($detail));
+	my $key = "$category\0$topic";
+	my $now = time();
+	return if (defined($mqtt_input_warning_at{$key}) && $now - $mqtt_input_warning_at{$key} < 60);
+	$mqtt_input_warning_at{$key} = $now;
+	my $message = $topic eq "" ? "$category: $detail" : "$category topic=$topic: $detail";
+	$message =~ s/[\x00-\x1f\x7f]/?/g;
+	$message = substr($message, 0, 256);
+	log_line("MQTT input ignored: $message");
 }
 
 END {

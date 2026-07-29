@@ -26,6 +26,10 @@ Follow-up:
 - Define an explicit supported-platform matrix before claiming broader compatibility.
 - Add one real installation test per supported OS/codename and architecture combination.
 
+## Legacy Web Security Remains Frozen
+
+The modern vzLogger administration requires POST plus a user-bound CSRF token and escapes persisted configuration values in their HTML context. The functionally frozen Legacy administration does not receive this cross-cutting retrofit and retains its existing CSRF exposure. Keep the complete LoxBerry installation inside a trusted LAN, do not expose its web interface to the Internet, and prefer the vzLogger implementation for actively maintained security behavior.
+
 ## Meter-Template Coverage Requires Representative Hardware
 
 Confirmed coverage:

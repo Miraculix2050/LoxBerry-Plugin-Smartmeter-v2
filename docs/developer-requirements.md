@@ -28,6 +28,7 @@ This document records the product and engineering contracts that must remain tru
 ## 3. Save, Apply, And Service Safety
 
 - Every mutating CGI, CLI, Legacy, service, and lifecycle action uses the same non-blocking exclusive configuration lock. Status and other read-only actions stay lock-free. A busy action is rejected with an actionable message and no state change.
+- Every mutating vzLogger CGI action requires POST and a valid HMAC-based CSRF token bound to the authenticated LoxBerry user. The runtime-only CSRF secret rotates when the RAM-backed runtime directory is cleared. Legacy web behavior remains frozen and is not covered by this modern CGI contract.
 - Generated runtime artifacts are created in a protected staging directory on the same filesystem, validated as one coherent set, and then promoted atomically with backups. Any promotion failure must roll back the complete set and preserve the last valid runtime configuration.
 - Submitted user settings may remain saved after a failed Apply so they can be corrected; invalid generated runtime files must never replace the active valid set.
 - Validate Config is non-mutating: it uses a temporary draft and must not change saved settings, generated files, custom meter sources, cron, or services.
@@ -76,6 +77,7 @@ This document records the product and engineering contracts that must remain tru
 - When HTTP cache is enabled, the web UI shows cache availability, last update, and a link to the cache endpoint. It does not need to duplicate the complete cached value list inline.
 - MQTT passwords, private-key passwords, tokens, and similar secrets must never appear in rendered HTML, unmasked diagnostics, process listings, or logs.
 - Recovery tokens are generated with at least 256 bits of entropy, stored only as a hash, and accepted only in the dedicated HTTP header. An optional exact source-IP allow-list may add defense in depth without trusting proxy headers.
+- LoxBerry and this plugin are supported only inside a trusted LAN. The unauthenticated vzLogger HTTP service, public HTTP cache, and recovery endpoint must not be exposed through router port forwarding or a public reverse proxy; their UI and documentation warn about live-reading privacy and plain-HTTP token confidentiality.
 - The recovery UI mirrors Loxone's hierarchy: one virtual output shows the unauthenticated base addresses using LoxBerry's configured HTTP/HTTPS ports, while separate virtual output commands show the ON command path, token header, empty body, and POST method. LoxBerry credentials must not be embedded because the recovery token is the endpoint authentication.
 - The bridge remains optional and disabled on a fresh installation. Its new-install output defaults are MQTT enabled, HTTP cache disabled, and UDP disabled; they take effect only after the bridge itself is enabled. Upgrades preserve the former behavior by leaving bridge MQTT disabled and HTTP cache enabled until the user changes them.
 

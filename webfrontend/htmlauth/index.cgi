@@ -60,6 +60,7 @@ use SmartMeterVZLoggerBridge qw(bridge_topic effective_channel_topics normalize_
 use SmartMeterVZLoggerExpert qw(read_text write_text_atomic validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping update_expert_log_settings expert_configs_equal);
 use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
 use SmartMeterVZLoggerConfig qw(protocol_for_meter normalized_meter_mode serial_mode clean_qos set_implementation_mode read_webserver_settings);
+use SmartMeterWebSecurity qw(csrf_token validate_csrf_token);
 use SmartMeterLegacyRuntime qw(initialize_legacy_heads acquire_legacy_fetch_lock synchronize_legacy_runtime remove_legacy_cronjobs);
 
 ##########################################################################
@@ -72,6 +73,7 @@ my $channel_document;
 my $obis_catalog;
 my $webui_log;
 my %service_runtime_status_cache;
+my $csrf_runtime_dir = "/var/run/shm/$lbpplugindir";
 our $configuration_action_deadline;
 our $configuration_action_timed_out = 0;
 
@@ -134,12 +136,17 @@ sub normalize_json_utf8
 
 if( $q->{ajax} ) {
 	my $response = { ok => JSON::PP::false, state => "failed" };
+	my $ajax_status = "200 OK";
 	my $request_lock;
 	eval {
 		my $action = $q->{ajaxaction} || "";
-		my %mutating = map { $_ => 1 } qw(obis-start obis-cancel service-action form-action ir-scan expert-mode expert-reset recovery-settings);
+		my %mutating = map { $_ => 1 } qw(obis-start obis-cancel service-action form-action debug-log ir-scan expert-mode expert-reset recovery-settings);
 		if ($mutating{$action}) {
-			my ($lock, $error) = acquire_config_lock("/var/run/shm/$lbpplugindir");
+			die "__METHOD__" . ($L{'VZLOGGER.UI_MUTATION_POST'} || "Configuration changes require POST.") . "\n"
+				if (($ENV{REQUEST_METHOD} || "GET") ne "POST");
+			die "__CSRF__" . ($L{'VZLOGGER.UI_CSRF_INVALID'} || "The security token is invalid. Reload the page and try again.") . "\n"
+				if (!validate_csrf_token($q->{csrf_token}, $csrf_runtime_dir, $ENV{REMOTE_USER}));
+			my ($lock, $error) = acquire_config_lock($csrf_runtime_dir);
 			die "$error\n" if (!$lock);
 			$request_lock = $lock;
 			$ENV{SMARTMETER_CONFIG_LOCK_HELD} = "1";
@@ -195,10 +202,12 @@ if( $q->{ajax} ) {
 	};
 	if ($@) {
 		my $error = $@;
+		$ajax_status = "405 Method Not Allowed" if ($error =~ s/^__METHOD__//);
+		$ajax_status = "403 Forbidden" if ($error =~ s/^__CSRF__//);
 		$error =~ s/[\r\n]+/ /g;
 		$response = { ok => JSON::PP::false, state => "failed", message => $error || $L{'VZLOGGER.UI_AJAX_FAILED'} };
 	}
-	ajax_header();
+	ajax_header($ajax_status);
 	print JSON::PP->new->utf8->canonical->encode(normalize_json_utf8($response));
 	exit;
 
@@ -232,6 +241,9 @@ sub form_vzlogger
 	my @heads = detect_heads();
 	my $is_post = ($ENV{REQUEST_METHOD} || "GET") eq "POST";
 	my $persist_initialization = $is_post && $q->{saveformdata};
+	if ($q->{saveformdata} && !validate_csrf_token($q->{csrf_token}, $csrf_runtime_dir, $ENV{REMOTE_USER})) {
+		fail_plain_request("403 Forbidden", $L{'VZLOGGER.UI_CSRF_INVALID'} || "The security token is invalid. Reload the page and try again.");
+	}
 	if ($persist_initialization) {
 		my ($initialization_lock, $lock_error) = acquire_config_lock("/var/run/shm/$lbpplugindir");
 		die "$lock_error\n" if (!$initialization_lock);
@@ -339,6 +351,7 @@ sub form_vzlogger
 		($L{'VZLOGGER.MQTT_PASSWORD_NONE_STATUS'} || "No password configured");
 
 	$template->param("FORM_VZLOGGER", 1);
+	$template->param("CSRF_TOKEN" => csrf_token($csrf_runtime_dir, $ENV{REMOTE_USER}));
 	my $implementation = implementation_mode();
 	$template->param("IMPLEMENTATION" => $implementation);
 	$template->param("IMPLEMENTATION_SWITCH_VALUE" => ($implementation eq "vzlogger" ? "vzlogger" : "none"));
@@ -3239,13 +3252,28 @@ sub form_print
 
 sub ajax_header
 {
+	my ($status) = @_;
 	print $cgi->header(
 			-type => 'application/json',
 			-charset => 'utf-8',
-			-status => '200 OK',
+			-status => ($status || '200 OK'),
 			-expires => 'now',
 			-Cache_Control => 'no-store, no-cache, must-revalidate',
 			-X_Content_Type_Options => 'nosniff',
 	);
 	return();
 }	
+
+sub fail_plain_request
+{
+	my ($status, $message) = @_;
+	print $cgi->header(
+		-status => $status,
+		-type => 'text/plain',
+		-charset => 'utf-8',
+		-Cache_Control => 'no-store',
+		-X_Content_Type_Options => 'nosniff',
+	);
+	print "$message\n";
+	exit;
+}

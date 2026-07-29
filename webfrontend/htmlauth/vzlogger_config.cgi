@@ -12,6 +12,7 @@ use lib "$FindBin::Bin/../../bin";
 use SmartMeterVZLoggerChannels qw(read_json write_json_atomic);
 use SmartMeterVZLoggerExpert qw(read_text write_text_atomic validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping);
 use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
+use SmartMeterWebSecurity qw(csrf_token validate_csrf_token);
 
 require LoxBerry::Web;
 
@@ -41,6 +42,7 @@ my $expert_file = "$lbpconfigdir/vzlogger_expert.conf";
 my $mapping_file = "$lbpconfigdir/vzlogger_channels.json";
 my $plugin_cfg = Config::Simple->new("$lbpconfigdir/smartmeter.cfg");
 my $expert_mode = $plugin_cfg && ($plugin_cfg->param("VZLOGGER.EXPERTMODE") || "0") eq "1";
+my $csrf_runtime_dir = "/var/run/shm/$lbpplugindir";
 
 sub header_html
 {
@@ -65,6 +67,8 @@ sub fail_plain
 }
 
 if (($ENV{REQUEST_METHOD} || "GET") eq "POST") {
+	fail_plain("403 Forbidden", $phrases->{'VZLOGGER.UI_CSRF_INVALID'})
+		if (!validate_csrf_token($cgi->param("csrf_token"), $csrf_runtime_dir, $ENV{REMOTE_USER}));
 	fail_plain("403 Forbidden", $phrases->{'VZLOGGER.CONFIG_EXPERT_INACTIVE'}) if (!$expert_mode);
 	my ($config_lock, $lock_error) = acquire_config_lock("/var/run/shm/$lbpplugindir");
 	fail_plain("409 Conflict", $lock_error) if (!$config_lock);
@@ -101,6 +105,11 @@ if (($ENV{REQUEST_METHOD} || "GET") eq "POST") {
 		valid => $result->{valid} ? JSON::PP::true : JSON::PP::false,
 		message => $message,
 	});
+	$payload =~ s/</\\u003c/g;
+	$payload =~ s/>/\\u003e/g;
+	$payload =~ s/&/\\u0026/g;
+	$payload =~ s/\x{2028}/\\u2028/g;
+	$payload =~ s/\x{2029}/\\u2029/g;
 	header_html();
 	my ($result_template, $result_phrases) = localized_template("vzlogger_config_result.html");
 	$result_template->param(
@@ -130,5 +139,9 @@ my $config = read_text($expert_file);
 $config = read_text($runtime_file) if (!defined($config));
 $config = "" if (!defined($config));
 header_html();
-$language_template->param(MAXIMUM_SIZE => $maximum_size, CONFIG_TEXT => $config);
+$language_template->param(
+	MAXIMUM_SIZE => $maximum_size,
+	CONFIG_TEXT => $config,
+	CSRF_TOKEN => csrf_token($csrf_runtime_dir, $ENV{REMOTE_USER}),
+);
 print $language_template->output();

@@ -8,7 +8,7 @@ use POSIX ();
 use Test::More;
 use Time::Local qw(timegm);
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerBridge qw(parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
+use SmartMeterVZLoggerBridge qw(parse_mosquitto_envelope parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic);
 
 my $uuid = "11111111-2222-3333-4444-555555555555";
 my $second = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -97,6 +97,29 @@ is_deeply(\%channels, \%channels_before_flood, "foreign channel announcements ca
 $reading = parse_reading("smartmeter/vzlogger/$uuid", "17", $mapping, \%channels);
 is($reading->{value}, "17", "numeric payload resolves through an exact UUID topic segment");
 ok(!parse_reading("smartmeter/vzlogger/prefix-$uuid-suffix", "17", $mapping, \%channels), "UUID substring in a topic segment is not accepted");
+
+my %allowed_topics = ("smartmeter/vzlogger/chn0/raw" => 1);
+my @input_warnings;
+my ($envelope_topic, $envelope_payload) = parse_mosquitto_envelope(
+	'{"topic":"smartmeter/vzlogger/chn0/raw","payload":"12\\n34"}',
+	\%allowed_topics,
+	sub { push @input_warnings, [@_] },
+);
+is($envelope_topic, "smartmeter/vzlogger/chn0/raw", "mosquitto JSON envelope preserves the exact topic");
+is($envelope_payload, "12\n34", "mosquitto JSON envelope keeps payload newlines inside one message");
+ok(!parse_mosquitto_envelope('{broken', \%allowed_topics, sub { push @input_warnings, [@_] }), "invalid mosquitto JSON envelope is rejected");
+ok(!parse_mosquitto_envelope('{"topic":"other/topic","payload":"1"}', \%allowed_topics, sub { push @input_warnings, [@_] }), "unsubscribed envelope topic is rejected");
+ok(!parse_mosquitto_envelope('{"topic":"smartmeter/vzlogger/chn0/raw","payload":{}}', \%allowed_topics, sub { push @input_warnings, [@_] }), "non-scalar envelope payload is rejected");
+ok(@input_warnings >= 3, "invalid envelopes report categorized warnings");
+
+$reading = parse_reading("smartmeter/vzlogger/chn0/raw", "-1.25e+3", $mapping, \%channels);
+is($reading->{value}, "-1.25e+3", "finite exponent notation is accepted");
+ok(!parse_reading("smartmeter/vzlogger/$uuid", '{"uuid":"' . $uuid . '","value":{"x":1}}', $mapping, \%channels), "object reading value is rejected");
+ok(!parse_reading("smartmeter/vzlogger/$uuid", '{"uuid":"' . $uuid . '","value":[1]}', $mapping, \%channels), "array reading value is rejected");
+ok(!parse_reading("smartmeter/vzlogger/$uuid", '{"uuid":"' . $uuid . '","value":true}', $mapping, \%channels), "boolean reading value is rejected");
+ok(!parse_reading("smartmeter/vzlogger/$uuid", '{"uuid":"' . $uuid . '","value":1,"timestamp":"invalid"}', $mapping, \%channels), "invalid timestamp rejects the complete reading");
+ok(!parse_reading("smartmeter/vzlogger/chn0/raw", "1e9999", $mapping, \%channels), "non-finite numeric value is rejected");
+ok(!parse_reading("smartmeter/vzlogger/chn0/raw", "1" x (64 * 1024 + 1), $mapping, \%channels), "oversized decoded payload is rejected");
 
 my ($uppercase_mapping, $normalization_error) = normalize_mapping_keys({
 	uc($uuid) => { serial => "reader", name => "Import", channel => "chn0" },
