@@ -31,8 +31,6 @@ BRIDGE_INSTALLER="$LBPSBIN/$PDIR/install_vzlogger_bridge_service.sh"
 VZLOGGER_CONTROL="$LBPBIN/$PDIR/vzlogger_control.pl"
 VZLOGGER_OVERRIDE_INSTALLER="$LBPSBIN/$PDIR/install_vzlogger_service_override.sh"
 PREUPGRADE_ACTIVE_FILE="$LBPCONFIG/$PDIR/vzlogger.preupgrade-service-active"
-SMARTMETER_LOG_DIR="$LBPLOG/$PDIR"
-SMARTMETER_LOG_FILE="$SMARTMETER_LOG_DIR/smartmeter.log"
 SMARTMETER_UDEV_RULE="/etc/udev/rules.d/99-smartmeter.rules"
 RUNTIME_DIR="/var/run/shm/$PDIR"
 PLUGIN_CONFIG_DIR="$LBPCONFIG/$PDIR"
@@ -52,16 +50,14 @@ fi
 
 install_ir_head_udev_rule()
 {
-	mkdir -p "$SMARTMETER_LOG_DIR"
-
 	echo "<INFO> Installing SmartMeter I/R head udev rule."
-	echo "$(date) - Creating UDEV rule for I/R heads: $SMARTMETER_UDEV_RULE" >>"$SMARTMETER_LOG_FILE"
+	echo "<INFO> Creating UDEV rule for I/R heads: $SMARTMETER_UDEV_RULE"
 	printf '%s\n' "# LoxBerry SML-eMon Plugin device rule file - DO NOT EDIT BY HAND!" >"$SMARTMETER_UDEV_RULE"
 	printf '%s\n' "KERNEL==\"ttyUSB[0-9]*\",GROUP=\"loxberry\",MODE=\"0660\",SYMLINK+=\"serial/smartmeter/\$env{ID_SERIAL_SHORT}\"" >>"$SMARTMETER_UDEV_RULE"
 
 	if command -v udevadm >/dev/null 2>&1; then
-		echo "$(date) - Reload udev rules and trigger devices." >>"$SMARTMETER_LOG_FILE"
-		if udevadm control --reload-rules >>"$SMARTMETER_LOG_FILE" 2>&1 && udevadm trigger >>"$SMARTMETER_LOG_FILE" 2>&1; then
+		echo "<INFO> Reload udev rules and trigger devices."
+		if udevadm control --reload-rules && udevadm trigger; then
 			echo "<INFO> SmartMeter I/R head udev rule installed and triggered."
 		else
 			echo "<WARNING> SmartMeter I/R head rule was written, but udev reload/trigger failed. Reconnect the USB reader or, if necessary, reboot once."

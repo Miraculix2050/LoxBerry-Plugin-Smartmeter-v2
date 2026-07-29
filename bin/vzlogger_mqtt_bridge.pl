@@ -29,6 +29,8 @@ my $mqtt_client_config_dir = "$runtime_dir/mosquitto-clients";
 my $foreground = grep { $_ eq "--foreground" } @ARGV;
 my $bridge_log;
 my $mqtt_pub_fh;
+my $cached_log_level;
+my $cached_log_level_at = 0;
 
 make_path($runtime_dir) if (!-d $runtime_dir);
 make_path($plugin_log_dir) if (!-d $plugin_log_dir);
@@ -46,12 +48,6 @@ if (!$foreground && bridge_running()) {
 	print "Bridge already running.\n";
 	exit 0;
 }
-
-$bridge_log = LoxBerry::Log->new(
-	name => "bridge",
-	package => $psubfolder,
-);
-$bridge_log->LOGSTART("MQTT bridge starting (PID $$)");
 
 open(my $pid_fh, ">", $pid_file) or die "Could not write $pid_file: $!\n";
 print $pid_fh "$$\n";
@@ -86,7 +82,6 @@ my $bridge_mqtt_configured = clean_boolean($plugin_cfg->param("VZLOGGER.BRIDGEMQ
 my $source_timestamps_enabled = $runtime_mqtt->{timestamp} ? 1 : 0;
 my $bridge_mqtt_enabled = $bridge_mqtt_configured && $source_timestamps_enabled;
 my $cache_udp_enabled = $http_cache_enabled || $send_udp;
-my $debug_enabled = ($plugin_cfg->param("VZLOGGER.DEBUG") || "0") eq "1";
 my $udp_port = clean_number($plugin_cfg->param("MAIN.UDPPORT"), 7000);
 my $mqtt = read_mqtt_settings();
 my %uuid_by_channel = channel_mapping($mapping);
@@ -94,11 +89,9 @@ my $output_order_by_serial = output_order_mapping($mapping);
 my $instantaneous_power_by_serial = instantaneous_power_directions($mapping);
 my @udp_targets = $send_udp ? miniserver_targets() : ();
 
-$bridge_log->loglevel(7) if ($debug_enabled);
-my $debug_callback = $debug_enabled ? \&debug_line : undef;
+my $debug_callback = \&debug_line;
 log_line("Starting MQTT bridge. Sources=" . join(",", @subscribe_topics) . " BridgeTopic=" . ($bridge_mqtt_enabled ? $bridge_topic : "disabled") . " Host=$mqtt->{host}:$mqtt->{port}");
 log_line("Bridge MQTT timestamp output is disabled because vzLogger source timestamps are unavailable.") if ($bridge_mqtt_configured && !$source_timestamps_enabled);
-log_line("Debug logging is enabled.") if ($debug_enabled);
 debug_line("UDP output is disabled in plugin config.") if (!$send_udp);
 debug_line("HTTP cache output is disabled in plugin config.") if (!$http_cache_enabled);
 
@@ -158,14 +151,14 @@ while (1) {
 
 		my ($topic, $payload) = parse_mosquitto_envelope($line, \%allowed_subscribe_topics, \&mqtt_input_warning);
 		next if (!defined($topic));
-		debug_line("MQTT message topic=$topic payload_bytes=" . bytes::length($payload)) if ($debug_enabled);
+		debug_line("MQTT message topic=$topic payload_bytes=" . bytes::length($payload));
 
 		my $reading = parse_reading($topic, $payload, $mapping, \%uuid_by_channel, $debug_callback);
 		if (!$reading) {
 			mqtt_input_warning("invalid-reading", $topic, "payload did not contain a valid finite numeric reading");
 			next;
 		}
-		debug_line("MQTT parsed serial=$reading->{serial} name=$reading->{name} uuid=$reading->{uuid} value=$reading->{value}") if ($debug_enabled);
+		debug_line("MQTT parsed serial=$reading->{serial} name=$reading->{name} uuid=$reading->{uuid} value=$reading->{value}");
 
 		my $source_epoch = timestamp_epoch($reading->{timestamp});
 		publish_bridge_timestamp($reading, $source_epoch, \%bridge_timestamps) if ($bridge_mqtt_enabled);
@@ -201,14 +194,14 @@ sub write_cache
 	my $tmp = "$target.$$";
 
 	open(my $fh, ">", $tmp) or do {
-		log_line("Could not write $tmp: $!");
+		log_line("Could not write $tmp: $!", "error");
 		return;
 	};
 	foreach my $name (ordered_output_names($values, $order)) {
 		print $fh "$serial:$name:$values->{$name}\n";
 	}
 	close($fh);
-	rename($tmp, $target) or log_line("Could not replace $target: $!");
+	rename($tmp, $target) or log_line("Could not replace $target: $!", "error");
 }
 
 sub flush_cache
@@ -234,7 +227,7 @@ sub update_timestamp
 		$values->{Last_UpdateLoxEpoche} = $loxone_value;
 		delete($output_timestamp_warning_by_serial{$reading->{serial}});
 	} elsif (!$output_timestamp_warning_by_serial{$reading->{serial}}) {
-		log_line("Local Loxone timestamp conversion failed for serial=$reading->{serial}; cache and UDP keep the previous timestamp value.");
+		log_line("Local Loxone timestamp conversion failed for serial=$reading->{serial}; cache and UDP keep the previous timestamp value.", "warning");
 		$output_timestamp_warning_by_serial{$reading->{serial}} = 1;
 	}
 }
@@ -245,7 +238,7 @@ sub publish_bridge_timestamp
 	my $serial = $reading->{serial} || return;
 	if (!defined($epoch)) {
 		if (($timestamp_warning_by_serial{$serial} || "") ne "invalid") {
-			log_line("MQTT bridge timestamp skipped for serial=$serial because the source reading has no valid timestamp; the retained bridge timestamp remains unchanged.");
+			log_line("MQTT bridge timestamp skipped for serial=$serial because the source reading has no valid timestamp; the retained bridge timestamp remains unchanged.", "warning");
 			$timestamp_warning_by_serial{$serial} = "invalid";
 		}
 		return;
@@ -255,7 +248,7 @@ sub publish_bridge_timestamp
 	my $timestamp_values = bridge_timestamp_values($epoch);
 	if (!$timestamp_values) {
 		if (($timestamp_warning_by_serial{$serial} || "") ne "timezone") {
-			log_line("MQTT bridge timestamp skipped for serial=$serial because the local UTC offset could not be calculated; the retained bridge timestamp remains unchanged.");
+			log_line("MQTT bridge timestamp skipped for serial=$serial because the local UTC offset could not be calculated; the retained bridge timestamp remains unchanged.", "warning");
 			$timestamp_warning_by_serial{$serial} = "timezone";
 		}
 		return;
@@ -267,11 +260,11 @@ sub publish_bridge_timestamp
 	$timestamps->{$serial} = $timestamp_values;
 	my $payload = JSON::PP->new->utf8->canonical->encode($timestamps);
 	if (!$mqtt_pub_fh || !print($mqtt_pub_fh "$payload\n")) {
-		log_line("MQTT bridge publisher connection was interrupted; reconnecting.");
+		log_line("MQTT bridge publisher connection was interrupted; reconnecting.", "warning");
 		close($mqtt_pub_fh) if ($mqtt_pub_fh);
 		$mqtt_pub_fh = start_mqtt_publisher();
 		if (!$mqtt_pub_fh || !print($mqtt_pub_fh "$payload\n")) {
-			log_line("Could not publish the converted Loxone timestamp.");
+			log_line("Could not publish the converted Loxone timestamp.", "error");
 			return;
 		}
 	}
@@ -456,7 +449,7 @@ sub start_mqtt_publisher
 	{
 		local $ENV{XDG_CONFIG_HOME} = $mqtt_client_config_dir;
 		open($fh, "|-", @command) or do {
-			log_line("Could not start mosquitto_pub: $!");
+		log_line("Could not start mosquitto_pub: $!", "error");
 			return undef;
 		};
 	}
@@ -469,11 +462,11 @@ sub start_mqtt_publisher
 sub remove_cache_files
 {
 	return if (!-d $runtime_dir);
-	opendir(my $dh, $runtime_dir) or do { log_line("Could not inspect HTTP cache directory $runtime_dir: $!"); return; };
+	opendir(my $dh, $runtime_dir) or do { log_line("Could not inspect HTTP cache directory $runtime_dir: $!", "error"); return; };
 	my @files = grep { /\.data\z/ && -f "$runtime_dir/$_" } readdir($dh);
 	closedir($dh);
 	foreach my $file (@files) {
-		unlink("$runtime_dir/$file") or log_line("Could not remove disabled HTTP cache file $runtime_dir/$file: $!");
+		unlink("$runtime_dir/$file") or log_line("Could not remove disabled HTTP cache file $runtime_dir/$file: $!", "warning");
 	}
 }
 
@@ -505,15 +498,36 @@ sub stop_bridge
 
 sub log_line
 {
-	my ($message) = @_;
-	$bridge_log->INF($message) if ($bridge_log);
+	my ($message, $severity) = @_;
+	$severity ||= "info";
+	my %threshold = ( error => 3, warning => 4, info => 6, debug => 7 );
+	my $level = current_log_level();
+	return if ($level == 0 || $threshold{$severity} > $level);
+	if (!$bridge_log) {
+		$bridge_log = LoxBerry::Log->new(name => "bridge", package => $psubfolder);
+		$bridge_log->LOGSTART("MQTT bridge starting (PID $$)");
+	}
+	my %method = ( error => "ERR", warning => "WARN", info => "INF", debug => "DEB" );
+	my $method = $method{$severity};
+	$bridge_log->$method($message);
+	print STDOUT "$message\n" if ($severity eq "debug" && $level >= 7);
+}
+
+sub current_log_level
+{
+	my $now = time();
+	if (!defined($cached_log_level) || $now - $cached_log_level_at >= 5) {
+		$cached_log_level = LoxBerry::System::pluginloglevel($psubfolder);
+		$cached_log_level = 7 if (!defined($cached_log_level) || $cached_log_level < 0 || $cached_log_level > 7);
+		$cached_log_level_at = $now;
+	}
+	return $cached_log_level;
 }
 
 sub debug_line
 {
 	my ($message) = @_;
-	return if (!$debug_enabled);
-	$bridge_log->DEB($message) if ($bridge_log);
+	log_line($message, "debug");
 }
 
 sub mqtt_input_warning
@@ -529,7 +543,7 @@ sub mqtt_input_warning
 	my $message = $topic eq "" ? "$category: $detail" : "$category topic=$topic: $detail";
 	$message =~ s/[\x00-\x1f\x7f]/?/g;
 	$message = substr($message, 0, 256);
-	log_line("MQTT input ignored: $message");
+	log_line("MQTT input ignored: $message", "warning");
 }
 
 END {

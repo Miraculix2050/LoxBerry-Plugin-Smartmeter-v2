@@ -105,6 +105,7 @@ This document records the product and engineering contracts that must remain tru
 - The plugin-managed systemd drop-in points vzLogger to the plugin-owned configuration. Never overwrite an unrelated `/etc/vzlogger.conf`.
 - Uninstall removes plugin-owned services, drop-ins, runtime/cache artifacts, udev rules, apt source/key, and only packages proven by an ownership marker to have been introduced by the plugin.
 - Broader platform or meter support must not be claimed without matching target-system or representative-hardware evidence. Current limits remain in `KNOWN-ISSUES.md`.
+- Bridge, Control, Web UI, and on-demand diagnostics use registered LoxBerry log sessions. Continuous/action logging follows the single SmartMeter v2 plugin log level and must not create an empty session when all messages are filtered. Native vzLogger logging remains independently configurable and writes only to `vzlogger-native.log` when enabled; no plugin-specific rotation competes with LoxBerry log maintenance. Transient OBIS discovery logs remain RAM-backed and are removed after consumption.
 
 ## 10. UI, Localization, And Accessibility
 

@@ -33,7 +33,7 @@ my $recovery_state_file = "$runtime_dir/recovery-state.json";
 my $obis_watchdog_pid_file = "$runtime_dir/vzlogger_obis_watchdog.pid";
 my $obis_status_file = "$runtime_dir/vzlogger_obis_status.json";
 my $plugin_log_dir = $lbplogdir;
-my $vzlogger_log_file = "$plugin_log_dir/vzlogger.log";
+my $vzlogger_log_file = "$plugin_log_dir/vzlogger-native.log";
 my $bridge_service = "smartmeter-v2-vzlogger-bridge";
 my $vzlogger_override_file = "/etc/systemd/system/vzlogger.service.d/smartmeter-v2.conf";
 my $action = shift @ARGV || "status";
@@ -190,7 +190,7 @@ sub run_perl
 	log_control("run: $^X " . join(" ", @args));
 	system($^X, @args);
 	my $exit = $? >> 8;
-	log_control("exit=$exit: $^X " . join(" ", @args));
+	log_control("exit=$exit: $^X " . join(" ", @args), $exit ? "error" : "info");
 	return $exit;
 }
 
@@ -1008,7 +1008,7 @@ sub run_systemctl_quiet
 		$rc = $? >> 8;
 	}
 	close($null);
-	log_control("recovery systemctl $verb $service exit=$rc");
+	log_control("recovery systemctl $verb $service exit=$rc", $rc ? "error" : "info");
 	return $rc;
 }
 
@@ -1043,21 +1043,21 @@ sub run_service_helper
 	if ($> == 0) {
 		system($script, $psubfolder, $action);
 		my $exit = $? >> 8;
-		log_control("exit=$exit: $script $psubfolder $action");
+		log_control("exit=$exit: $script $psubfolder $action", $exit ? "error" : "info");
 		return $exit;
 	}
 
 	if (command_exists("sudo")) {
 		system("sudo", "-n", $script, $psubfolder, $action);
 		my $exit = $? >> 8;
-		log_control("exit=$exit: sudo -n $script $psubfolder $action");
+		log_control("exit=$exit: sudo -n $script $psubfolder $action", $exit ? "error" : "info");
 		return $exit if ($exit == 0);
 		print "Could not run sudo non-interactively. Run as root: $script $psubfolder $action\n";
 		return $exit || 1;
 	}
 
 	print "Root privileges are required. Run as root: $script $psubfolder $action\n";
-	log_control("root required: $script $psubfolder $action");
+	log_control("root required: $script $psubfolder $action", "error");
 	return 2;
 }
 
@@ -1149,8 +1149,14 @@ sub validation_state
 sub create_debug_log
 {
 	my $timestamp = timestamp();
-	my $debug_file = "$plugin_log_dir/vzlogger_debug_$timestamp.log";
-	open(my $fh, ">", $debug_file) or return message_exit("Could not write $debug_file: $!", 1);
+	my $diagnostic_log = LoxBerry::Log->new(
+		name => "diagnostic",
+		package => $psubfolder,
+		loglevel => 7,
+	);
+	$diagnostic_log->LOGSTART("SmartMeter diagnostic log");
+	my $debug_file = $diagnostic_log->filename();
+	open(my $fh, ">>", $debug_file) or return message_exit("Could not write $debug_file: $!", 1);
 
 	print_section($fh, "SmartMeter vzLogger Debug Log");
 	print $fh "Created: $timestamp\n";
@@ -1190,19 +1196,10 @@ sub create_debug_log
 	print_mqtt_capture($fh);
 
 	close($fh);
-	cleanup_debug_logs();
+	$diagnostic_log->LOGEND("SmartMeter diagnostic log finished");
 	print "Created debug log: $debug_file\n";
 	print "Attach this file when reporting vzLogger/MQTT bridge issues.\n";
 	return 0;
-}
-
-sub cleanup_debug_logs
-{
-	my @logs = sort glob("$plugin_log_dir/vzlogger_debug_*.log");
-	while (@logs > 5) {
-		my $oldest = shift @logs;
-		unlink($oldest);
-	}
 }
 
 sub print_section
@@ -1338,8 +1335,15 @@ sub print_mqtt_capture
 		return;
 	}
 	my $count = 0;
+	my $bytes = 0;
+	my $max_bytes = 512 * 1024;
 	while (my $line = <$mqtt_fh>) {
+		if ($bytes + length($line) > $max_bytes) {
+			print $fh "MQTT capture truncated at $max_bytes bytes.\n";
+			last;
+		}
 		print $fh $line;
+		$bytes += length($line);
 		$count++;
 	}
 	close($mqtt_fh);
@@ -1380,24 +1384,29 @@ sub run_privileged
 	if ($> == 0) {
 		system(@command);
 		my $exit = $? >> 8;
-		log_control("exit=$exit: " . join(" ", @command));
+		log_control("exit=$exit: " . join(" ", @command), $exit ? "error" : "info");
 		return $exit;
 	}
 	if (command_exists("sudo")) {
 		system("sudo", "-n", @command);
 		my $exit = $? >> 8;
 		print "Could not $label via sudo non-interactively.\n" if ($exit != 0);
-		log_control("exit=$exit: sudo -n " . join(" ", @command));
+		log_control("exit=$exit: sudo -n " . join(" ", @command), $exit ? "error" : "info");
 		return $exit;
 	}
 	print "Root privileges are required to $label.\n";
-	log_control("root required: " . join(" ", @command));
+	log_control("root required: " . join(" ", @command), "error");
 	return 2;
 }
 
 sub log_control
 {
-	my ($message) = @_;
+	my ($message, $severity) = @_;
+	$severity ||= "info";
+	my %threshold = ( error => 3, warning => 4, info => 6, debug => 7 );
+	my $level = LoxBerry::System::pluginloglevel($psubfolder);
+	$level = 7 if (!defined($level) || $level < 0 || $level > 7);
+	return if ($level == 0 || $threshold{$severity} > $level);
 	if (!$control_log) {
 		$control_log = LoxBerry::Log->new(
 			name => "control",
@@ -1405,7 +1414,9 @@ sub log_control
 		);
 		$control_log->LOGSTART("vzLogger control");
 	}
-	$control_log->INF($message);
+	my %method = ( error => "ERR", warning => "WARN", info => "INF", debug => "DEB" );
+	my $method = $method{$severity};
+	$control_log->$method($message);
 }
 
 sub latest_plugin_log
