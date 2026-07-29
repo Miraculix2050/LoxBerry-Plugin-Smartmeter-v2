@@ -4,6 +4,12 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+## 2.0.1.0 - 2026-07-29
+
+SmartMeter v2 2.0.1.0 is the final release containing the Legacy meter-reading implementation. Legacy remains available but functionally frozen in this release and is planned for removal in SmartMeter v2 2.1.0.0.
+
+### Highlights
+
 - Rebuild the German and English user documentation around installation, configuration, outputs, advanced use, Legacy operation, troubleshooting, and a technical reference, with synchronized quick starts, safety guidance, examples, limitations, and support evidence.
 - Correct browser validation and help text so local HTTP and UDP ports accept the backend range 1–65535, while MQTT QoS consistently accepts only 0 and 1.
 - Clarify OBIS discovery persistence, conditional Save/Apply service behavior, independent bridge outputs, configurable live-data intervals, and the security limits of the unauthenticated local service.
@@ -11,6 +17,19 @@ All notable user-visible changes should be documented in this file. Use the late
 - Improve the responsive LoxBerry V4 interface, live charts and history, service controls, logging, Expert Mode, recovery, transactional configuration, output integrations, and installation lifecycle behavior.
 
 Technical implementation details for this development cycle are recorded in [docs/development/CHANGELOG.md](docs/development/CHANGELOG.md).
+
+### Upgrade notes
+
+- No manual configuration migration is required for 2.0.1.0. Existing vzLogger, Legacy, and inactive configurations remain preserved during the update.
+- Legacy users should migrate to vzLogger and successfully save/apply that configuration before upgrading to the planned 2.1.0.0 release.
+- SmartMeter v2 remains the product name after Legacy is removed.
+
+### Known issues
+
+- Target-device evidence is currently limited to Debian 13/trixie on arm64. Other LoxBerry, Debian, Raspberry Pi OS, and CPU-platform combinations have not been confirmed on a target device.
+- Representative meter evidence currently covers one ISK meter using SML at 9600 baud/8N1. Other meters, OMS, templates marked `limited`, and arbitrary custom OBIS identifiers have not been verified with representative hardware.
+- The functionally frozen Legacy web administration retains its documented CSRF exposure. Keep the complete LoxBerry installation inside a trusted LAN and do not expose its web interface to the Internet.
+- See the version-bound [German limitations](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/Smartmeter-V2.0.1.0/docs/known-limitations.de.md), [English limitations](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/Smartmeter-V2.0.1.0/docs/known-limitations.en.md), [German support matrix](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/Smartmeter-V2.0.1.0/docs/support-matrix.de.md), and [English support matrix](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/Smartmeter-V2.0.1.0/docs/support-matrix.en.md) for the complete compatibility boundaries.
 
 ## 2.0.0.33 - 2026-07-17
 

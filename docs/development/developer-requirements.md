@@ -57,7 +57,7 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 
 ## 4. Legacy Contract And Validation
 
-- **SM-LEG-001** — Legacy readers, parsers, and `sm_logger.pl` are functionally frozen and are intended for eventual removal without a currently promised release. Do not add Legacy features or perform an object-oriented rewrite; make only compatibility, validation, security, or critical defect fixes. Until a separate user-facing deprecation decision is made, do not announce a removal schedule in user documentation.
+- **SM-LEG-001** — Legacy readers, parsers, and `sm_logger.pl` remain functionally frozen through the final Legacy release 2.0.1.0 and are planned for removal in 2.1.0.0. Do not add Legacy features or perform an object-oriented rewrite; make only compatibility, validation, security, or critical defect fixes on the protected Legacy maintenance line.
 - **SM-LEG-002** — A Legacy save is atomic: if any general value is invalid, reject the complete save before changing configuration, cron, or services, and identify the affected fields in German and English.
 - **SM-LEG-003** — General Legacy inputs use these exact constraints:
   - `IMPLEMENTATION`: `none|legacy`

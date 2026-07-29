@@ -2,9 +2,9 @@
 
 ## When Legacy is useful
 
-Legacy remains a supported fallback for existing installations and meter configurations not covered by vzLogger. Prefer vzLogger for new setups where possible.
+Legacy remains available in SmartMeter v2 2.0.1.0 as a functionally frozen fallback for existing installations and meter configurations not covered by vzLogger. This is the final version containing Legacy; removal is planned for 2.1.0.0. Use vzLogger for new setups.
 
-Legacy and vzLogger retain separate saved settings. Switching does not change the other configuration. No Legacy removal date has been announced.
+Legacy and vzLogger retain separate saved settings. Switching does not change the other configuration. Before a later upgrade to 2.1.0.0, switch to vzLogger and complete **Save/Apply** successfully.
 
 ## Enable Legacy
 

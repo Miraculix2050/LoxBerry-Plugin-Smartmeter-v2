@@ -2,9 +2,9 @@
 
 ## Wann Legacy sinnvoll ist
 
-Legacy bleibt als unterstützter Rückfallweg für bestehende Installationen und Zählerkonfigurationen verfügbar, die vzLogger nicht abdeckt. Verwende für neue Einrichtungen nach Möglichkeit vzLogger.
+Legacy bleibt in SmartMeter v2 2.0.1.0 als funktional eingefrorener Rückfallweg für bestehende Installationen und Zählerkonfigurationen verfügbar, die vzLogger nicht abdeckt. Dies ist die letzte Version mit Legacy; für 2.1.0.0 ist die Entfernung vorgesehen. Verwende für neue Einrichtungen vzLogger.
 
-Legacy und vzLogger besitzen getrennte gespeicherte Einstellungen. Ein Wechsel verändert die andere Konfiguration nicht. Es gibt keinen angekündigten Entfernungstermin für Legacy.
+Legacy und vzLogger besitzen getrennte gespeicherte Einstellungen. Ein Wechsel verändert die andere Konfiguration nicht. Wechsle vor einem späteren Upgrade auf 2.1.0.0 zu vzLogger und führe dort **Speichern/Anwenden** erfolgreich aus.
 
 ## Legacy aktivieren
 
