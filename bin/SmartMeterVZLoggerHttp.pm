@@ -3,12 +3,13 @@ package SmartMeterVZLoggerHttp;
 use strict;
 use warnings;
 use Exporter qw(import);
+use Fcntl qw(:DEFAULT :flock);
 use IO::Select;
 use IO::Socket::INET;
 use JSON::PP;
-use Time::HiRes qw(time);
+use Time::HiRes qw(time stat);
 
-our @EXPORT_OK = qw(fetch_local_json parse_http_json_response);
+our @EXPORT_OK = qw(fetch_local_json cached_local_json parse_http_json_response);
 
 my $maximum_header = 16 * 1024;
 my $maximum_body = 1024 * 1024;
@@ -66,6 +67,57 @@ sub fetch_local_json
 	}
 	close($socket);
 	return parse_http_json_response($response);
+}
+
+sub cached_local_json
+{
+	my ($port, $cache_file, $max_age) = @_;
+	$max_age = 1 if (!defined($max_age));
+	my $cached = read_cached_json($cache_file, $max_age);
+	return ($cached, undef, 1) if (defined($cached));
+
+	my $lock_file = "$cache_file.lock";
+	my $lock;
+	if (!sysopen($lock, $lock_file, O_WRONLY | O_CREAT, 0600) || !flock($lock, LOCK_EX)) {
+		my ($json, $error) = fetch_local_json($port);
+		return ($json, $error, 0);
+	}
+	$cached = read_cached_json($cache_file, $max_age);
+	if (defined($cached)) {
+		close($lock);
+		return ($cached, undef, 1);
+	}
+
+	my ($json, $error) = fetch_local_json($port);
+	write_cached_json_atomic($cache_file, $json) if (defined($json));
+	close($lock);
+	return ($json, $error, 0);
+}
+
+sub read_cached_json
+{
+	my ($file, $max_age) = @_;
+	return undef if (!defined($file) || !-f $file);
+	my @stat = stat($file);
+	return undef if (!@stat || time() - $stat[9] > $max_age);
+	open(my $fh, "<", $file) or return undef;
+	local $/;
+	my $text = <$fh>;
+	close($fh);
+	my $value = eval { JSON::PP->new->utf8->decode($text || "") };
+	return undef if ($@ || (ref($value) ne "HASH" && ref($value) ne "ARRAY"));
+	return JSON::PP->new->utf8->canonical->encode($value);
+}
+
+sub write_cached_json_atomic
+{
+	my ($file, $json) = @_;
+	my $tmp = "$file.$$";
+	return if (!sysopen(my $fh, $tmp, O_WRONLY | O_CREAT | O_EXCL, 0600));
+	my $written = print {$fh} $json;
+	my $closed = close($fh);
+	my $renamed = $written && $closed && rename($tmp, $file);
+	unlink($tmp) if (!$renamed);
 }
 
 sub parse_http_json_response

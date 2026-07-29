@@ -3,6 +3,7 @@ use strict;
 use warnings;
 use CGI;
 use Config::Simple;
+use FindBin;
 use HTML::Template;
 use JSON::PP;
 use LoxBerry::System;
@@ -27,6 +28,12 @@ my $template = HTML::Template->new(
 	die_on_bad_params => 0,
 );
 my %L = LoxBerry::System::readlanguage($template, "language.ini");
+my $asset_mtime = 0;
+for my $asset (qw(vzlogger-live.css vzlogger_live.js)) {
+	my $mtime = (stat("$FindBin::Bin/$asset"))[9] || 0;
+	$asset_mtime = $mtime if $mtime > $asset_mtime;
+}
+$template->param("ASSET_VERSION" => LoxBerry::System::pluginversion() . "-$asset_mtime");
 if ($cgi->param("json")) {
 	my $cfg = Config::Simple->new("$lbpconfigdir/smartmeter.cfg");
 	my $port = $cfg ? ($cfg->param("VZLOGGER.LOCALPORT") || 18080) : 18080;

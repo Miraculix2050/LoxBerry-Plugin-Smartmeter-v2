@@ -24,12 +24,14 @@ const ambiguous = channels.concat({ uuid: "import-copy", meta: { serial: "reader
 assert.equal(Live.chooseEnergyChannel(ambiguous, "import"), null, "ambiguous counters are not guessed");
 
 assert.deepEqual(Live.cleanPreferences({ schema: 1, channels: ["TOTAL", "missing"], energyMode: "absolute", backgroundCollection: true }, ["total"]), {
-	schema: 3, channels: ["total"], energyMode: "absolute", backgroundCollection: true, historyRange: Live.DEFAULT_RANGE, historyRangeExplicit: false
+	schema: 4, channels: ["total"], energyMode: "absolute", backgroundCollection: true, pollInterval: Live.POLL_INTERVAL, historyRange: Live.DEFAULT_RANGE, historyRangeExplicit: false
 }, "preferences are normalized and unavailable UUIDs are removed");
-assert.equal(Live.cleanPreferences({ schema: 4, channels: [] }, []), null, "unknown preference schemas fall back to defaults");
+assert.equal(Live.cleanPreferences({ schema: 5, channels: [] }, []), null, "unknown preference schemas fall back to defaults");
 assert.deepEqual(Live.cleanPreferences({ schema: 3, channels: ["missing"], historyRange: Live.RANGE_VALUES[3], historyRangeExplicit: true }, ["total"]), {
-	schema: 3, channels: [], energyMode: "since-open", backgroundCollection: false, historyRange: Live.RANGE_VALUES[3], historyRangeExplicit: true
+	schema: 4, channels: [], energyMode: "since-open", backgroundCollection: false, pollInterval: Live.POLL_INTERVAL, historyRange: Live.RANGE_VALUES[3], historyRangeExplicit: true
 }, "display preferences survive removal of every selected channel");
+assert.equal(Live.cleanPreferences({ schema: 4, channels: [], pollInterval: 120000 }, []).pollInterval, 120000, "a supported live interval is retained");
+assert.equal(Live.cleanPreferences({ schema: 4, channels: [], pollInterval: 1234 }, []).pollInterval, Live.POLL_INTERVAL, "an unsupported live interval falls back to two seconds");
 assert.equal(Live.cleanPreferences({ schema: 2, channels: ["total"], historyRange: Live.RANGE_VALUES[3] }, ["total"]).historyRangeExplicit, true, "a non-default range from the previous schema remains an explicit choice");
 assert.equal(Live.cleanPreferences({ schema: 2, channels: ["total"], historyRange: Live.DEFAULT_RANGE }, ["total"]).historyRangeExplicit, false, "the old automatic 24-hour default can migrate to dynamic selection");
 assert.deepEqual(Array.from(Live.limitSelection(channels, new Set(["total", "import", "voltage"]), 2)), ["total", "import"], "restored preferences are limited to two unit groups");
@@ -45,6 +47,12 @@ assert.equal(Live.hasReadingGap(1000, 1000 + Live.GAP_INTERVAL), false, "the acc
 assert.equal(Live.pollDelay(0), 2000, "successful live polling retains the two-second interval");
 assert.equal(Live.pollDelay(1), 4000, "the first live polling failure backs off");
 assert.equal(Live.pollDelay(20), 30000, "live polling backoff is capped at thirty seconds");
+assert.deepEqual(Live.POLL_INTERVAL_VALUES, [2000, 10000, 30000, 60000, 120000, 300000], "the live interval choices remain stable");
+assert.equal(Live.HISTORY_WRITE_INTERVAL, 10000, "history writes flush after ten seconds");
+assert.equal(Live.HISTORY_WRITE_MAX_SAMPLES, 250, "history writes flush after 250 samples");
+assert.equal(Live.pollDelay(0, 300000), 300000, "successful long-interval polling keeps the selected cadence");
+assert.equal(Live.pollDelay(1, 10000), 20000, "ten-second polling backs off after the first failure");
+assert.equal(Live.pollDelay(1, 60000), 60000, "failure handling never shortens a selected long interval");
 assert.equal(Live.isCounterReset({ category: "active_energy_export" }, 20, 19), true, "a decreasing energy counter starts a new baseline");
 assert.equal(Live.isCounterReset({ category: "active_power_total" }, 20, 19), false, "ordinary power changes are not counter resets");
 

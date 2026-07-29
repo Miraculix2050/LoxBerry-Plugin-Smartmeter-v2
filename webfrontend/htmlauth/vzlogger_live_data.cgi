@@ -11,12 +11,13 @@ $script_file =~ s{[/\\][^/\\]+\z}{};
 my $plugin_folder = basename($script_file);
 my $install_folder = abs_path("$script_file/../../../..");
 require "$install_folder/bin/plugins/$plugin_folder/SmartMeterVZLoggerHttp.pm";
-SmartMeterVZLoggerHttp->import(qw(fetch_local_json));
+SmartMeterVZLoggerHttp->import(qw(cached_local_json));
 my $config_dir = "$install_folder/config/plugins/$plugin_folder";
 my $template_dir = "$install_folder/templates/plugins/$plugin_folder";
+my $runtime_dir = "/var/run/shm/$plugin_folder";
 my $port = read_local_port("$config_dir/smartmeter.cfg");
 my $version = metadata_version("$config_dir/vzlogger_channels.json", "$config_dir/smartmeter.cfg", "$template_dir/obis_catalog.json");
-my $json = read_live_json($port);
+my $json = read_live_json($port, "$runtime_dir/vzlogger_live_response.json");
 
 print "Content-Type: application/json; charset=utf-8\r\n";
 print "Cache-Control: no-store, no-cache, must-revalidate\r\n";
@@ -47,8 +48,8 @@ sub metadata_version
 
 sub read_live_json
 {
-	my ($port) = @_;
-	my ($json, $error) = fetch_local_json($port);
+	my ($port, $cache_file) = @_;
+	my ($json, $error) = cached_local_json($port, $cache_file, 1);
 	return $json if (defined($json));
 	return JSON::PP->new->encode({ error_code => $error eq "unavailable" ? "unavailable" : "invalid_response" });
 }

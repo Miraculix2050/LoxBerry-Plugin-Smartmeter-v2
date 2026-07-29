@@ -9,6 +9,9 @@
 	const HISTORY_STORAGE_KEY = "smartmeter-v2.vzloggerLiveHistory.v1";
 	const POLL_INTERVAL = 2000;
 	const MAX_POLL_INTERVAL = 30000;
+	const POLL_INTERVAL_VALUES = [2000, 10000, 30000, 60000, 120000, 300000];
+	const HISTORY_WRITE_INTERVAL = 10000;
+	const HISTORY_WRITE_MAX_SAMPLES = 250;
 	const GAP_INTERVAL = 30000;
 	const GAP_MULTIPLIER = 3;
 	const SAMPLE_INTERVAL_WINDOW = 31;
@@ -107,18 +110,19 @@
 	}
 
 	function cleanPreferences(input, availableUuids) {
-		const valid = input && (input.schema === 1 || input.schema === 2 || input.schema === 3) && Array.isArray(input.channels);
+		const valid = input && [1, 2, 3, 4].includes(input.schema) && Array.isArray(input.channels);
 		if (!valid) return null;
 		const available = new Set(availableUuids);
 		const requestedRange = Number(input.historyRange);
 		const validRange = RANGE_VALUES.includes(requestedRange);
 		return {
-			schema: 3,
+			schema: 4,
 			channels: input.channels.filter(uuid => available.has(String(uuid).toLowerCase())).map(uuid => String(uuid).toLowerCase()),
 			energyMode: input.energyMode === "absolute" ? "absolute" : "since-open",
 			backgroundCollection: input.backgroundCollection === true,
+			pollInterval: POLL_INTERVAL_VALUES.includes(Number(input.pollInterval)) ? Number(input.pollInterval) : POLL_INTERVAL,
 			historyRange: validRange ? requestedRange : DEFAULT_RANGE,
-			historyRangeExplicit: input.schema === 3
+			historyRangeExplicit: input.schema >= 3
 				? input.historyRangeExplicit === true
 				: input.schema === 2 && validRange && requestedRange !== DEFAULT_RANGE
 		};
@@ -387,12 +391,13 @@
 		return cleaned;
 	}
 
-	function pollDelay(failures) {
-		return failures > 0 ? Math.min(POLL_INTERVAL * Math.pow(2, failures), MAX_POLL_INTERVAL) : POLL_INTERVAL;
+	function pollDelay(failures, interval) {
+		const selected = POLL_INTERVAL_VALUES.includes(Number(interval)) ? Number(interval) : POLL_INTERVAL;
+		return failures > 0 ? Math.max(selected, Math.min(selected * Math.pow(2, failures), MAX_POLL_INTERVAL)) : selected;
 	}
 
 	return {
-		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, MAX_POLL_INTERVAL, GAP_INTERVAL, GAP_MULTIPLIER, SAMPLE_INTERVAL_WINDOW, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS, CHART_BUCKETS,
+		STORAGE_KEY, HISTORY_STORAGE_KEY, POLL_INTERVAL, MAX_POLL_INTERVAL, POLL_INTERVAL_VALUES, HISTORY_WRITE_INTERVAL, HISTORY_WRITE_MAX_SAMPLES, GAP_INTERVAL, GAP_MULTIPLIER, SAMPLE_INTERVAL_WINDOW, RANGE_VALUES, DEFAULT_RANGE, RETENTION_TIERS, CHART_BUCKETS,
 		numericTimestamp, scaledValue, category, isPower, isEnergy, chartValue,
 		chooseEnergyChannel, choosePowerChannels, defaultSelection, cleanPreferences, rangeForHistory,
 		limitSelection, estimateSampleInterval, gapThreshold, hasReadingGap, filterStoredGaps, isCounterReset, readingDecision, liveDataSignature, latestReading, powerPeaks, styleFor, balanceText,
@@ -413,6 +418,7 @@
 	let selected = new Set();
 	let energyMode = "since-open";
 	let backgroundCollection = false;
+	let pollInterval = Live.POLL_INTERVAL;
 	let historyRange = Live.DEFAULT_RANGE;
 	let historyRangeExplicit = false;
 	let currentData = null;
@@ -430,6 +436,9 @@
 	let memoryCompactionQueue = [];
 	let memoryCompactionScheduled = false;
 	let historyWriteQueue = Promise.resolve();
+	let pendingHistorySamples = [];
+	let pendingHistoryGaps = [];
+	let historyFlushTimer = null;
 	const histories = new Map();
 	const lastTuple = new Map();
 	const energySegments = new Map();
@@ -485,12 +494,14 @@
 			selected = cleaned.channels.length ? Live.limitSelection(channels, new Set(cleaned.channels), 2) : Live.defaultSelection(channels);
 			energyMode = cleaned.energyMode;
 			backgroundCollection = cleaned.backgroundCollection;
+			pollInterval = cleaned.pollInterval;
 			historyRange = cleaned.historyRange;
 			historyRangeExplicit = cleaned.historyRangeExplicit;
 		} else {
 			selected = Live.defaultSelection(channels);
 			energyMode = "since-open";
 			backgroundCollection = false;
+			pollInterval = Live.POLL_INTERVAL;
 			historyRange = Live.DEFAULT_RANGE;
 			historyRangeExplicit = false;
 		}
@@ -498,7 +509,7 @@
 	}
 
 	function savePreferences() {
-		try { localStorage.setItem(Live.STORAGE_KEY, JSON.stringify({ schema: 3, channels: Array.from(selected), energyMode, backgroundCollection, historyRange, historyRangeExplicit })); } catch (_) { /* Browser storage may be unavailable. */ }
+		try { localStorage.setItem(Live.STORAGE_KEY, JSON.stringify({ schema: 4, channels: Array.from(selected), energyMode, backgroundCollection, pollInterval, historyRange, historyRangeExplicit })); } catch (_) { /* Browser storage may be unavailable. */ }
 	}
 
 	function selectInitialHistoryRange() {
@@ -666,7 +677,20 @@
 
 	function queueHistoryWrite(samples, gaps) {
 		if (!historyStorageAvailable || !samples.length) return;
+		pendingHistorySamples.push(...samples);
+		pendingHistoryGaps.push(...gaps);
+		if (pendingHistorySamples.length >= Live.HISTORY_WRITE_MAX_SAMPLES) flushHistoryWrites();
+		else if (!historyFlushTimer) historyFlushTimer = window.setTimeout(flushHistoryWrites, Live.HISTORY_WRITE_INTERVAL);
+	}
+
+	function flushHistoryWrites() {
+		if (historyFlushTimer) window.clearTimeout(historyFlushTimer);
+		historyFlushTimer = null;
+		if (!historyStorageAvailable || !pendingHistorySamples.length) return historyWriteQueue;
+		const samples = pendingHistorySamples.splice(0);
+		const gaps = pendingHistoryGaps.splice(0);
 		historyWriteQueue = historyWriteQueue.then(() => persistWithRecovery(samples, gaps)).catch(() => {});
+		return historyWriteQueue;
 	}
 
 	async function migrateSessionHistory() {
@@ -738,6 +762,7 @@
 
 	async function clearPersistedHistory() {
 		const storageWasAvailable = historyStorageAvailable;
+		await flushHistoryWrites();
 		historyStorageAvailable = false;
 		await historyWriteQueue;
 		histories.clear(); lastTuple.clear(); energySegments.clear();
@@ -771,6 +796,7 @@
 		document.getElementById("channel-choices").innerHTML = output.join("");
 		document.getElementById("energy-mode").value = energyMode;
 		document.getElementById("history-range").value = String(historyRange);
+		document.getElementById("poll-interval").value = String(pollInterval);
 		document.getElementById("background-collection").checked = backgroundCollection;
 		document.querySelectorAll("input[data-channel]").forEach(input => input.addEventListener("change", changeSelection));
 	}
@@ -809,6 +835,7 @@
 		selected = Live.defaultSelection(channels);
 		energyMode = "since-open";
 		backgroundCollection = false;
+		pollInterval = Live.POLL_INTERVAL;
 		historyRange = Live.rangeForHistory(histories, Date.now());
 		historyRangeExplicit = false;
 		savePreferences();
@@ -1090,16 +1117,18 @@
 	function schedule(immediate) {
 		clearTimeout(timer);
 		if (stopped || !historyInitialized || (document.hidden && !backgroundCollection)) return;
-		timer = setTimeout(refresh, immediate ? 0 : Live.pollDelay(pollFailures));
+		timer = setTimeout(refresh, immediate ? 0 : Live.pollDelay(pollFailures, pollInterval));
 	}
 
 	document.addEventListener("visibilitychange", () => {
+		if (document.hidden) flushHistoryWrites();
 		if (document.hidden && !backgroundCollection) { clearTimeout(timer); return; }
 		if (!document.hidden && currentData) { renderTable(currentData); if (historyInitialized) updateChart(); }
 		schedule(true);
 	});
 	document.getElementById("energy-mode").addEventListener("change", event => { energyMode = event.target.value === "absolute" ? "absolute" : "since-open"; savePreferences(); updateChart(); });
 	document.getElementById("history-range").addEventListener("change", event => { const value = Number(event.target.value); historyRange = Live.RANGE_VALUES.includes(value) ? value : Live.DEFAULT_RANGE; historyRangeExplicit = true; savePreferences(); updateChart(); });
+	document.getElementById("poll-interval").addEventListener("change", event => { const value = Number(event.target.value); pollInterval = Live.POLL_INTERVAL_VALUES.includes(value) ? value : Live.POLL_INTERVAL; savePreferences(); schedule(true); });
 	document.getElementById("background-collection").addEventListener("change", event => { backgroundCollection = event.target.checked; savePreferences(); schedule(true); });
 	document.getElementById("reset-chart-defaults").addEventListener("click", resetDefaults);
 	document.getElementById("clear-history").addEventListener("click", () => document.getElementById("clear-history-dialog").showModal());
@@ -1107,7 +1136,8 @@
 		try { await clearPersistedHistory(); showHistoryStorageMessage(i18n.historyCleared, false); }
 		catch (_) { showHistoryStorageMessage(i18n.historyUnavailable, true); }
 	});
-	window.addEventListener("beforeunload", () => { stopped = true; clearTimeout(timer); });
+	window.addEventListener("pagehide", flushHistoryWrites);
+	window.addEventListener("beforeunload", () => { stopped = true; clearTimeout(timer); flushHistoryWrites(); });
 
 	initializeCollapsiblePersistence();
 	(async function initialize() {

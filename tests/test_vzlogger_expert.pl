@@ -86,6 +86,9 @@ like(
 open(my $template_fh, "<", "$FindBin::Bin/../templates/settings.html") or die $!;
 my $template_source = <$template_fh>;
 close($template_fh);
+open(my $script_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/smartmeter-settings.js") or die $!;
+$template_source .= <$script_fh>;
+close($script_fh);
 like(
 	$template_source,
 	qr/id="reset_expert_config_container"<TMPL_IF VZLOGGER_EXPERT_MODE><TMPL_ELSE> hidden<\/TMPL_IF>/,

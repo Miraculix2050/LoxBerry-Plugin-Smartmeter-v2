@@ -25,6 +25,9 @@ my %sources = map { $_ => read_file($_) } qw(
 	webfrontend/htmlauth/smartmeter-v4.css
 	webfrontend/htmlauth/smartmeter-vzlogger.css
 	webfrontend/htmlauth/smartmeter-vzlogger.js
+	webfrontend/htmlauth/smartmeter-settings.js
+	webfrontend/htmlauth/smartmeter-settings.css
+	webfrontend/htmlauth/vzlogger_live.cgi
 	webfrontend/htmlauth/vzlogger_live.js
 );
 
@@ -43,8 +46,10 @@ foreach my $template (qw(templates/settings.html templates/multi/main.html)) {
 foreach my $cgi (qw(webfrontend/htmlauth/index.cgi webfrontend/htmlauth/index_legacy.cgi)) {
 	like($sources{$cgi}, qr/LoxBerry::Web::lbheader\s*\([^;]*["']nojqm["']/s, "$cgi explicitly disables jQuery Mobile");
 }
+like($sources{'webfrontend/htmlauth/index.cgi'}, qr/my \$asset_version = "\$version-\$asset_mtime"/, "settings assets combine the plugin version with their newest modification time");
+like($sources{'webfrontend/htmlauth/vzlogger_live.cgi'}, qr/pluginversion\(\) \. "-\$asset_mtime"/, "live assets combine the plugin version with their newest modification time");
 
-my $vzlogger = $sources{'templates/settings.html'};
+my $vzlogger = $sources{'templates/settings.html'} . $sources{'webfrontend/htmlauth/smartmeter-settings.js'};
 like($vzlogger, qr/<details\b[^>]*\blb-collapsible\b/, "vzLogger uses native details collapsibles");
 like($vzlogger, qr/<details\b(?=[^>]*\bid="recovery_settings_panel")(?=[^>]*\blb-collapsible\b)(?=[^>]*\bopen\b)[^>]*>/, "recovery settings use an initially open persistent native collapsible");
 like($vzlogger, qr/<dialog\b(?=[^>]*\bid="ir_scan_overlay")(?=[^>]*\baction-overlay-standard\b)[^>]*>/, "I/R scan uses the single standard-width native action dialog");
@@ -83,7 +88,7 @@ like($shared, qr/\blb-form-label\b/, "shared UI applies LoxBerry form-label clas
 like($shared, qr/\blb-form-field\b/, "shared UI applies LoxBerry form-field classes");
 like($shared, qr/\bpi-save\b/, "shared UI applies PrimeIcons to primary actions");
 
-my $styles = $sources{'webfrontend/htmlauth/smartmeter-v4.css'} . $sources{'webfrontend/htmlauth/smartmeter-vzlogger.css'};
+my $styles = $sources{'webfrontend/htmlauth/smartmeter-v4.css'} . $sources{'webfrontend/htmlauth/smartmeter-vzlogger.css'} . $sources{'webfrontend/htmlauth/smartmeter-settings.css'};
 like($styles, qr/\.recovery-loxone-fields\s*\{[^}]*grid-template-columns/s, "Loxone copy-and-paste fields use a responsive grid");
 like($styles, qr/implementation-tabs \.lb-btn-active/, "active implementation tab has an explicit V4 state");
 like($styles, qr/implementation-tabs\s*\{[^}]*border:\s*0\s*!important/s, "implementation tab group has no redundant outer border");
@@ -127,6 +132,10 @@ like($live, qr/const historyInitialization = initializeHistoryStorage\(\);.*?awa
 like($live, qr/requestIdleCallback\(compactNext,\s*\{\s*timeout:\s*1000\s*\}\)/, "browser history compaction is spread across idle callbacks");
 unlike($live, qr/\.filter\(point => point\.value >= 0\)\.sort|\.filter\(point => point\.value < 0\)\.sort/, "live summary peaks do not sort complete histories");
 like($live, qr/function schedule\(immediate\).*?!historyInitialized/s, "polling cannot race browser-history initialization");
+like($live, qr/POLL_INTERVAL_VALUES\s*=\s*\[2000,\s*10000,\s*30000,\s*60000,\s*120000,\s*300000\]/, "live polling exposes the supported browser-local intervals");
+like($vzlogger, qr/\.\/obis_status\.cgi/, "OBIS discovery polls the lightweight authenticated endpoint");
+like($vzlogger, qr/setTimeout\(sync_channel_definitions,\s*200\)/, "channel JSON serialization is debounced");
+like($vzlogger, qr/new FormData\(form\)/, "configuration actions retain form-based AJAX submission");
 
 my $help = read_file("webfrontend/htmlauth/help.cgi");
 like($help, qr/LoxBerry::Web::lbheader\s*\([^;]*["']nojqm["']/s, "local help uses the V4 header without jQuery Mobile");
