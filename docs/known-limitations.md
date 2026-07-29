@@ -1,6 +1,13 @@
 # Known Issues And Compatibility Limitations
 
-This document tracks confirmed user-visible issues and compatibility limitations. Detailed implementation status and completed target evidence remain in `docs/vzlogger-implementation-plan.md`.
+- **Audience:** SmartMeter v2 users, administrators, and maintainers
+- **Status:** Current confirmed limitations
+- **Authority:** Normative for compatibility and security claims
+
+This document tracks confirmed user-visible issues and compatibility limitations. It is not an implementation backlog. A limitation remains current until matching evidence supports narrowing or removing it.
+
+Maintainer actions and evidence-expansion work are tracked separately in
+[Compatibility Follow-up](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/master/docs/development/compatibility-follow-up.md).
 
 ## Limited Target-Platform Coverage
 
@@ -20,11 +27,6 @@ Limitation:
 Impact:
 
 - Compatibility outside the confirmed platform cannot be promised from the available test evidence.
-
-Follow-up:
-
-- Define an explicit supported-platform matrix before claiming broader compatibility.
-- Add one real installation test per supported OS/codename and architecture combination.
 
 ## Legacy Web Security Remains Frozen
 
@@ -46,8 +48,3 @@ Impact:
 
 - Untested templates may require manual serial settings or custom configuration.
 - `limited` templates may depend on Legacy pre-command or parser behavior that the standard vzLogger form cannot express.
-
-Follow-up:
-
-- Test additional templates only when matching physical meters are available.
-- Prioritize `limited` templates and OMS when expanding documented hardware support.

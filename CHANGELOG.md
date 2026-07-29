@@ -4,6 +4,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+- Reorganize documentation by audience, assign stable identifiers to normative developer requirements, separate compatibility limitations from the maintainer evidence backlog, clarify stable versus prerelease metadata, and remove the completed vzLogger migration plan.
 - Reduce UI and CGI load with a dedicated authenticated OBIS-status endpoint, systemd-free initial HTML rendering, debounced channel serialization, versioned settings/live assets, batched browser-history writes, a one-second atomic RAM cache for successful live JSON responses, and a browser-local live refresh interval from 2 seconds through 5 minutes while retaining 2 seconds as the default.
 - Unify Bridge, Control, and Web UI logging under the central SmartMeter v2 LoxBerry log level, avoid empty successful sessions at restrictive levels, register on-demand diagnostics, move OBIS discovery logs to RAM, retain native vzLogger logging as the clearly named `vzlogger-native.log`, and rely on LoxBerry's existing rotation and retention.
 - Rate-limit identical recurring Bridge errors and warnings to one immediate entry plus a suppressed-repeat summary per minute, keep throttle memory bounded, preserve complete Debug output, and classify UDP output failures as errors.
