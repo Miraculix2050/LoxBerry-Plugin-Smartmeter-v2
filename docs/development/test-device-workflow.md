@@ -1,5 +1,9 @@
 # LoxBerry Test Device Workflow
 
+- **Audience:** Developers, testers, maintainers, and AI agents
+- **Status:** Current verification procedure
+- **Authority:** Mandatory when referenced by `AGENTS.md` or `SM-VER-*` requirements
+
 This workflow applies to implementation tasks that change installed SmartMeter v2 behavior. It does not authorize remote writes for analysis-only or review-only tasks.
 
 ## Local connection setup
@@ -96,7 +100,7 @@ After deployment:
 For CGI or navigation changes, also test the installed page through an authenticated browser session, preferably the developer's existing Chrome session:
 
 1. Open the normal plugin entry page instead of invoking the CGI only from SSH.
-2. Use the visible navigation or action that reaches the changed CGI so jQuery Mobile/AJAX behavior is included.
+2. Use the visible native LoxBerry V4 navigation or AJAX action that reaches the changed CGI so the installed browser workflow is included.
 3. Confirm that the destination page renders and does not show `Error 500` or `Internal Server Error`.
 4. If it fails, open LoxBerry's **Log Manager → Apache Log** in the same browser session. If the Log Manager cannot read the file, check `/var/log/apache2/error.log` ownership and mode separately rather than changing them as part of the plugin test.
 
@@ -113,7 +117,7 @@ For UI, template, CSS, navigation, or user-facing text changes, test the install
 | Mobile compact | `360x800` | Layout, navigation, forms, and long labels |
 | Mobile minimum | `320x568` | Graceful layout only; no clipped or unreachable plugin functions |
 
-Use an authenticated browser session and reach both pages through the visible implementation tabs so jQuery Mobile/AJAX navigation is exercised. At Desktop and Mobile primary sizes, check the initial render and every changed interaction, including relevant collapsibles, dialogs, validation, and action buttons. Use the compact and minimum sizes whenever layout, controls, navigation, or text lengths changed.
+Use an authenticated browser session and reach both pages through the visible implementation tabs so native LoxBerry V4 navigation and AJAX actions are exercised. At Desktop and Mobile primary sizes, check the initial render and every changed interaction, including relevant collapsibles, dialogs, validation, and action buttons. Use the compact and minimum sizes whenever layout, controls, navigation, or text lengths changed.
 
 Acceptance requires:
 

@@ -1,5 +1,8 @@
 # SmartMeter v2 Benutzerdokumentation
 
+- **Zielgruppe:** SmartMeter-v2-Benutzer und LoxBerry-Administratoren
+- **Status:** Aktuelle Benutzerdokumentation
+
 ## Überblick
 
 SmartMeter v2 liest Zählerdaten auf dem LoxBerry. Die Standardimplementierung verwendet das externe Paket `vzlogger`. vzLogger liest den Zähler und veröffentlicht Werte per MQTT; das Plugin pflegt daraus einen lokalen Cache und stellt HTTP- und UDP-Ausgabe aus diesem Cache bereit.

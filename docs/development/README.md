@@ -1,0 +1,33 @@
+# SmartMeter v2 Developer Documentation
+
+- **Audience:** Developers, maintainers, reviewers, testers, and AI agents
+- **Status:** Current documentation index
+
+The documents in this directory have distinct authority. Product and engineering
+contracts are normative; procedures explain how to verify or publish changes;
+tests provide executable evidence but do not silently redefine a contract.
+
+## Normative contracts
+
+- [Developer requirements](developer-requirements.md) — current product and engineering behavior
+- [Plugin lifecycle test expectations](lifecycle-test-expectations.md) — installation, upgrade, switching, and uninstall acceptance
+
+## Procedures
+
+- [LoxBerry test-device workflow](test-device-workflow.md)
+- [Local development packages](local-builds.md)
+- [Release process](release-process.md)
+- [Compatibility follow-up](compatibility-follow-up.md)
+
+## Related evidence and user contracts
+
+- [German user guide](../User-Guide.de.md)
+- [English user guide](../User-Guide.en.md)
+- [Known issues and compatibility limitations](../known-limitations.md)
+- [`CHANGELOG.md`](../../CHANGELOG.md) — historical release notes, not a normative specification
+- [`tests/`](../../tests) and [CI workflow](../../.github/workflows/syntax-check.yml) — executable regression evidence
+
+The completed vzLogger migration plan was removed after its accepted behavior was
+consolidated into the developer requirements, user guides, lifecycle expectations,
+known limitations, and regression tests. Use Git history when historical migration
+context is required.

@@ -10,9 +10,8 @@ The legacy reader remains available for existing installations and meter setups 
 
 - [English user guide](docs/User-Guide.en.md)
 - [Deutsche Benutzerdokumentation](docs/User-Guide.de.md)
-- [Documentation index](docs/Readme.md)
-- [Developer requirements](docs/developer-requirements.md)
-- [Release process](docs/release-process.md)
+- [User documentation](docs/Readme.md)
+- [Developer documentation](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/master/docs/development/README.md)
 
 ## Main Features
 
@@ -37,4 +36,4 @@ See [CHANGELOG.md](CHANGELOG.md) for notable changes and release notes.
 
 ## Known Issues
 
-See [Known Issues](KNOWN-ISSUES.md) for confirmed limitations, known issues, and planned follow-up work that has not yet been implemented.
+See [Known Issues](docs/known-limitations.md) for confirmed limitations, security exceptions, and compatibility follow-up work.

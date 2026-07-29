@@ -1,5 +1,9 @@
 # Plugin Lifecycle Test Expectations
 
+- **Audience:** Developers, testers, maintainers, and AI agents
+- **Status:** Current acceptance contract
+- **Authority:** Normative lifecycle verification
+
 This document defines expected behavior for SmartMeter v2 plugin lifecycle operations. It is intentionally independent from a specific implementation plan and applies to fresh installation, installation over an existing version, and uninstall behavior.
 
 ## Uninstall

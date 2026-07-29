@@ -1,5 +1,9 @@
 # Local Build Packages
 
+- **Audience:** Developers, testers, maintainers, and AI agents
+- **Status:** Current build procedure
+- **Authority:** Normative for local package naming and creation
+
 Use local packages for development, installation checks, and focused tests on a disposable LoxBerry. They are not release artifacts and must never be uploaded as an official release.
 
 ## Build commands
@@ -44,4 +48,4 @@ The suffixless name is reserved for official GitHub release assets:
 Smartmeter-V2.0.0.33.zip
 ```
 
-Official release ZIPs are created only by the GitHub Actions `Release asset` workflow from a pushed `Smartmeter-V<version>` tag. Developers must not create, rename, or publish an official-looking ZIP locally. Follow `docs/release-process.md` for releases.
+Official release ZIPs are created only by the GitHub Actions `Release asset` workflow from a pushed `Smartmeter-V<version>` tag. Developers must not create, rename, or publish an official-looking ZIP locally. Follow the [release process](release-process.md) for releases.

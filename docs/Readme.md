@@ -1,13 +1,10 @@
 # SmartMeter v2 Documentation
 
-Choose your language:
+- **Audience:** SmartMeter v2 users and LoxBerry administrators
+- **Status:** Current user documentation
+
+Choose the detailed guide in your preferred language:
 
 - [English user guide](User-Guide.en.md)
 - [Deutsche Benutzerdokumentation](User-Guide.de.md)
-
-Additional project documentation:
-
-- [Developer requirements](developer-requirements.md)
-- [Known issues](../KNOWN-ISSUES.md)
-- [Plugin lifecycle test expectations](lifecycle-test-expectations.md)
-- [Release process](release-process.md)
+- [Known issues and compatibility limitations](known-limitations.md)
