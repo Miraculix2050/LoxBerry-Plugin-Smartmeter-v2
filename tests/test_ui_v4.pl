@@ -82,6 +82,9 @@ like($shared, qr/\bpi-save\b/, "shared UI applies PrimeIcons to primary actions"
 
 my $styles = $sources{'webfrontend/htmlauth/smartmeter-v4.css'} . $sources{'webfrontend/htmlauth/smartmeter-vzlogger.css'} . $sources{'webfrontend/htmlauth/smartmeter-settings.css'};
 like($styles, qr/\.recovery-loxone-fields\s*\{[^}]*grid-template-columns/s, "Loxone copy-and-paste fields use a responsive grid");
+like($vzlogger, qr/class="recovery-endpoints-help"/, "Loxone copy-and-paste help uses its dedicated full-width class");
+unlike($vzlogger, qr/class="[^"]*service-help[^"]*recovery-endpoints-help/, "Loxone copy-and-paste help does not inherit the narrow service help column");
+like($styles, qr/\.recovery-endpoints-help\s*\{[^}]*width:\s*100%/s, "Loxone copy-and-paste help uses the full available width");
 like($styles, qr/recovery-settings-panel \.service-controls > \.lb-btn\s*\{[^}]*width:\s*100%[^}]*white-space:\s*normal/s, "recovery actions fit and wrap in compact mobile controls");
 unlike($styles . $vzlogger, qr/implementation-tabs|index_legacy/, "single-implementation UI contains no implementation tabs or Legacy links");
 like($styles, qr/input:checked \+ \.lb-toggle-slider::before/, "toggle knob has an explicit checked position");

@@ -7,6 +7,7 @@ All notable user-visible changes should be documented in this file. Use the late
 ### Fixed
 
 - Prevent independent OBIS-discovery and bridge-fallback background processes from retaining the completed parent action's configuration lock.
+- Use the full available width for the Loxone copy-and-paste instructions and clarify how to transfer the displayed recovery settings into Loxone Config.
 
 ## 2.1.0.0 - 2026-07-30
 
