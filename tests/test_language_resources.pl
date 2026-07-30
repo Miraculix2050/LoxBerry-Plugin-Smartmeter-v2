@@ -65,6 +65,10 @@ is_deeply([sort keys %$german], [sort keys %$english], "German and English resou
 ok(!grep(!/^(?:COMMON|HELP|VZLOGGER)\.[A-Z][A-Z0-9_]*$/, keys %$english), "only the documented sections and non-empty keys are used");
 is_deeply([sort grep { $german->{$_} eq "" } keys %$german], [], "German resources contain no empty values");
 is_deeply([sort grep { $english->{$_} eq "" } keys %$english], [], "English resources contain no empty values");
+is($german->{'VZLOGGER.SERVICE_ACTION_HIDE'}, "Im Hintergrund weiterlaufen lassen", "German service action button describes background continuation");
+is($english->{'VZLOGGER.SERVICE_ACTION_HIDE'}, "Continue in background", "English service action button describes background continuation");
+like($german->{'VZLOGGER.SERVICE_ACTION_BACKGROUND_LOCKED'}, qr/Serviceaktionen.*gesperrt/, "German background notice explains the shared service lock");
+like($english->{'VZLOGGER.SERVICE_ACTION_BACKGROUND_LOCKED'}, qr/service actions.*unavailable/i, "English background notice explains the shared service lock");
 my @placeholder_mismatches;
 foreach my $key (sort keys %$english) {
 	my @english_placeholders = sort($english->{$key} =~ /\{([a-z][a-z0-9_]*)\}/g);

@@ -5,6 +5,7 @@
 .service-status-error { background:#f5c6cb; color:#721c24; }
 .service-action-feedback { display:none; margin:0 0 10px; padding:8px 10px; background:#d7f0d2; border:1px solid #8fbd87; color:#245b1d; }
 .service-action-feedback.is-visible { display:block; }
+.service-action-feedback.is-running { background:#fff3cd; border-color:#d6a700; color:#664d03; overflow-wrap:anywhere; }
 .service-action-feedback.is-error { background:#f8d7da; border-color:#b00020; color:#721c24; }
 .service-control-log { margin:-3px 0 14px; text-align:right; }
 .service-action-reason { color:#8a5a00; font-size:85%; margin-top:.25em; }

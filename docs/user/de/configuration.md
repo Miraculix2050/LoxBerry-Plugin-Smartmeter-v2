@@ -7,7 +7,7 @@
 3. Konfiguriere mindestens ein aktives Meter.
 4. Übernimm den Zustand mit **Speichern und anwenden**.
 
-Der Schalter speichert den gewünschten vzLogger-Zustand erst mit **Speichern und anwenden**. Start, Stopp und Neustart sind temporäre Dienstaktionen und ändern ihn nicht. Eine gültige vorhandene `vzlogger.conf` bleibt bei deaktiviertem vzLogger erhalten und wird bei der späteren Reaktivierung wiederverwendet.
+Der Schalter speichert den gewünschten vzLogger-Zustand erst mit **Speichern und anwenden**. Start, Stopp und Neustart sind temporäre Dienstaktionen und ändern ihn nicht. Während einer Dienstaktion sind die Bedienelemente beider Dienste gesperrt. Mit **Im Hintergrund weiterlaufen lassen** kann das Fortschrittsfenster geschlossen werden; ein Hinweis bleibt bis zum Abschluss der Aktion sichtbar. Eine gültige vorhandene `vzlogger.conf` bleibt bei deaktiviertem vzLogger erhalten und wird bei der späteren Reaktivierung wiederverwendet.
 
 ## Lesekopf hinzufügen
 
