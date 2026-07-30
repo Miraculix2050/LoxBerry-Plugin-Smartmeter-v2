@@ -4,6 +4,8 @@ This file records implementation detail that is intentionally omitted from user-
 
 ## Unreleased
 
+- Release the inherited configuration-lock descriptor and metadata before independent OBIS-discovery and bridge-fallback child processes continue, while preserving verified inheritance for synchronous nested helpers.
+
 ## 2.1.0.0 - 2026-07-30
 
 - Removed the complete Legacy runtime, CGI/template surface, translation namespace, cron payload, mode switching, bidirectional migration, parser stack, and Legacy-only regression tests.

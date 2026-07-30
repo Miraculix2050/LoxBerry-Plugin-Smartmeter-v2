@@ -60,6 +60,7 @@ unlike($index, qr/SmartMeterLegacyRuntime|implementation_mode|set_implementation
 like($index, qr/rollback_failed_vzlogger_activation\(\$previous_enabled\)/, "failed activation restores the previous boolean state");
 like($index, qr/\$starting && !current_vzlogger_enabled\(\)/, "service start requires saved activation");
 like($index, qr/start_obis_discovery_background.*?!saved_vzlogger_enabled\(\)/s, "OBIS discovery requires saved activation");
+like($index, qr/if \(\$pid == 0\).*?release_config_lock_for_background_child\(\).*?setsid\(\)/s, "OBIS watchdog releases the request lock before running independently");
 like($index, qr/qw\(allowskip aggfixedinterval uselocaltime\)/, "submitted fixed aggregation interval remains boolean");
 like($index, qr/vzlogger_localport\s*=>\s*\[1,\s*65535\].*?udpport\s*=>\s*\[1,\s*65535\]/s, "HTTP and UDP ports accept 65535");
 unlike($status, qr/LoxBerry::(?:Web|JSON)|HTML::Template/, "lightweight status CGI avoids the full web stack");
@@ -71,6 +72,7 @@ like($template, qr/name="bridge_enabled".*?data-on-value="1"/s, "bridge activati
 like($script, qr/runtime_action_disabled = saved_vzlogger_enabled != "1"/, "OBIS actions wait for saved activation");
 like($script, qr/setTimeout\(poll_service_status, 10000\)/, "service polling uses the ten-second interval");
 like($control, qr/No active meter is configured\. Did not (?:start|restart) vzLogger/, "manual starts require an active generated meter");
+like($control, qr/sub start_bridge.*?if \(\$pid == 0\).*?release_config_lock_for_background_child\(\$config_lock\).*?exec\(\$\^X, "\$bindir\/vzlogger_mqtt_bridge\.pl"\)/s, "bridge fallback releases the configuration lock before exec");
 unlike($default_config, qr/^(?:IMPLEMENTATION|READ|CRON|SENDMQTT|LEGACY_[^=]*)=/m, "default configuration contains no obsolete mode or Legacy values");
 unlike($english_language . $german_language, qr/^\[LEGACY\]/m, "active language resources contain no Legacy namespace");
 
