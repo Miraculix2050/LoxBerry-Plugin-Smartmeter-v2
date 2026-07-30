@@ -17,7 +17,7 @@ The normative product and engineering contracts are consolidated in `docs/develo
 ## LoxBerry-Specific Checks
 
 - The LoxBerry v4 plugin-management documentation button is driven by `PLUGIN.WEBSITE`, not `AUTHOR.WEBSITE`.
-- Upgrade success should include cron removal followed by restoring automatic meter polling in `postupgrade.sh`.
+- Upgrade success should include removal of obsolete Legacy cron entries and restoration of the saved vzLogger desired state through the lifecycle hooks.
 - Generic LoxBerry system warnings in install logs are not automatically plugin failures; check the surrounding plugin success markers first.
 - Installation and upgrade scripts should be POSIX-shell compatible for the target LoxBerry environment.
 
@@ -34,7 +34,7 @@ The normative product and engineering contracts are consolidated in `docs/develo
 - Never store or print test-device passwords or private keys. Use a local SSH configuration or PuTTY saved-session name.
 - Resolve the test target through `tools/TestDeviceSettings.ps1`; developers configure it outside the repository with `tools/configure-test-device.ps1`.
 - Preserve remote user configuration and runtime data. Back up affected remote files, preserve their modes, and restore the initial configuration and service state after destructive tests.
-- After UI, template, CSS, navigation, or user-facing text changes, test both the vzLogger and Legacy pages in an authenticated desktop browser and with mobile viewport emulation on the disposable LoxBerry. Use the viewport matrix and checks in `docs/development/test-device-workflow.md`.
+- After UI, template, CSS, navigation, or user-facing text changes, test the vzLogger page in an authenticated desktop browser and with mobile viewport emulation on the disposable LoxBerry. Use the viewport matrix and checks in `docs/development/test-device-workflow.md`.
 - Before committing, check `git status --short` and avoid reverting unrelated local changes.
 
 ## Release Work

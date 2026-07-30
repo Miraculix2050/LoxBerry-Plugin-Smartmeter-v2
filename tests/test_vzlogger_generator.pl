@@ -59,7 +59,7 @@ my $document = {
 	version => 1,
 	meters => { reader => [
 		{ uuid=>$first_uuid, enabled=>JSON::PP::true, origin=>"manual", obis=>"1-0:1.8.0", storage=>5, display_name=>"Historic label only", api=>"influxdb", aggmode=>"avg", duplicates=>1,
-		  api_options=>{influxdb=>{version=>1,host=>"http://influx",database=>"meter",organization=>"org",tags=>'{"meter":"main"}',send_uuid=>JSON::PP::true},volkszaehler=>{middleware=>"must-not-leak"},mysmartgrid=>{}}, plugin_output=>{enabled=>JSON::PP::true,key=>"Import_Storage_5",legacy_keys=>["Consumption_Total_OBIS_1.8.0"]} },
+		  api_options=>{influxdb=>{version=>1,host=>"http://influx",database=>"meter",organization=>"org",tags=>'{"meter":"main"}',send_uuid=>JSON::PP::true},volkszaehler=>{middleware=>"must-not-leak"},mysmartgrid=>{}}, plugin_output=>{enabled=>JSON::PP::true,key=>"Import_Storage_5"} },
 		{ uuid=>$second_uuid, enabled=>JSON::PP::true, origin=>"manual", obis=>"1-0:1.8.0", storage=>5, display_name=>"", api=>"null", aggmode=>"none", duplicates=>9,
 		  api_options=>{influxdb=>{host=>"must-not-leak"},volkszaehler=>{},mysmartgrid=>{}}, plugin_output=>{enabled=>JSON::PP::false,key=>"Not_Output"} },
 		{ uuid=>$disabled_uuid, enabled=>JSON::PP::false, origin=>"manual", obis=>"1-0:2.8.0", storage=>undef, display_name=>"", api=>"volkszaehler", aggmode=>"none", duplicates=>0,
@@ -112,7 +112,7 @@ is($mapping->{$first_uuid}->{catalog_name_de}, "Bezogene Wirkenergie, gesamt", "
 is($mapping->{$first_uuid}->{unit}, "kWh", "mapping carries the catalog unit");
 is($mapping->{$first_uuid}->{category}, "active_energy_import", "mapping carries the catalog category");
 is($mapping->{$first_uuid}->{display_factor}, 0.001, "mapping converts the vzLogger Wh value to catalog kWh for display");
-ok(!exists($mapping->{$first_uuid}->{legacy_names}), "mapping emits only the configured output key and no aliases");
+ok(!exists($mapping->{$first_uuid}->{legacy_names}), "mapping emits only the configured output key and no obsolete aliases");
 ok($mapping->{$first_uuid}->{identifier_ambiguous}, "identifier fallback is disabled when another active channel has the same identifier");
 
 done_testing();

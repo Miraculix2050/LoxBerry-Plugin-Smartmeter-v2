@@ -42,7 +42,6 @@ my $settings_script = read_file("webfrontend/htmlauth/smartmeter-settings.js");
 my $expert = read_file("webfrontend/htmlauth/vzlogger_config.cgi");
 my $expert_template = read_file("templates/vzlogger_config_editor.html");
 my $result_template = read_file("templates/vzlogger_config_result.html");
-my $legacy = read_file("webfrontend/htmlauth/index_legacy.cgi");
 
 like($index, qr/validate_csrf_token\(\$q->\{csrf_token\}/, "modern CGI validates AJAX and form CSRF tokens");
 like($index, qr/qw\([^)]*obis-start[^)]*debug-log[^)]*recovery-settings[^)]*\)/, "every modern mutating AJAX action is classified");
@@ -51,7 +50,6 @@ like($settings, qr/name="csrf_token" value="<TMPL_VAR NAME=CSRF_TOKEN ESCAPE=HTM
 like($settings_script, qr/function append_csrf\(data\)/, "standalone AJAX payloads share the CSRF appender");
 like($expert, qr/validate_csrf_token\(\$cgi->param\("csrf_token"\)/, "expert editor validates its CSRF token");
 like($expert_template, qr/name="csrf_token" value="<TMPL_VAR NAME=CSRF_TOKEN ESCAPE=HTML>"/, "expert editor renders an escaped CSRF token");
-unlike($legacy, qr/csrf_token|SmartMeterWebSecurity/, "Legacy CGI remains unchanged by the modern CSRF implementation");
 
 foreach my $name (qw(VZLOGGER_MQTTHOST MQTTTOPIC VZLOGGER_MQTTID VZLOGGER_MQTTUSER VZLOGGER_MQTTCAFILE VZLOGGER_MQTTCAPATH VZLOGGER_MQTTCERTFILE VZLOGGER_MQTTKEYFILE)) {
 	like($settings, qr/<TMPL_VAR\s+(?:NAME=)?\Q$name\E\s+ESCAPE=HTML>/, "$name is HTML-escaped in the modern settings template");

@@ -7,7 +7,7 @@ use File::Temp qw(tempdir);
 use JSON::PP;
 use Test::More;
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerConfig qw(validate_legacy_general normalized_meter_mode protocol_for_meter serial_mode sanitize_topic clean_boolean clean_qos implementation_mode set_implementation_mode read_webserver_settings);
+use SmartMeterVZLoggerConfig qw(normalized_meter_mode protocol_for_meter sanitize_topic clean_boolean clean_qos vzlogger_enabled set_vzlogger_enabled read_webserver_settings);
 
 {
 	package TestConfig;
@@ -15,187 +15,75 @@ use SmartMeterVZLoggerConfig qw(validate_legacy_general normalized_meter_mode pr
 	sub param { my ($self, $key, $value) = @_; $self->{$key} = $value if (@_ == 3); return $self->{$key}; }
 }
 
-is(protocol_for_meter("generic-d0"), "d0", "shared protocol mapper recognizes D0");
-is(normalized_meter_mode("manual", "sml"), "sml", "manual legacy mode maps through shared protocol mapper");
-is(serial_mode(7, "even", 1), "7E1", "shared serial mode is canonical");
-is(sanitize_topic(" /smartmeter/site/ "), "smartmeter/site", "shared topic normalization trims separators");
-is(clean_qos("1", 0), 1, "shared QoS cleaner accepts the highest supported value");
-is(clean_qos("2", 0), 0, "shared QoS cleaner rejects QoS 2");
-is(clean_qos("bad", 1), 1, "shared QoS cleaner retains its validated default");
-is(clean_boolean("0", 1), 0, "shared boolean cleaner preserves explicit false");
-is(clean_boolean("invalid", 1), 1, "shared boolean cleaner uses its validated fallback");
-is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "none", "MAIN.READ" => 1)), "none", "explicit inactive mode is retained");
-is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "legacy", "MAIN.READ" => 0)), "legacy", "explicit Legacy mode is retained independently of READ");
-is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "vzlogger", "MAIN.READ" => 1)), "vzlogger", "explicit vzLogger mode is retained independently of READ");
-is(implementation_mode(TestConfig->new("MAIN.READ" => 1)), "legacy", "missing mode infers Legacy from enabled reads");
-is(implementation_mode(TestConfig->new("MAIN.READ" => 0)), "vzlogger", "missing mode infers vzLogger from disabled Legacy reads");
+is(protocol_for_meter("generic-d0"), "d0", "protocol mapper recognizes D0");
+is(normalized_meter_mode("sml", ""), "sml", "meter mode remains normalized");
+is(sanitize_topic(" /smartmeter/site/ "), "smartmeter/site", "topic normalization trims separators");
+is(clean_qos("1", 0), 1, "QoS cleaner accepts the highest supported value");
+is(clean_qos("2", 0), 0, "QoS cleaner rejects QoS 2");
+is(clean_boolean("0", 1), 0, "boolean cleaner preserves explicit false");
+is(vzlogger_enabled(TestConfig->new("VZLOGGER.ENABLED" => "1")), 1, "saved vzLogger activation is read");
+is(vzlogger_enabled(TestConfig->new("VZLOGGER.ENABLED" => "0")), 0, "saved disabled state is read");
+is(vzlogger_enabled(TestConfig->new()), 0, "missing activation is fail-safe disabled");
+my $activation = TestConfig->new("reader.METER" => "sml");
+is(set_vzlogger_enabled($activation, "1"), 1, "activation setter stores enabled state");
+is($activation->param("reader.METER"), "sml", "activation does not alter meter configuration");
+eval { set_vzlogger_enabled($activation, "invalid") };
+like($@, qr/Invalid vzLogger activation state/, "invalid activation is rejected centrally");
 
 my $webserver_test_dir = tempdir(CLEANUP => 1);
 my $general_json = "$webserver_test_dir/general.json";
 open(my $general_fh, ">", $general_json) or die $!;
 print {$general_fh} JSON::PP->new->encode({ Webserver => { Port => "8080", Sslenabled => "true", Sslport => "8443" } });
 close($general_fh);
-is_deeply(
-	read_webserver_settings($general_json),
-	{ http_port => 8080, https_enabled => 1, https_port => 8443 },
-	"LoxBerry webserver ports and enabled HTTPS are read from general.json",
-);
-open($general_fh, ">", $general_json) or die $!;
-print {$general_fh} JSON::PP->new->encode({ Webserver => { Port => "0", Sslenabled => "false", Sslport => "70000" } });
-close($general_fh);
-is_deeply(
-	read_webserver_settings($general_json),
-	{ http_port => 80, https_enabled => 0, https_port => 443 },
-	"invalid ports fall back safely and the string false does not enable HTTPS",
-);
-is_deeply(
-	read_webserver_settings("$webserver_test_dir/missing.json"),
-	{ http_port => 80, https_enabled => 0, https_port => 443 },
-	"missing LoxBerry webserver configuration uses standard defaults",
-);
+is_deeply(read_webserver_settings($general_json), { http_port => 8080, https_enabled => 1, https_port => 8443 }, "webserver settings are read");
 
-foreach my $transition (
-	[legacy => "vzlogger"], [legacy => "none"],
-	[vzlogger => "legacy"], [vzlogger => "none"],
-	[none => "legacy"], [none => "vzlogger"],
-) {
-	my ($from, $to) = @$transition;
-	my $transition_cfg = TestConfig->new(
-		"MAIN.IMPLEMENTATION" => $from,
-		"reader.LEGACY_METER" => "legacy-sentinel",
-		"reader.METER" => "vzlogger-sentinel",
-	);
-	is(set_implementation_mode($transition_cfg, $to), $to, "$from -> $to stores the requested mode");
-	is(implementation_mode($transition_cfg), $to, "$from -> $to resolves to exactly one mode");
-	is_deeply(
-		[$transition_cfg->param("reader.LEGACY_METER"), $transition_cfg->param("reader.METER")],
-		["legacy-sentinel", "vzlogger-sentinel"],
-		"$from -> $to preserves both inactive configurations",
-	);
+sub read_file
+{
+	my ($relative) = @_;
+	open(my $fh, "<", "$FindBin::Bin/../$relative") or die $!;
+	local $/;
+	my $source = <$fh>;
+	close($fh);
+	return $source;
 }
-eval { set_implementation_mode(TestConfig->new(), "invalid") };
-like($@, qr/Invalid SmartMeter implementation mode/, "invalid implementation states are rejected centrally");
 
-my $valid = {
-	implementation => "legacy", read => "1", cron => "5", sendudp => "1",
-	udpport => "7000", sendmqtt => "0", mqtttopic => "smartmeter/site",
-	meters => [{ serial => "reader", meter => "preset" }],
-};
-is_deeply([validate_legacy_general($valid, { preset => 1 })], [], "valid Legacy general settings pass");
-my %maximum_port = %$valid;
-$maximum_port{udpport} = "65535";
-is_deeply([validate_legacy_general(\%maximum_port, { preset => 1 })], [], "Legacy accepts the maximum UDP port");
+my $index = read_file("webfrontend/htmlauth/index.cgi");
+my $status = read_file("webfrontend/htmlauth/service_status.cgi");
+my $template = read_file("templates/settings.html");
+my $script = read_file("webfrontend/htmlauth/smartmeter-settings.js");
+my $control = read_file("bin/vzlogger_control.pl");
+my $default_config = read_file("config/smartmeter.cfg");
+my $english_language = read_file("templates/lang/language_en.ini");
+my $german_language = read_file("templates/lang/language_de.ini");
 
-foreach my $case (
-	[implementation => "vzlogger", qr/IMPLEMENTATION/], [read => "2", qr/READ/],
-	[cron => "2", qr/CRON/], [sendudp => "yes", qr/SENDUDP/],
-	[udpport => "0", qr/UDPPORT/], [udpport => "65536", qr/UDPPORT/],
-	[sendmqtt => "", qr/SENDMQTT/], [mqtttopic => "bad/#", qr/MQTTTOPIC/],
+unlike($index, qr/SmartMeterLegacyRuntime|implementation_mode|set_implementation_mode|LEGACY_/, "vzLogger CGI contains no Legacy runtime or mode switching");
+like($index, qr/rollback_failed_vzlogger_activation\(\$previous_enabled\)/, "failed activation restores the previous boolean state");
+like($index, qr/\$starting && !current_vzlogger_enabled\(\)/, "service start requires saved activation");
+like($index, qr/start_obis_discovery_background.*?!saved_vzlogger_enabled\(\)/s, "OBIS discovery requires saved activation");
+like($index, qr/qw\(allowskip aggfixedinterval uselocaltime\)/, "submitted fixed aggregation interval remains boolean");
+like($index, qr/vzlogger_localport\s*=>\s*\[1,\s*65535\].*?udpport\s*=>\s*\[1,\s*65535\]/s, "HTTP and UDP ports accept 65535");
+unlike($status, qr/LoxBerry::(?:Web|JSON)|HTML::Template/, "lightweight status CGI avoids the full web stack");
+like($status, qr/VZLOGGER\.ENABLED/, "status uses the dedicated vzLogger activation");
+like($status, qr/VZLOGGER\.BRIDGEENABLED/, "status uses the dedicated bridge activation");
+unlike($template . $script, qr/index_legacy|implementation-tabs|legacy_tab_state/, "single-implementation UI has no Legacy tab");
+like($template, qr/name="vzlogger_enabled".*?data-on-value="1"/s, "vzLogger activation is a boolean form field");
+like($template, qr/name="bridge_enabled".*?data-on-value="1"/s, "bridge activation is a boolean form field");
+like($script, qr/runtime_action_disabled = saved_vzlogger_enabled != "1"/, "OBIS actions wait for saved activation");
+like($script, qr/setTimeout\(poll_service_status, 10000\)/, "service polling uses the ten-second interval");
+like($control, qr/No active meter is configured\. Did not (?:start|restart) vzLogger/, "manual starts require an active generated meter");
+unlike($default_config, qr/^(?:IMPLEMENTATION|READ|CRON|SENDMQTT|LEGACY_[^=]*)=/m, "default configuration contains no obsolete mode or Legacy values");
+unlike($english_language . $german_language, qr/^\[LEGACY\]/m, "active language resources contain no Legacy namespace");
+
+for my $removed (
+	qw(
+		bin/fetch.pl bin/sm_logger.pl bin/SmartMeterLegacyRuntime.pm
+		bin/smartmeter_legacy_runtime.pl bin/sml_parser.php bin/php_sml_parser.class.php
+		bin/reboot_cron_runner.sh webfrontend/htmlauth/index_legacy.cgi
+		webfrontend/htmlauth/fetch.cgi templates/multi/main.html
+		cron/crontab tests/test_legacy_runtime.pl
+	)
 ) {
-	my ($field, $value, $expected) = @$case;
-	my %copy = %$valid;
-	$copy{$field} = $value;
-	like(join(",", validate_legacy_general(\%copy, { preset => 1 })), $expected, "$field rejects invalid value");
+	ok(!-e "$FindBin::Bin/../$removed", "$removed is absent");
 }
-my %unknown_meter = %$valid;
-$unknown_meter{meters} = [{ serial => "reader", meter => "not-installed" }];
-like(join(",", validate_legacy_general(\%unknown_meter, { preset => 1 })), qr/METER/, "unknown meter template is rejected");
-
-my %manual = %$valid;
-$manual{meters} = [{ serial => "reader", meter => "manual", protocol => "sml", startbaudrate => 300,
-	baudrate => 9600, timeout => 30, delay => 0, databits => 8, stopbits => 1, parity => "none" }];
-is_deeply([validate_legacy_general(\%manual, {})], [], "bounded manual Legacy settings pass");
-$manual{meters}->[0]->{baudrate} = 99999999;
-like(join(",", validate_legacy_general(\%manual, {})), qr/BAUDRATE/, "unsafe manual baud rate is rejected");
-
-open(my $legacy_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/index_legacy.cgi") or die $!;
-binmode($legacy_fh);
-my $legacy_shebang = <$legacy_fh>;
-is($legacy_shebang, "#!/usr/bin/perl\n", "Legacy CGI shebang uses an executable Unix line ending");
-seek($legacy_fh, 0, 0) or die $!;
-local $/;
-my $legacy_source = <$legacy_fh>;
-close($legacy_fh);
-like(
-	$legacy_source,
-	qr/use LoxBerry::System;.*use lib \$lbpbindir;.*use SmartMeterVZLoggerConfig/s,
-	"installed Legacy CGI loads shared modules from the LoxBerry plugin bin directory",
-);
-like($legacy_source, qr/initialize_legacy_heads\(\$plugin_cfg, \@heads\)/, "Legacy page uses shared head migration");
-like($legacy_source, qr/if \(\$is_post\).*?\$plugin_cfg->save if \(initialize_legacy_heads.*?else \{\s*initialize_legacy_heads/s, "Legacy GET applies defaults in memory without saving them");
-like($legacy_source, qr/if \(\$is_post\) \{\s*make_path\(\$runtime_dir\)/s, "Legacy runtime setup is protected by the POST guard");
-like($legacy_source, qr/\$clearcache = \$is_post.*action.*clearcache/s, "Legacy cache action is POST-only");
-unlike($legacy_source, qr/url_param\('clearcache'\)/, "Legacy cache action is not accepted from the query string");
-unlike($legacy_source, qr/print\s+["']Content-type:/i, "LoxBerry header owns the Legacy CGI HTTP response header");
-like($legacy_source, qr/elsif \(\$implementation ne "vzlogger"\)/, "Saving an unchanged inactive Legacy page cannot disable an active vzLogger mode");
-like($legacy_source, qr/restore_implementation_runtime\(\$previous_implementation\)/, "failed Legacy mode transitions restore the preceding runtime state");
-
-open(my $vzlogger_cgi_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/index.cgi") or die $!;
-local $/;
-my $vzlogger_cgi_source = <$vzlogger_cgi_fh>;
-close($vzlogger_cgi_fh);
-open(my $status_cgi_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/service_status.cgi") or die $!;
-my $status_cgi_source = do { local $/; <$status_cgi_fh> };
-close($status_cgi_fh);
-unlike($status_cgi_source, qr/LoxBerry::(?:Web|JSON)|HTML::Template/, "lightweight status CGI does not load the full web/template stack");
-like($status_cgi_source, qr/systemctl.*?show.*?\@services/s, "lightweight status CGI batches both systemd services");
-like($status_cgi_source, qr/my %properties;.*?if \(\$line eq ""\).*?\$apply_properties->\(\)/s, "batched systemd status is assigned per complete unit block");
-like($status_cgi_source, qr/if \(\$details\).*?generated_config_status/s, "configuration validation runs only for detailed status");
-open(my $live_data_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/vzlogger_live_data.cgi") or die $!;
-my $live_data_source = do { local $/; <$live_data_fh> };
-close($live_data_fh);
-unlike($live_data_source, qr/LoxBerry::|HTML::Template|load_catalog/, "lightweight live-data CGI avoids templates, language loading, and catalogs");
-like($live_data_source, qr/X-Smartmeter-Metadata-Version/, "lightweight live-data CGI preserves the metadata version header");
-like($vzlogger_cgi_source, qr/rollback_failed_vzlogger_activation\(\$previous_implementation\)/, "failed vzLogger activation restores the preceding implementation mode");
-like($vzlogger_cgi_source, qr/qw\(allowskip aggfixedinterval uselocaltime\)/, "submitted fixed aggregation interval must be a boolean");
-like($vzlogger_cgi_source, qr/AGGFIXEDINTERVAL.*?clean_boolean.*?0/s, "missing fixed aggregation interval defaults to false");
-like($vzlogger_cgi_source, qr/vzlogger_localport\s*=>\s*\[1,\s*65535\].*?udpport\s*=>\s*\[1,\s*65535\]/s, "standard form backend validates local HTTP and bridge UDP through port 65535");
-like($vzlogger_cgi_source, qr/else \{\s*# GET builds.*?ensure_vzlogger_defaults\(0\).*?ensure_head_defaults\(0, \@heads\).*?load_or_migrate_channel_document\(0, \@heads\)/s, "vzLogger GET builds defaults and migrations without persistence");
-like($vzlogger_cgi_source, qr/write_json_atomic\(\$file, \$channel_document\) if \(\$changed && \$persist\)/, "channel migration writes only on an explicit persistent path");
-like($vzlogger_cgi_source, qr/SMARTMETER_LEGACY_LOCK_HELD/, "vzLogger activation passes its held Legacy polling guard to the service controller");
-like($vzlogger_cgi_source, qr/\$starting && implementation_mode\(\) ne "vzlogger"/, "service Start and Restart require saved vzLogger mode server-side");
-like($vzlogger_cgi_source, qr/start_obis_discovery_background.*saved_implementation_mode\(\) ne "vzlogger"/s, "OBIS discovery requires saved vzLogger mode server-side");
-like($vzlogger_cgi_source, qr/service-status.*?exec\(\$\^X, "\$FindBin::Bin\/service_status\.cgi"\)/s, "legacy service-status URL delegates to the lightweight endpoint");
-my ($status_response_source) = $vzlogger_cgi_source =~ /(sub service_status_response.*?)(?=\nsub service_status_data)/s;
-like($status_response_source || "", qr/return \$response if \(!\$details\);.*?generated_config_status\(\)/s, "lightweight service status returns before full configuration validation");
-my ($runtime_status_source) = $vzlogger_cgi_source =~ /(sub service_runtime_status.*?)(?=\nsub service_state)/s;
-like($runtime_status_source || "", qr/service_runtime_status_cache.*?systemctl.*?show.*?ActiveState.*?MainPID/s, "service runtime state and PID share one cached systemctl query");
-my ($status_data_source) = $vzlogger_cgi_source =~ /(sub service_status_data.*?)(?=\nsub run_service_ajax_action)/s;
-like($status_data_source || "", qr/my \$runtime = service_runtime_status\(\$service\)/, "service polling reads the combined runtime snapshot once per service");
-unlike($status_data_source || "", qr/service_state\(|service_pid\(/, "service polling does not launch separate state and PID queries");
-like($vzlogger_cgi_source, qr/service_status_response\(config_status => \$config, expert_status => \$expert\)/, "service actions reuse their validated configuration in the final snapshot");
-like($vzlogger_cgi_source, qr/generated_config_status\(1\)/, "successful Apply responses reuse trusted validation results");
-my ($service_settings_source) = $vzlogger_cgi_source =~ /(sub save_service_log_settings.*?)(?=\nsub generated_config_status)/s;
-unlike($service_settings_source || "", qr/set_implementation_mode|remove_legacy_cronjobs/, "service buttons cannot persist an implementation transition themselves");
-
-open(my $legacy_template_fh, "<", "$FindBin::Bin/../templates/multi/main.html") or die $!;
-local $/;
-my $legacy_template = <$legacy_template_fh>;
-close($legacy_template_fh);
-like($legacy_template, qr/id="legacy-dependent-content"/, "Legacy dependent UI has a single state container");
-like($legacy_template, qr/function refresh_legacy_dependent_state\(\)/, "Legacy UI uses centralized activation rendering");
-like($legacy_template, qr/fetch_enabled = enabled && saved_implementation == "legacy" && !vzlogger_service_active/, "manual Legacy polling requires saved Legacy mode and a stopped vzLogger service");
-like($legacy_template, qr/id="legacy_cache_form"[^>]*action="\.\/index_legacy\.cgi"/s, "Legacy cache uses a dedicated POST form");
-
-open(my $vzlogger_template_fh, "<", "$FindBin::Bin/../templates/settings.html") or die $!;
-local $/;
-my $vzlogger_template = <$vzlogger_template_fh>;
-close($vzlogger_template_fh);
-open(my $vzlogger_script_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/smartmeter-settings.js") or die $!;
-$vzlogger_template .= <$vzlogger_script_fh>;
-close($vzlogger_script_fh);
-like($vzlogger_template, qr/action == "apply" && response\.ok/, "failed vzLogger apply keeps the saved tab and activation state unchanged");
-like($vzlogger_template, qr/service_status\.cgi\?details=" \+ \(!last_service_snapshot \? "1" : "0"\)/, "only the first status poll requests full details from the lightweight endpoint");
-like($vzlogger_template, qr/setTimeout\(poll_service_status, 10000\)/, "lightweight service polling uses the ten-second interval");
-like($vzlogger_template, qr/if \(response\.config\) last_service_snapshot\.config = response\.config/, "lightweight polls preserve detailed configuration state");
-like($vzlogger_template, qr/close_configuration_action_overlay\(\);\s*show_action_success\(obis_text\("configuration_action_apply_success_text"\)\)/s, "successful Apply closes immediately and shows brief feedback");
-unlike($vzlogger_template, qr/start_configuration_action_countdown|CONFIG_ACTION_AUTOCLOSE/, "Apply no longer waits for an auto-close countdown");
-like($vzlogger_template, qr/var saved_vzlogger = !!applied\.vzlogger_enabled/, "vzLogger runtime buttons use the saved implementation snapshot");
-like($vzlogger_template, qr/var vz_enabled = saved_vzlogger && ui\.vzlogger/, "vzLogger Start and Restart require both saved and current draft activation");
-like($vzlogger_template, qr/runtime_action_disabled = saved_implementation != "vzlogger"/, "OBIS discovery remains disabled until vzLogger activation is saved");
-like($vzlogger_template, qr/class="obis-runtime-action-reason".*OBIS_SAVE_ACTIVATION_HELP/, "disabled OBIS discovery has an inline save-and-apply explanation");
-like($vzlogger_template, qr/class="obis-discovery".*?aria-describedby="<TMPL_VAR NAME=SERIAL>_obis_runtime_reason".*?id="<TMPL_VAR NAME=SERIAL>_obis_runtime_reason"/s, "OBIS discovery references its runtime lock explanation accessibly");
-like($vzlogger_template, qr/id="implementation_unsaved".*ACTIVATION_UNSAVED_RUNTIME/, "vzLogger activation draft explains that runtime actions remain locked");
-like($vzlogger_template, qr/id="bridge_activation_unsaved".*ACTIVATION_UNSAVED_RUNTIME/, "bridge activation draft explains that runtime actions remain locked");
 
 done_testing();

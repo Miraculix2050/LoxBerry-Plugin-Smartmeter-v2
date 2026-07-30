@@ -15,8 +15,7 @@ use FindBin;
 use lib $FindBin::Bin;
 use SmartMeterVZLoggerExpert qw(read_text write_text_atomic update_expert_log_settings format_expert_validation);
 use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
-use SmartMeterVZLoggerConfig qw(clean_number clean_qos sanitize_topic implementation_mode);
-use SmartMeterLegacyRuntime qw(acquire_legacy_fetch_lock);
+use SmartMeterVZLoggerConfig qw(clean_number clean_qos sanitize_topic vzlogger_enabled);
 
 my $home = $lbhomedir;
 my $psubfolder = $lbpplugindir;
@@ -43,8 +42,8 @@ make_path($runtime_dir) if (!-d $runtime_dir);
 make_path($plugin_log_dir) if (!-d $plugin_log_dir);
 chmod(0750, $runtime_dir);
 my %mutating_action = map { $_ => 1 } qw(
-	generate apply apply-expert activate-vzlogger restart-vzlogger start-vzlogger stop-vzlogger
-	restart-bridge start-bridge stop-bridge disable-vzlogger
+	generate apply apply-expert restart-vzlogger start-vzlogger stop-vzlogger
+	restart-bridge start-bridge stop-bridge
 	recover-vzlogger recover-bridge recover-all
 );
 my $config_lock;
@@ -69,16 +68,16 @@ if ($action eq "apply") {
 	exit apply_generated_configuration();
 	}
 
-if ($action eq "activate-vzlogger") {
-	exit activate_or_migrate_vzlogger();
-}
-
 if ($action eq "restart-vzlogger") {
 	my $rc = update_vzlogger_log_config();
 	exit $rc if ($rc != 0);
-	if (!vzlogger_mode_enabled()) {
-		print "vzLogger mode is disabled. Did not restart vzLogger.\n";
+	if (!vzlogger_service_enabled()) {
+		print "vzLogger is disabled. Did not restart vzLogger.\n";
 		exit 0;
+	}
+	if (generated_active_meter_count() <= 0) {
+		print "No active meter is configured. Did not restart vzLogger.\n";
+		exit 1;
 	}
 	exit restart_vzlogger();
 }
@@ -86,9 +85,13 @@ if ($action eq "restart-vzlogger") {
 if ($action eq "start-vzlogger") {
 	my $rc = update_vzlogger_log_config();
 	exit $rc if ($rc != 0);
-	if (!vzlogger_mode_enabled()) {
-		print "vzLogger mode is disabled. Did not start vzLogger.\n";
+	if (!vzlogger_service_enabled()) {
+		print "vzLogger is disabled. Did not start vzLogger.\n";
 		exit 0;
+	}
+	if (generated_active_meter_count() <= 0) {
+		print "No active meter is configured. Did not start vzLogger.\n";
+		exit 1;
 	}
 	exit start_vzlogger();
 }
@@ -149,22 +152,12 @@ if ($action eq "stop-bridge") {
 	exit stop_bridge();
 }
 
-if ($action eq "disable-vzlogger") {
-	my $rc = stop_and_disable_bridge();
-	my $vzlogger_rc = stop_vzlogger(1);
-	$rc = $vzlogger_rc if ($rc == 0 && $vzlogger_rc != 0);
-	my $override_rc = install_vzlogger_service_override("remove");
-	$rc = $override_rc if ($rc == 0 && $override_rc != 0);
-	print "Stopped vzLogger and bridge.\n";
-	exit $rc;
-}
-
 if ($action =~ /\Arecover-(vzlogger|bridge|all)\z/) {
 	exit recover_services($1);
 }
 
 if ($action eq "status") {
-	print "implementation: " . implementation_mode(Config::Simple->new($plugin_config_file)) . "\n";
+	print "vzlogger enabled: " . (vzlogger_service_enabled() ? "yes" : "no") . "\n";
 	print "vzlogger binary: " . (command_exists("vzlogger") ? "available" : "missing") . "\n";
 	print "vzlogger package: " . package_state("vzlogger") . "\n";
 	print "Volkszaehler apt source: " . (-e "/etc/apt/sources.list.d/volkszaehler-volkszaehler-org-project.list" ? "configured" : "missing") . "\n";
@@ -181,7 +174,7 @@ if ($action eq "debug-log") {
 	exit create_debug_log();
 }
 
-print "Usage: $0 generate|validate|apply|apply-expert|activate-vzlogger|restart-vzlogger|start-vzlogger|stop-vzlogger|restart-bridge|start-bridge|stop-bridge|disable-vzlogger|recover-vzlogger|recover-bridge|recover-all|status|debug-log\n";
+print "Usage: $0 generate|validate|apply|apply-expert|restart-vzlogger|start-vzlogger|stop-vzlogger|restart-bridge|start-bridge|stop-bridge|recover-vzlogger|recover-bridge|recover-all|status|debug-log\n";
 exit 1;
 
 sub run_perl
@@ -201,15 +194,24 @@ sub generate_and_validate
 
 sub apply_generated_configuration
 {
+	if (!vzlogger_service_enabled()) {
+		my $rc = stop_and_disable_bridge();
+		my $vzlogger_rc = stop_vzlogger(1);
+		$rc = $vzlogger_rc if ($rc == 0 && $vzlogger_rc != 0);
+		my $override_rc = install_vzlogger_service_override("remove");
+		$rc = $override_rc if ($rc == 0 && $override_rc != 0);
+		print "vzLogger is disabled. Stopped vzLogger and bridge.\n";
+		return $rc;
+	}
 	my $rc = generate_validate_and_promote();
 	return $rc if ($rc != 0);
-	if (vzlogger_mode_enabled() && generated_meter_count() == 0) {
+	if (generated_active_meter_count() <= 0) {
 		my $stop_rc = stop_and_disable_bridge();
 		my $vzlogger_rc = stop_vzlogger(1);
 		$stop_rc = $vzlogger_rc if ($stop_rc == 0 && $vzlogger_rc != 0);
 		my $override_rc = install_vzlogger_service_override("remove");
 		$stop_rc = $override_rc if ($stop_rc == 0 && $override_rc != 0);
-		print "No meter is configured. Stopped vzLogger and bridge.\n";
+		print "No active meter is configured. Stopped vzLogger and bridge.\n";
 		return $stop_rc;
 	}
 	return activate_current_vzlogger_configuration();
@@ -266,31 +268,15 @@ sub generate_validate_and_promote
 	return 0;
 }
 
-sub activate_or_migrate_vzlogger
-{
-	if (current_vzlogger_configuration_is_valid()) {
-		print "Existing valid vzLogger configuration found. Kept it unchanged instead of migrating Legacy meter settings.\n";
-		return activate_current_vzlogger_configuration();
-	}
-	print "No valid existing vzLogger configuration found. Migrating the current meter settings.\n";
-	return apply_generated_configuration();
-}
-
-sub current_vzlogger_configuration_is_valid
-{
-	return 0 if (!-e $config_file || !-e $mapping_file || generated_meter_count() <= 0);
-	return run_perl("$bindir/vzlogger_validate.pl") == 0 ? 1 : 0;
-}
-
 sub activate_current_vzlogger_configuration
 {
-	if (!vzlogger_mode_enabled()) {
+	if (!vzlogger_service_enabled()) {
 		my $rc = stop_and_disable_bridge();
 		my $vzlogger_rc = stop_vzlogger(1);
 		$rc = $vzlogger_rc if ($rc == 0 && $vzlogger_rc != 0);
 		my $override_rc = install_vzlogger_service_override("remove");
 		$rc = $override_rc if ($rc == 0 && $override_rc != 0);
-		print "vzLogger mode is disabled. Stopped vzLogger and bridge.\n";
+		print "vzLogger is disabled. Stopped vzLogger and bridge.\n";
 		return $rc;
 	}
 	my $rc = restart_vzlogger();
@@ -304,7 +290,7 @@ sub activate_current_vzlogger_configuration
 	return $rc;
 }
 
-sub generated_meter_count
+sub generated_active_meter_count
 {
 	return -1 if (!-e $config_file);
 	open(my $fh, "<", $config_file) or return -1;
@@ -312,7 +298,7 @@ sub generated_meter_count
 	close($fh);
 	my $config = eval { JSON::PP->new->utf8->decode($json || "") };
 	return -1 if ($@ || ref($config) ne "HASH" || ref($config->{meters}) ne "ARRAY");
-	return scalar(@{$config->{meters}});
+	return scalar(grep { ref($_) eq "HASH" && (!exists($_->{enabled}) || $_->{enabled}) } @{$config->{meters}});
 }
 
 sub update_vzlogger_log_config
@@ -512,15 +498,6 @@ sub set_bridge_autostart
 
 sub restart_vzlogger
 {
-	my $legacy_lock;
-	if (!$ENV{SMARTMETER_LEGACY_LOCK_HELD}) {
-		my $legacy_error;
-		($legacy_lock, $legacy_error) = acquire_legacy_fetch_lock($runtime_dir);
-		if (!$legacy_lock) {
-			print "$legacy_error Cannot restart vzLogger until Legacy polling has finished.\n";
-			return 1;
-		}
-	}
 	stop_orphaned_obis_discovery_processes();
 	if (!command_exists("systemctl")) {
 		print "systemctl not available. Generated config only.\n";
@@ -575,15 +552,6 @@ sub prepare_vzlogger_log_file
 
 sub start_vzlogger
 {
-	my $legacy_lock;
-	if (!$ENV{SMARTMETER_LEGACY_LOCK_HELD}) {
-		my $legacy_error;
-		($legacy_lock, $legacy_error) = acquire_legacy_fetch_lock($runtime_dir);
-		if (!$legacy_lock) {
-			print "$legacy_error Cannot start vzLogger until Legacy polling has finished.\n";
-			return 1;
-		}
-	}
 	stop_orphaned_obis_discovery_processes();
 	if (!command_exists("systemctl")) {
 		print "systemctl not available.\n";
@@ -757,11 +725,11 @@ sub service_autostart_enabled
 	return (($? >> 8) == 0) ? 1 : 0;
 }
 
-sub read_enabled
+sub bridge_activation_enabled
 {
 	my $cfg = Config::Simple->new($plugin_config_file);
 	return 0 if (!$cfg);
-	return ($cfg->param("MAIN.READ") || "0") eq "1";
+	return ($cfg->param("VZLOGGER.BRIDGEENABLED") || "0") eq "1";
 }
 
 sub vzlogger_debug_enabled
@@ -771,14 +739,14 @@ sub vzlogger_debug_enabled
 	return ($cfg->param("VZLOGGER.VZLOGGERDEBUG") || "0") eq "1";
 }
 
-sub vzlogger_mode_enabled
+sub vzlogger_service_enabled
 {
-	return implementation_mode(Config::Simple->new($plugin_config_file)) eq "vzlogger";
+	return vzlogger_enabled(Config::Simple->new($plugin_config_file));
 }
 
 sub bridge_enabled
 {
-	return 0 if (!vzlogger_mode_enabled() || !read_enabled());
+	return 0 if (!vzlogger_service_enabled() || !bridge_activation_enabled());
 	my $cfg = Config::Simple->new($plugin_config_file);
 	return 0 if (!$cfg);
 	my $mqtt_output = ($cfg->param("VZLOGGER.BRIDGEMQTTENABLED") || "0") eq "1";
@@ -851,7 +819,7 @@ sub recover_services
 		};
 		$results{$name} = $result;
 
-		my $expected = $name eq "bridge" ? bridge_enabled() : vzlogger_mode_enabled();
+		my $expected = $name eq "bridge" ? bridge_enabled() : vzlogger_service_enabled();
 		if (!$expected) {
 			$result->{reason} = "not_configured";
 			next;

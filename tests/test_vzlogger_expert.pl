@@ -79,8 +79,8 @@ unlike($index_source, qr/unlink\(expert_config_file\(\)\)/, "standard apply does
 like($index_source, qr/ajaxaction.*expert-reset|\$action eq "expert-reset"/s, "explicit expert reset AJAX action is available");
 like(
 	$index_source,
-	qr/\$control_action = \$activating_vzlogger && !\$replace_expert_runtime \? "activate-vzlogger" : "apply"/,
-	"reactivation regenerates standard configuration when the disabled Expert draft is still active",
+	qr/apply_vzlogger_result\(\$activating_vzlogger, \$enabled_before_save\)/,
+	"reactivation uses the normal apply path",
 );
 
 open(my $template_fh, "<", "$FindBin::Bin/../templates/settings.html") or die $!;

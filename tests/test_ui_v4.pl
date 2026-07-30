@@ -18,9 +18,7 @@ sub read_file
 
 my %sources = map { $_ => read_file($_) } qw(
 	templates/settings.html
-	templates/multi/main.html
 	webfrontend/htmlauth/index.cgi
-	webfrontend/htmlauth/index_legacy.cgi
 	webfrontend/htmlauth/smartmeter-ui.js
 	webfrontend/htmlauth/smartmeter-v4.css
 	webfrontend/htmlauth/smartmeter-vzlogger.css
@@ -31,7 +29,7 @@ my %sources = map { $_ => read_file($_) } qw(
 	webfrontend/htmlauth/vzlogger_live.js
 );
 
-foreach my $template (qw(templates/settings.html templates/multi/main.html)) {
+foreach my $template (qw(templates/settings.html)) {
 	my $source = $sources{$template};
 	unlike($source, qr/\bdata-(?:role|mini|inline|icon|native-menu|collapsed|ajax|theme|transition|rel)=/i, "$template contains no jQuery Mobile attributes");
 	unlike($source, qr/\bui-(?:btn|select|input|flipswitch|collapsible|disabled|navbar|mini)\b/i, "$template contains no jQuery Mobile classes");
@@ -39,11 +37,10 @@ foreach my $template (qw(templates/settings.html templates/multi/main.html)) {
 	like($source, qr/smartmeter-v4\.css/, "$template loads the shared V4 stylesheet");
 	like($source, qr/smartmeter-ui\.js/, "$template loads the shared V4 behavior");
 	like($source, qr/\blb-content\b/, "$template uses the LoxBerry content layout");
-	like($source, qr/\blb-btn-group\b/, "$template uses LoxBerry button-group navigation");
 	like($source, qr/\blb-toggle\b/, "$template uses native LoxBerry toggles");
 }
 
-foreach my $cgi (qw(webfrontend/htmlauth/index.cgi webfrontend/htmlauth/index_legacy.cgi)) {
+foreach my $cgi (qw(webfrontend/htmlauth/index.cgi)) {
 	like($sources{$cgi}, qr/LoxBerry::Web::lbheader\s*\([^;]*["']nojqm["']/s, "$cgi explicitly disables jQuery Mobile");
 }
 like($sources{'webfrontend/htmlauth/index.cgi'}, qr/my \$asset_version = "\$version-\$asset_mtime"/, "settings assets combine the plugin version with their newest modification time");
@@ -69,16 +66,11 @@ for my $key (qw(CHANNEL_SOURCE CHANNEL_API_TARGET CHANNEL_API_NONE CHANNEL_BRIDG
 }
 like($vzlogger, qr/<option value="null">'\+html_text\(channel_labels\.apiNoneOption\)\+'<\/option>/, "null API option uses its explanatory label without changing the submitted value");
 
-for my $field (qw(implementation read sendudp)) {
+for my $field (qw(vzlogger_enabled bridge_enabled sendudp)) {
 	like($vzlogger, qr/id="${field}_value"\s+name="$field"/, "vzLogger preserves submitted $field field name");
 	like($vzlogger, qr/id="$field"\s+class="smartmeter-toggle-input"/, "vzLogger preserves visible $field toggle id");
 }
-
-my $legacy = $sources{'templates/multi/main.html'};
-for my $field (qw(implementation read sendudp sendmqtt sendhtml)) {
-	like($legacy, qr/id="${field}_value"\s+name="$field"/, "Legacy preserves submitted $field field name");
-	like($legacy, qr/id="$field"\s+class="smartmeter-toggle-input"/, "Legacy preserves visible $field toggle id");
-}
+like($vzlogger, qr/<label for="bridge_enabled">/, "bridge desired-state label targets the visible switch");
 
 my $shared = $sources{'webfrontend/htmlauth/smartmeter-ui.js'};
 for my $helper (qw(smartmeterToggleValue smartmeterSetToggleValue smartmeterSyncToggle smartmeterSetToggleDisabled smartmeterSetLinkDisabled)) {
@@ -91,10 +83,7 @@ like($shared, qr/\bpi-save\b/, "shared UI applies PrimeIcons to primary actions"
 my $styles = $sources{'webfrontend/htmlauth/smartmeter-v4.css'} . $sources{'webfrontend/htmlauth/smartmeter-vzlogger.css'} . $sources{'webfrontend/htmlauth/smartmeter-settings.css'};
 like($styles, qr/\.recovery-loxone-fields\s*\{[^}]*grid-template-columns/s, "Loxone copy-and-paste fields use a responsive grid");
 like($styles, qr/recovery-settings-panel \.service-controls > \.lb-btn\s*\{[^}]*width:\s*100%[^}]*white-space:\s*normal/s, "recovery actions fit and wrap in compact mobile controls");
-like($styles, qr/implementation-tabs \.lb-btn-active/, "active implementation tab has an explicit V4 state");
-like($styles, qr/implementation-tabs\s*\{[^}]*border:\s*0\s*!important/s, "implementation tab group has no redundant outer border");
-like($styles, qr/implementation-tabs \.lb-btn\s*\{[^}]*margin:\s*0\s*!important/s, "implementation tabs do not retain framework margins that clip the last border");
-like($styles, qr/implementation-tabs \.lb-btn\s*\{[^}]*border:\s*1px\s+solid/s, "each implementation tab retains its complete individual border");
+unlike($styles . $vzlogger, qr/implementation-tabs|index_legacy/, "single-implementation UI contains no implementation tabs or Legacy links");
 like($styles, qr/input:checked \+ \.lb-toggle-slider::before/, "toggle knob has an explicit checked position");
 like($styles, qr/details\.lb-collapsible\[open\] > summary/, "open collapsible headers have a distinct state");
 unlike($vzlogger . $shared, qr/\blb-btn-danger\b/, "removal actions use a restrained secondary style");
@@ -142,16 +131,14 @@ my $help = read_file("webfrontend/htmlauth/help.cgi");
 like($help, qr/LoxBerry::Web::lbheader\s*\([^;]*["']nojqm["']/s, "local help uses the V4 header without jQuery Mobile");
 like($help, qr/templates?\/plugins|lbptemplatedir/, "local help uses the installed plugin template");
 my $help_template = read_file("templates/multi/help.html");
-like($help_template, qr/\bHELP\.IMPLEMENTATIONS_TITLE\b/, "local help is language-resource driven");
+like($help_template, qr/\bHELP\.VZLOGGER_TITLE\b/, "local help is language-resource driven");
 like($help_template, qr/MANUAL_URL/, "local help receives a version-bound manual URL");
 unlike($help_template, qr/(?:tree|blob)\/master\/docs/, "local help does not hard-code development documentation");
 like($help, qr/Smartmeter-V\$version.*User-Guide\.\$language\.md/s, "local help builds a language-specific release-tag URL");
 
-my $legacy_settings = read_file("templates/multi/main.html");
-like($legacy_settings, qr/name="udpport".*?data-validation-allowing="range\[1;65535\]"/s, "Legacy UDP accepts the complete port range");
 like($vzlogger, qr/name="vzlogger_localport".*?data-validation-allowing="range\[1;65535\]"/s, "local vzLogger HTTP accepts the complete port range");
 like($vzlogger, qr/name="udpport".*?data-validation-allowing="range\[1;65535\]"/s, "bridge UDP accepts the complete port range");
-unlike($legacy_settings . $vzlogger, qr/data-validation-allowing="range\[1;(?:65000|65534)\]"/, "port controls have no outdated upper browser limit");
+unlike($vzlogger, qr/data-validation-allowing="range\[1;(?:65000|65534)\]"/, "port controls have no outdated upper browser limit");
 like($vzlogger, qr/id="vzlogger_mqttqos".*?<option value="0">0<\/option><option value="1">1<\/option>/s, "standard MQTT QoS offers only 0 and 1");
 unlike($vzlogger, qr/id="vzlogger_mqttqos"(?:(?!<\/select>).)*<option value="2">/s, "standard MQTT QoS does not offer 2");
 

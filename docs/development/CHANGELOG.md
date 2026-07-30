@@ -4,6 +4,17 @@ This file records implementation detail that is intentionally omitted from user-
 
 ## Unreleased
 
+## 2.1.0.0 - 2026-07-30
+
+- Removed the complete Legacy runtime, CGI/template surface, translation namespace, cron payload, mode switching, bidirectional migration, parser stack, and Legacy-only regression tests.
+- Replaced `MAIN.IMPLEMENTATION` and `MAIN.READ` with `VZLOGGER.ENABLED` and `VZLOGGER.BRIDGEENABLED`; retained stable channel UUIDs, output keys, recovery targets, HTTP cache, MQTT, UDP, and Expert Mode.
+- Added a pre-file-replacement Legacy upgrade guard, atomic migration for allowed vzLogger/inactive upgrades, and idempotent cleanup of obsolete configuration values, installed files, runtime artifacts, and cron links.
+- Simplified Apply and manual service control around persistent desired states, including accepted meterless stopped state and activation rollback on failure.
+- Reduced the UI, localization, documentation, requirements, lifecycle contracts, and verification matrix to the single vzLogger implementation.
+- Clear a retained systemd failure state for the removed bridge unit during uninstall so a later fresh installation starts from a fully inactive service state.
+
+## 2.0.1.0 - 2026-07-29
+
 - Keep the root-owned privileged-helper directory traversable on a fresh installation so the unprivileged runtime can verify the exact sudoers-approved service helpers before Save/Apply invokes them.
 - Clarify development-versus-release documentation, tested support claims, standard and Legacy MQTT topics, HTTP-cache versus UDP data flow, meter-template evidence, LoxBerry log-retention provenance, and actual plugin-folder paths; serialize all top-level configuration, lifecycle, discovery, recovery, and service-state mutations through one verified non-blocking lock; keep recovery actions inside the 320-pixel mobile viewport; and validate channel metadata when the GitHub release asset is published.
 - Reorganize documentation by audience, assign stable identifiers to normative developer requirements, separate compatibility limitations from the maintainer evidence backlog, clarify stable versus prerelease metadata, and remove the completed vzLogger migration plan.

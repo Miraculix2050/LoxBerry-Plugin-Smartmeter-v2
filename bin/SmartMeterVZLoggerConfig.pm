@@ -5,7 +5,7 @@ use warnings;
 use Exporter qw(import);
 use JSON::PP;
 
-our @EXPORT_OK = qw(validate_legacy_general read_mqtt_settings read_webserver_settings clean_boolean clean_number clean_qos sanitize_topic protocol_for_meter normalized_meter_mode serial_mode implementation_mode set_implementation_mode);
+our @EXPORT_OK = qw(read_mqtt_settings read_webserver_settings clean_boolean clean_number clean_qos sanitize_topic protocol_for_meter normalized_meter_mode vzlogger_enabled set_vzlogger_enabled);
 
 sub clean_boolean
 {
@@ -15,21 +15,19 @@ sub clean_boolean
 	return $fallback ? 1 : 0;
 }
 
-sub implementation_mode
+sub vzlogger_enabled
 {
 	my ($plugin_cfg) = @_;
-	return "legacy" if (!$plugin_cfg);
-	my $mode = $plugin_cfg->param("MAIN.IMPLEMENTATION") || "";
-	return $mode if ($mode =~ /\A(?:none|legacy|vzlogger)\z/);
-	return (($plugin_cfg->param("MAIN.READ") || "0") eq "1") ? "legacy" : "vzlogger";
+	return 0 if (!$plugin_cfg);
+	return clean_boolean($plugin_cfg->param("VZLOGGER.ENABLED"), 0);
 }
 
-sub set_implementation_mode
+sub set_vzlogger_enabled
 {
-	my ($plugin_cfg, $mode) = @_;
-	die "Invalid SmartMeter implementation mode.\n" if (!$plugin_cfg || !defined($mode) || $mode !~ /\A(?:legacy|vzlogger|none)\z/);
-	$plugin_cfg->param("MAIN.IMPLEMENTATION", $mode);
-	return $mode;
+	my ($plugin_cfg, $enabled) = @_;
+	die "Invalid vzLogger activation state.\n" if (!$plugin_cfg || !defined($enabled) || $enabled !~ /\A[01]\z/);
+	$plugin_cfg->param("VZLOGGER.ENABLED", $enabled);
+	return int($enabled);
 }
 
 sub protocol_for_meter
@@ -49,16 +47,6 @@ sub normalized_meter_mode
 	return $meter if ($meter =~ /\A(?:0|sml|d0|oms|user)\z/);
 	return protocol_for_meter($manual_protocol) || "user" if ($meter eq "manual");
 	return protocol_for_meter($meter) || "user";
-}
-
-sub serial_mode
-{
-	my ($databits, $parity, $stopbits) = @_;
-	$databits ||= 7;
-	$parity ||= "even";
-	$stopbits ||= 1;
-	my $parity_char = lc($parity) eq "even" ? "E" : lc($parity) eq "odd" ? "O" : "N";
-	return "$databits$parity_char$stopbits";
 }
 
 sub read_mqtt_settings
@@ -150,46 +138,6 @@ sub sanitize_topic
 	$topic =~ s{^/+|/+$}{}g;
 	$topic =~ s/[#+]//g;
 	return $topic || "smartmeter";
-}
-
-sub validate_legacy_general
-{
-	my ($values, $meter_ids) = @_;
-	$values = {} if (ref($values) ne "HASH");
-	$meter_ids = {} if (ref($meter_ids) ne "HASH");
-	my @errors;
-	push @errors, "IMPLEMENTATION" if (($values->{implementation} || "") !~ /\A(?:none|legacy)\z/);
-	foreach my $field (qw(read sendudp sendmqtt)) {
-		push @errors, uc($field) if (!defined($values->{$field}) || $values->{$field} !~ /\A[01]\z/);
-	}
-	push @errors, "CRON" if (!defined($values->{cron}) || $values->{cron} !~ /\A(?:M|1|3|5|10|15|30|60)\z/);
-	push @errors, "UDPPORT" if (!defined($values->{udpport}) || $values->{udpport} !~ /\A\d+\z/ || $values->{udpport} < 1 || $values->{udpport} > 65535);
-	my $topic = $values->{mqtttopic};
-	push @errors, "MQTTTOPIC" if (!defined($topic) || length($topic) < 1 || length($topic) > 256 || $topic =~ /[\x00-\x1f\x7f+#]/);
-	foreach my $meter (@{$values->{meters} || []}) {
-		next if (ref($meter) ne "HASH");
-		my $id = $meter->{meter};
-		push @errors, "METER[$meter->{serial}]" if (!defined($id) || ($id ne "0" && $id ne "manual" && !$meter_ids->{$id}));
-		if (defined($id) && $id eq "manual") {
-			push @errors, "PROTOCOL[$meter->{serial}]" if (!defined($meter->{protocol}) || $meter->{protocol} !~ /\A[A-Za-z0-9_.:-]+\z/);
-			foreach my $field (qw(startbaudrate baudrate)) {
-				push @errors, uc($field) . "[$meter->{serial}]" if (!_integer_range($meter->{$field}, 1, 4000000));
-			}
-			foreach my $field (qw(timeout delay)) {
-				push @errors, uc($field) . "[$meter->{serial}]" if (!_integer_range($meter->{$field}, 0, 3600));
-			}
-			push @errors, "DATABITS[$meter->{serial}]" if (!_integer_range($meter->{databits}, 5, 8));
-			push @errors, "STOPBITS[$meter->{serial}]" if (!_integer_range($meter->{stopbits}, 1, 2));
-			push @errors, "PARITY[$meter->{serial}]" if (!defined($meter->{parity}) || $meter->{parity} !~ /\A(?:none|even|odd)\z/i);
-		}
-	}
-	return @errors;
-}
-
-sub _integer_range
-{
-	my ($value, $minimum, $maximum) = @_;
-	return defined($value) && !ref($value) && $value =~ /\A\d+\z/ && $value >= $minimum && $value <= $maximum;
 }
 
 1;

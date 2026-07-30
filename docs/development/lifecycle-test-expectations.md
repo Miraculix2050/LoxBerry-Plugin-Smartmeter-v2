@@ -1,75 +1,45 @@
 # Plugin Lifecycle Test Expectations
 
 - **Audience:** Developers, testers, maintainers, and AI agents
-- **Status:** Current acceptance contract
+- **Status:** Current acceptance contract for 2.1.0.0
 - **Authority:** Normative lifecycle verification
-
-This document defines expected behavior for SmartMeter v2 plugin lifecycle operations. It is intentionally independent from a specific implementation plan and applies to fresh installation, installation over an existing version, and uninstall behavior.
-
-## Uninstall
-
-Precondition:
-
-- SmartMeter v2 is installed.
-
-Expected:
-
-- Uninstall completes successfully.
-- All plugin-owned folders and files are removed.
-- Plugin-owned services are stopped and removed.
-- The `vzlogger` package installed for SmartMeter v2 is removed.
-- The vzLogger apt source and keyring introduced by SmartMeter v2 are removed.
-- A pre-existing `vzlogger` package, apt source, or keyring without a plugin ownership marker is retained.
 
 ## Fresh Install
 
-Precondition:
+- Installation completes without requesting a reboot.
+- `VZLOGGER.ENABLED=1` and `VZLOGGER.BRIDGEENABLED=0` are stored.
+- No meter is configured, so vzLogger and the bridge remain stopped and no service override is installed.
+- Connected USB I/R heads are available below `/dev/serial/smartmeter/`.
+- Optional logs and debug logs are disabled.
 
-- No previous SmartMeter v2 plugin installation exists.
+## Upgrade From 2.0.1.0
 
-Expected:
+- `MAIN.IMPLEMENTATION=vzlogger` migrates to `VZLOGGER.ENABLED=1`.
+- `MAIN.IMPLEMENTATION=none` migrates to `VZLOGGER.ENABLED=0`.
+- `MAIN.READ` migrates to `VZLOGGER.BRIDGEENABLED`.
+- `MAIN.IMPLEMENTATION=legacy`, or a missing mode with `MAIN.READ=1`, aborts before files or configuration are changed and provides an actionable migration message.
+- Allowed upgrades remove `MAIN.IMPLEMENTATION`, `MAIN.READ`, `MAIN.CRON`, `MAIN.SENDMQTT`, every `LEGACY_*` value, old Legacy runtime files, and obsolete cron links.
+- Generated vzLogger configuration, channel UUIDs, output keys, Expert draft, bridge outputs, recovery settings, and user configuration remain intact.
+- Repeating the migration and cleanup produces the same result.
 
-- Installation completes successfully.
-- The active implementation is `vzlogger`.
-- Connected USB I/R heads are available below `/dev/serial/smartmeter/` before the first reboot.
-- Installation does not request a reboot.
-- The original LoxBerry 4.0.0 `LBPHTMLAUTH` environment name and a missing
-  `LBPSBIN` alias are handled without fixed installation-root paths; the
-  privileged helpers are installed root-owned in the derived plugin `sbin`.
-- The MQTT bridge is disabled.
-- All optional logs and debug logs are disabled.
+## Apply And Temporary Service Actions
 
-## Install Over Existing Version
-
-Precondition:
-
-- A previous SmartMeter v2 plugin installation exists.
-
-Expected:
-
-- Installation completes successfully.
-- The active implementation follows the previous configuration:
-  - previous `vzlogger` remains `vzlogger`;
-  - previous `legacy` remains `legacy`;
-  - previous `none` remains `none`.
-- An active Legacy configuration with the reboot polling interval is restored and receives one immediate reading without rebooting.
-
-## Implementation Switching
-
-Precondition:
-
-- A generated and valid plugin-owned `vzlogger.conf` exists.
-
-Expected:
-
-- Activating Legacy stops vzLogger but does not overwrite the generated configuration.
-- Deactivating either implementation without activating the other stops the corresponding runtime but does not regenerate `vzlogger.conf`.
-- Reactivating vzLogger validates and applies the existing generated configuration without migrating the current Legacy meter settings.
-- Legacy meter settings are migrated only when no valid generated vzLogger configuration exists.
-- Saving while vzLogger is already active remains an explicit request to regenerate and apply its configuration.
+- Enabled, valid, metered Apply generates, validates, atomically promotes, installs the override, and starts the requested services.
+- Disabled Apply stops and disables vzLogger and bridge and removes the override without deleting the last valid configuration.
+- Enabled meterless Apply is accepted but leaves both services stopped and removes the override.
+- Failed activation restores `VZLOGGER.ENABLED=0` and leaves both services stopped.
+- Bridge operation additionally requires `VZLOGGER.BRIDGEENABLED=1`, valid applied configuration, and a suitable MQTT source.
+- Start and Restart require a saved enabled and startable state. Stop is always available. These actions never change either persisted activation value.
 - Concurrent configuration or service actions are rejected without partial writes.
-- Failed generation, validation, promotion, override installation, or service restart returns a non-zero control result and preserves the last valid generated runtime files.
-- Runtime, log, generated configuration, and serial-device permissions use only the existing `loxberry` and `_vzlogger` identities and do not require world-writable modes.
-- Existing Legacy meter selection and manual serial settings are copied once into isolated `LEGACY_*` keys.
-- Saving and activating vzLogger does not change the isolated Legacy meter settings.
-- Reactivating Legacy restores the same selected preset or manual protocol and serial settings in both the UI and polling runtime.
+
+## Recovery
+
+- The POST-only recovery targets remain `vzlogger`, `bridge`, and `all`.
+- Recovery respects `VZLOGGER.ENABLED`, `VZLOGGER.BRIDGEENABLED`, applied configuration validity, and service dependencies.
+- It never starts an administratively disabled, optional-disabled, unconfigured, or manually stopped inactive unit.
+
+## Uninstall
+
+- Plugin-owned services, drop-ins, runtime/cache artifacts, udev rules, repository/key markers, and packages are removed.
+- Pre-existing packages, repositories, and keys without ownership markers are retained.
+- Any obsolete SmartMeter Legacy cron references left from older installations are removed safely.

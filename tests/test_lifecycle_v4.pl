@@ -68,11 +68,16 @@ foreach my $helper (qw(install_vzlogger_bridge_service.sh install_vzlogger_servi
 }
 
 my $uninstall = read_file("uninstall/uninstall");
+my $attributes = read_file(".gitattributes");
 unlike($uninstall, qr/\$5\b/, "uninstaller uses only the four documented arguments");
 like($uninstall, qr/\$LBPCONFIG\/\$PDIR/, "uninstaller resolves the ownership markers through LoxBerry V4 paths");
 like($uninstall, qr/vzlogger\.installed-by-plugin/, "uninstaller protects pre-existing vzLogger packages");
 like($uninstall, qr/repository-installed-by-plugin/, "uninstaller protects a pre-existing apt source");
 like($uninstall, qr/keyring-installed-by-plugin/, "uninstaller protects a pre-existing apt keyring");
+like($uninstall, qr/systemctl reset-failed "\$BRIDGE_SERVICE"/, "uninstaller clears a stale bridge failure state");
 like($uninstall, qr/\. "\$LOCK_HELPER".*?smartmeter_acquire_config_lock/s, "uninstaller acquires the shared configuration lock before cleanup");
+like($attributes, qr/^tools\/\s+export-ignore$/m, "release archives exclude developer tooling");
+like($attributes, qr/^\.github\/\s+export-ignore$/m, "release archives exclude CI configuration");
+like($attributes, qr/^tests\/\s+export-ignore$/m, "release archives exclude regression tests");
 
 done_testing();

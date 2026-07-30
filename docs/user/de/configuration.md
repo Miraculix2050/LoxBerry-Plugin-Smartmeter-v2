@@ -1,15 +1,13 @@
 # vzLogger konfigurieren
 
-## Modus wählen
-
-Die Tabs **Smartmeter Konfiguration (vzLogger)** und **Smartmeter Konfiguration (Legacy)** öffnen nur die jeweilige Seite. Sie wechseln nicht sofort die laufende Implementierung.
+## Gewünschten Dienstzustand festlegen
 
 1. Öffne die vzLogger-Seite.
 2. Schalte **Aktiv** ein.
 3. Konfiguriere mindestens ein aktives Meter.
 4. Übernimm den Zustand mit **Speichern und anwenden**.
 
-Ein grünes Häkchen im Tab kennzeichnet den gespeicherten aktiven Modus. Legacy und vzLogger laufen niemals gleichzeitig; beide dürfen inaktiv sein. Beim Aktivieren von vzLogger entfernt das Plugin die Legacy-Cronjobs. Ein gültiges vorhandenes `vzlogger.conf` bleibt beim Wechsel zu Legacy oder `none` erhalten und wird bei der späteren Reaktivierung wiederverwendet.
+Der Schalter speichert den gewünschten vzLogger-Zustand erst mit **Speichern und anwenden**. Start, Stopp und Neustart sind temporäre Dienstaktionen und ändern ihn nicht. Eine gültige vorhandene `vzlogger.conf` bleibt bei deaktiviertem vzLogger erhalten und wird bei der späteren Reaktivierung wiederverwendet.
 
 ## Lesekopf hinzufügen
 
@@ -29,7 +27,7 @@ Ein neuer Lesekopf bleibt bis zum Anwenden als **Neu / ungespeichert** markiert.
 
 Für SML und D0 steht **Aus Vorlage initialisieren** zur Verfügung. Eine Vorlage setzt nur die bekannten seriellen Ausgangswerte und bei D0 das Lese-Timeout. Name, Aktivierung, Gerät, Intervalle, Sequenzen und Kanäle bleiben erhalten.
 
-Vorlagen beruhen auf Projekterfahrung. Prüfe die Werte gegen die Dokumentation deines Zählers. Mit `limited` gekennzeichnete Vorlagen können Legacy-Sondersequenzen benötigen, die das Standardformular nicht abbildet.
+Vorlagen beruhen auf Projekterfahrung. Prüfe die Werte gegen die Dokumentation deines Zählers. Mit `limited` gekennzeichnete Vorlagen können Sequenzen benötigen, die das Standardformular nicht abbildet; verwende Custom JSONC, wenn vzLogger das erforderliche Verhalten unterstützt.
 
 ## Grundlegende Meter-Einstellungen
 
@@ -45,10 +43,10 @@ Leere optionale Felder werden nicht in `vzlogger.conf` geschrieben. Das Standard
 
 Wähle **Speichern und anwenden**, bevor du die OBIS-Suche startest. Die Aktion speichert die Formwerte, erzeugt und validiert die Konfiguration und stellt den gewünschten Dienstzustand her:
 
-- Ein aktiver vzLogger-Modus mit mindestens einem aktiven Meter installiert den Plugin-Override, aktiviert vzLogger und startet ihn neu.
+- Aktivierter vzLogger mit mindestens einem aktiven Meter installiert den Plugin-Override, aktiviert vzLogger und startet ihn neu.
 - Eine aktive Bridge wird installiert, aktiviert und gestartet.
 - Eine deaktivierte Bridge wird gestoppt und aus dem Autostart entfernt.
-- Ein inaktiver oder meterloser Modus stoppt vzLogger und Bridge und entfernt den Plugin-Override.
+- Eine deaktivierte oder meterlose Konfiguration stoppt vzLogger und Bridge und entfernt den Plugin-Override.
 
 Ein Fehler ersetzt niemals die letzte zusammengehörige gültige Laufzeitkonfiguration. Die eingegebenen Werte können zur Korrektur gespeichert bleiben.
 

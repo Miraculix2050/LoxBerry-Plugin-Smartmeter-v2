@@ -22,6 +22,18 @@ fi
 
 PCONFIG="$LBPCONFIG/$PDIR"
 BACKUP="$PTEMPPATH/smartmeter-upgrade"
+CONFIG_FILE="$PCONFIG/smartmeter.cfg"
+
+if [ -f "$CONFIG_FILE" ]; then
+	implementation=$(sed -n 's/^IMPLEMENTATION=//p' "$CONFIG_FILE" | tail -n 1)
+	read_enabled=$(sed -n 's/^READ=//p' "$CONFIG_FILE" | tail -n 1)
+	if [ "$implementation" = "legacy" ] || { [ -z "$implementation" ] && [ "$read_enabled" = "1" ]; }; then
+		echo "<ERROR> SmartMeter v2 2.1.0.0 no longer contains the Legacy implementation."
+		echo "<ERROR> Reinstall or keep 2.0.1.0, switch to vzLogger, and successfully use Save and apply before upgrading again."
+		echo "<ERROR> No plugin files or configuration were changed."
+		exit 3
+	fi
+fi
 
 echo "<INFO> Backing up persistent SmartMeter configuration."
 mkdir -p "$BACKUP/config"

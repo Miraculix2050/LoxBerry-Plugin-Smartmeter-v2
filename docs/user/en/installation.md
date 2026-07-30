@@ -27,7 +27,7 @@ Templates provide useful starting values, not a compatibility promise. See [Know
 5. Check the final success messages in the installation log. Generic LoxBerry warnings are not automatically plugin failures.
 6. Open SmartMeter v2. A reboot is normally unnecessary.
 
-A fresh installation selects vzLogger mode but has no configured meter, so vzLogger and the bridge initially remain stopped. The bridge is disabled; its prepared output defaults are MQTT timestamps on, HTTP cache off, and UDP off.
+A fresh installation enables the vzLogger desired state but has no configured meter, so vzLogger and the bridge initially remain stopped. The bridge is disabled; its prepared output defaults are MQTT timestamps on, HTTP cache off, and UDP off.
 
 If the installation log says that `udevadm` could not run, disconnect and reconnect the USB reading head. Reboot LoxBerry only if the device path is still missing afterwards.
 
@@ -35,14 +35,12 @@ If the installation log says that `udevadm` could not run, disconnect and reconn
 
 1. Open LoxBerry Plugin Management and start the offered SmartMeter v2 update, or install the official ZIP for the target version.
 2. Check the installation log when it finishes.
-3. Open both configuration pages and verify the active mode and service states.
-4. Open live data, or perform a manual Legacy reading.
+3. Open the configuration page and verify the saved desired states and current service states.
+4. Open live data and confirm current readings.
 
-An update preserves the saved `vzlogger`, `legacy`, or `none` mode, a valid generated vzLogger configuration, the expert draft, Legacy settings, and existing output selections. Older installations retain their previous bridge behavior: bridge MQTT initially remains off and HTTP cache remains on until you change them.
+Version 2.1.0.0 preserves a valid generated vzLogger configuration, channel UUIDs, output keys, the Expert draft, bridge outputs, and recovery settings. Previous `vzlogger` and `none` modes migrate to the matching enabled or disabled desired state; the previous bridge switch is migrated independently.
 
-No reboot is required. For the Legacy **At system startup** interval, one reading runs immediately after a successful update.
-
-No manual configuration migration is required when updating to 2.0.1.0. Version 2.0.1.0 is the final release containing Legacy; before a later upgrade to 2.1.0.0, switch to vzLogger and complete **Save/Apply** successfully.
+An upgrade is blocked before file replacement when Legacy is still active, including older installations inferred as active Legacy. Stay on or reinstall 2.0.1.0, activate vzLogger there, and complete **Save and apply** successfully before retrying 2.1.0.0. Inactive Legacy settings are removed during an allowed upgrade and are not retained as a backup. No reboot is required.
 
 ## Uninstall
 

@@ -17,7 +17,7 @@ my $meter = { channels => [
 ] };
 my ($ok, $error) = assign_custom_channel_uuids($meter, "reader-1", "smartmeter-v2", $dir);
 ok($ok, "initial custom UUID registry is created") or diag($error);
-is($meter->{channels}->[0]->{uuid}, stable_uuid("smartmeter-v2:reader-1:0:1-0:1.8.0"), "first migration retains legacy UUID algorithm");
+is($meter->{channels}->[0]->{uuid}, stable_uuid("smartmeter-v2:reader-1:0:1-0:1.8.0"), "first migration retains the historical UUID algorithm");
 my %uuid_for = map { $_->{identifier} => $_->{uuid} } @{$meter->{channels}};
 ok(-e registry_file($dir, "reader-1"), "versioned registry file exists");
 

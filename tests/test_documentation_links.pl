@@ -28,7 +28,7 @@ foreach my $file (sort @files) {
 	}
 }
 
-my @topics = qw(installation configuration outputs advanced legacy troubleshooting reference);
+my @topics = qw(installation configuration outputs advanced troubleshooting reference);
 foreach my $topic (@topics) {
 	my $de = "$root/docs/user/de/$topic.md";
 	my $en = "$root/docs/user/en/$topic.md";

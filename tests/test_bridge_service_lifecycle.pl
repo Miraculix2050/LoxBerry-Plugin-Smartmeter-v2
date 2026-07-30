@@ -41,18 +41,13 @@ like(
 );
 like(
 	$control,
-	qr/if\s*\(\$action eq "disable-vzlogger"\)\s*\{\s*my \$rc = stop_and_disable_bridge\(\);/s,
-	"switching away from vzLogger disables bridge autostart",
-);
-like(
-	$control,
-	qr/generated_meter_count\(\) == 0\)\s*\{\s*my \$stop_rc = stop_and_disable_bridge\(\);/s,
+	qr/generated_active_meter_count\(\) <= 0\)\s*\{\s*my \$stop_rc = stop_and_disable_bridge\(\);/s,
 	"applying a meterless configuration disables bridge autostart",
 );
 like(
 	$control,
-	qr/if\s*\(!vzlogger_mode_enabled\(\)\)\s*\{\s*my \$rc = stop_and_disable_bridge\(\);/s,
-	"applying an inactive implementation disables bridge autostart",
+	qr/if\s*\(!vzlogger_service_enabled\(\)\)\s*\{\s*my \$rc = stop_and_disable_bridge\(\);/s,
+	"applying a disabled desired state disables bridge autostart",
 );
 like(
 	$control,

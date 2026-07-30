@@ -1,17 +1,17 @@
 <div class="lb-content">
-	<h2><TMPL_VAR NAME=LEGACY.LOGFILETABLEROWS_TITLE></h2>
+	<h2><TMPL_VAR NAME=HELP.LOGS_TITLE></h2>
 	<TMPL_VAR LOGLIST>
 
-	<h3><TMPL_VAR NAME=LEGACY.RUNTIME_LOGS_TITLE></h3>
-	<TMPL_IF HAS_LEGACY_RUNTIME_LOGS>
+	<h3><TMPL_VAR NAME=HELP.RUNTIME_LOGS_TITLE></h3>
+	<TMPL_IF HAS_RUNTIME_LOGS>
 	<table class="lb-table">
 		<thead>
 			<tr>
-				<th><TMPL_VAR NAME=LEGACY.LOGFILETABLEROWS_LABEL></th>
+				<th><TMPL_VAR NAME=HELP.LOGFILE_LABEL></th>
 			</tr>
 		</thead>
 		<tbody>
-		<TMPL_LOOP LEGACY_RUNTIME_LOGS>
+		<TMPL_LOOP RUNTIME_LOGS>
 			<tr>
 				<td><a href="<TMPL_VAR URL ESCAPE=HTML>" target="_blank" rel="noopener"><TMPL_VAR NAME ESCAPE=HTML></a></td>
 			</tr>
@@ -19,6 +19,6 @@
 		</tbody>
 	</table>
 	<TMPL_ELSE>
-	<p><TMPL_VAR NAME=LEGACY.RUNTIME_LOGS_EMPTY></p>
+	<p><TMPL_VAR NAME=HELP.RUNTIME_LOGS_EMPTY></p>
 	</TMPL_IF>
 </div>

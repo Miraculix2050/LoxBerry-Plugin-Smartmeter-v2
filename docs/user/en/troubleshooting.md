@@ -27,9 +27,9 @@ Discovery runs in the background. Wait for completion and open the result again.
 ## Save and apply fails
 
 - **Invalid configuration:** Correct the highlighted field. Ports may be `1–65535`; QoS may only be `0` or `1`.
-- **Action already running:** Wait for discovery, apply, or mode switching to finish. A shared lock protects changes.
+- **Action already running:** Wait for discovery, apply, or a service action to finish. A shared lock protects changes.
 - **Timeout or sudo error:** Open **Logs**, find the related action, and do not repeat it continuously.
-- **Service remains stopped:** At least one active meter and a valid configuration are required. Apply deliberately stops services when the mode is inactive or no meter exists.
+- **Service remains stopped:** Saved activation, at least one active meter, and a valid configuration are required. Apply deliberately stops services when vzLogger is disabled or no meter exists.
 
 ## vzLogger or bridge is not running
 
@@ -63,8 +63,8 @@ The draft must contain valid JSONC and satisfy the complete schema. Check the di
 
 The recovery endpoint accepts only `POST` with the displayed token. It starts only a configured, active or recoverable service and does not install or enable units. Check method, token header, empty body, and target path. Never send the token across the public Internet.
 
-## Legacy polling returns no values
+## Upgrade to 2.1.0.0 is blocked
 
-Check schedule, protocol, and reading head. **Read now** performs one poll; the log view shows its result. Legacy and vzLogger never run at the same time. Switching to Legacy stops vzLogger and the bridge in a controlled way.
+The upgrade stops before replacing files when Legacy is still active or an older configuration is recognized as active Legacy. Stay on or reinstall 2.0.1.0, activate vzLogger, and complete **Save and apply** successfully. Then retry the upgrade.
 
 If the issue remains, save the relevant log message without passwords or keys and include the plugin version, LoxBerry version, meter model, reading head, and selected protocol in a support request.

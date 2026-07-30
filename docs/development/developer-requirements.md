@@ -29,24 +29,24 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 
 ## 1. Product Architecture
 
-- **SM-ARCH-001** — vzLogger is the standard implementation and is installed as an external apt package; it must not be bundled with the plugin.
+- **SM-ARCH-001** — vzLogger is the only meter-reading implementation and is installed as an external apt package; it must not be bundled with the plugin.
 - **SM-ARCH-002** — vzLogger reads meters and publishes MQTT. The SmartMeter bridge consumes MQTT and provides the plugin HTTP cache and optional UDP output. The bridge must not read serial devices directly.
-- **SM-ARCH-003** — Legacy remains an independent, reversible fallback. Legacy and vzLogger must never run simultaneously; both may be inactive.
-- **SM-ARCH-004** — Switching configuration tabs must not switch the active implementation. Activation changes take effect only after an explicit save/apply action.
+- **SM-ARCH-003** — `VZLOGGER.ENABLED` is the persistent desired state. Manual Start, Stop, and Restart are temporary runtime actions and must not change it.
+- **SM-ARCH-004** — The UI exposes one configuration page. Activation changes take effect only after an explicit Save/Apply action.
 - **SM-ARCH-005** — The existing LoxBerry plugin identity fields (`AUTHOR`, `PLUGIN.NAME`, and `PLUGIN.FOLDER`) are stable update identifiers and must not change.
 
 ## 2. Compatibility And Mode Switching
 
 - **SM-COMP-001** — Existing `smartmeter.cfg`, MQTT topic structure, HTTP-cache keys, UDP value names, custom JSONC files, and generated-config locations are compatibility contracts. Change them only with an explicit migration and documented upgrade path.
-- **SM-COMP-002** — A valid generated `vzlogger.conf` must survive Legacy activation, a fully inactive state, upgrades, and later vzLogger reactivation. Reactivation validates and reuses it; Legacy settings are migrated only when no valid generated configuration exists.
-- **SM-COMP-003** — Legacy meter settings remain isolated in `LEGACY_*` values. Saving vzLogger must not alter the selected Legacy preset or manual serial settings.
+- **SM-COMP-002** — A valid generated `vzlogger.conf` must survive a disabled desired state, upgrades, and later vzLogger reactivation. Reactivation validates and reuses it.
+- **SM-COMP-003** — Existing 2.0.1 vzLogger channel definitions, stable UUIDs, and configured output keys remain compatible. Obsolete `legacy_keys` and `legacy_names` fields are removed during configuration cleanup and are not runtime aliases.
 - **SM-COMP-004** — Ordinary read-only page loads must not rewrite configuration files, cron entries, or services.
 - **SM-COMP-005** — Meter or channel removal is staged in the browser and becomes persistent only on Save/Apply. Applying a meter removal also removes only that meter's owned sidecars, mappings, discovery/test artifacts, logs, and runtime cache.
 
 ## 3. Save, Apply, And Service Safety
 
-- **SM-SAFE-001** — Every top-level action that changes persistent configuration, implementation mode, drafts, mappings, generated runtime artifacts, recovery settings, discovery state, cron entries, systemd units, autostart, or final service state uses the same non-blocking exclusive lock at `/var/run/shm/<actual-plugin-folder>/vzlogger_config.lock`. Mutating CGI, CLI, Legacy administration, service control, recovery control, and lifecycle entry points are included. A nested helper reuses only a verified inherited descriptor for that lock. Status, non-mutating validation and diagnostics, normal meter polling, MQTT/HTTP/UDP output, cache writes, log writes, and internal helpers coordinated by an already locked parent do not acquire it. Legacy polling keeps its separate fetch lock. A busy top-level action is rejected with an actionable message and no state change.
-- **SM-SAFE-002** — Every mutating vzLogger CGI action requires POST and a valid HMAC-based CSRF token bound to the authenticated LoxBerry user. The runtime-only CSRF secret rotates when the RAM-backed runtime directory is cleared. Legacy web behavior remains frozen and is not covered by this modern CGI contract.
+- **SM-SAFE-001** — Every top-level action that changes persistent configuration, desired service state, drafts, mappings, generated runtime artifacts, recovery settings, discovery state, systemd units, autostart, or final service state uses the same non-blocking exclusive lock at `/var/run/shm/<actual-plugin-folder>/vzlogger_config.lock`. Mutating CGI, CLI, service control, recovery control, and lifecycle entry points are included. A nested helper reuses only a verified inherited descriptor for that lock. Status, non-mutating validation and diagnostics, MQTT/HTTP/UDP output, cache writes, log writes, and internal helpers coordinated by an already locked parent do not acquire it. A busy top-level action is rejected with an actionable message and no state change.
+- **SM-SAFE-002** — Every mutating CGI action requires POST and a valid HMAC-based CSRF token bound to the authenticated LoxBerry user. The runtime-only CSRF secret rotates when the RAM-backed runtime directory is cleared.
 - **SM-SAFE-003** — Generated runtime artifacts are created in a protected staging directory on the same filesystem, validated as one coherent set, and then promoted atomically with backups. Any promotion failure must roll back the complete set and preserve the last valid runtime configuration.
 - **SM-SAFE-004** — Submitted user settings may remain saved after a failed Apply so they can be corrected; invalid generated runtime files must never replace the active valid set.
 - **SM-SAFE-005** — Validate Config is non-mutating: it uses a temporary draft and must not change saved settings, generated files, custom meter sources, cron, or services.
@@ -55,24 +55,17 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 - **SM-SAFE-008** — The optional Loxone recovery endpoint is POST-only and token-authenticated. It may restart an active expected unit or recover an enabled failed unit, but it must never start an inactive, administratively disabled, unconfigured, or optional-disabled unit. Recovery must not install or enable units.
 - **SM-SAFE-009** — Service controls and lifecycle hooks must report the observed final service state, not only a successful command invocation.
 
-## 4. Legacy Contract And Validation
+## 4. Removed Legacy Contract
 
-- **SM-LEG-001** — Legacy readers, parsers, and `sm_logger.pl` remain functionally frozen through the final Legacy release 2.0.1.0 and are planned for removal in 2.1.0.0. Do not add Legacy features or perform an object-oriented rewrite; make only compatibility, validation, security, or critical defect fixes on the protected Legacy maintenance line.
-- **SM-LEG-002** — A Legacy save is atomic: if any general value is invalid, reject the complete save before changing configuration, cron, or services, and identify the affected fields in German and English.
-- **SM-LEG-003** — General Legacy inputs use these exact constraints:
-  - `IMPLEMENTATION`: `none|legacy`
-  - `READ`, `SENDUDP`, `SENDMQTT`: `0|1`
-  - `CRON`: `M|1|3|5|10|15|30|60`
-  - `UDPPORT`: `1..65535`
-  - `MQTTTOPIC`: 1–256 characters, without control characters or MQTT wildcards `+` and `#`
-  - meter selection: `0`, `manual`, or an installed template ID
-  - manual baud rates: `1..4000000`; timeout/delay: `0..3600`; data bits: `5..8`; stop bits: `1..2`; parity: `none|even|odd`
+- **SM-LEG-001** — SmartMeter v2 2.1.0.0 contains no executable Legacy reader, parser, poller, cron helper, CGI, template, localization namespace, mode switch, or data-transfer path. The immutable `Smartmeter-V2.0.1.0` tag and protected `legacy-2.0` branch retain the final Legacy implementation.
+- **SM-LEG-004** — Upgrade must abort before file replacement when `MAIN.IMPLEMENTATION=legacy`, or when an older configuration has no implementation value and `MAIN.READ=1`. The message directs users to activate vzLogger and successfully Save/Apply under 2.0.1.0.
+- **SM-LEG-005** — Allowed upgrades atomically migrate `vzlogger` to `VZLOGGER.ENABLED=1`, `none` to `VZLOGGER.ENABLED=0`, and `MAIN.READ` to `VZLOGGER.BRIDGEENABLED`, then remove all mode, cron, Legacy MQTT, and `LEGACY_*` values plus narrowly identified installed Legacy artifacts.
 
 ## 5. Meter And Channel Model
 
-- **SM-MODEL-001** — Legacy and vzLogger use one neutral meter-template catalog. Maintain meter models and serial defaults once. The historically grown entries record project best practices and experience, not complete representative-hardware support. SML uses the operating/read baud rate; D0 retains separate initial and read baud rates.
+- **SM-MODEL-001** — vzLogger uses one neutral meter-template catalog. Maintain meter models and serial defaults once. The historically grown entries record project best practices and experience, not complete representative-hardware support. SML uses the operating/read baud rate; D0 retains separate initial and read baud rates.
 - **SM-MODEL-002** — The standard editor supports SML, D0, and OMS. Protocol-specific fields must not leak into generated objects for another protocol. Unsupported behavior must be reported rather than silently approximated.
-- **SM-MODEL-003** — Active vzLogger mode requires at least one active meter. A meter without channels may remain valid for discovery with a warning; a configuration without meters is valid only as a disabled state and must stop vzLogger/bridge and remove the plugin override.
+- **SM-MODEL-003** — vzLogger runs only when `VZLOGGER.ENABLED=1`, at least one meter is active, and the generated configuration is valid. A meter without channels may remain valid for discovery with a warning. An enabled configuration without meters is an accepted stopped state and removes the plugin override.
 - **SM-MODEL-004** — OBIS discovery uses the reader's current browser settings, runs independently of the page request, survives navigation/reload, supports cancellation, and restores the regular vzLogger service afterwards. Discovered identifiers remain available for user selection; a restoration warning must not discard successful discovery results.
 - **SM-MODEL-005** — Custom JSONC represents exactly one complete vzLogger meter object, is limited to 64 KiB, and is preserved textually including comments and formatting. Generation may supply missing channel UUID/API values internally but must not rewrite the source JSONC.
 - **SM-MODEL-006** — `vzlogger_channel_definitions.json` is the authoritative UI model for active and inactive channel definitions. `vzlogger_channels.json` contains only active plugin outputs used by the bridge.
@@ -118,8 +111,8 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 
 ## 9. Lifecycle And Ownership Boundaries
 
-- **SM-LIFE-001** — Fresh installation defaults to vzLogger mode, with the bridge and optional debug logs disabled. Installation over an existing version preserves the previous `vzlogger`, `legacy`, or `none` mode.
-- **SM-LIFE-002** — Applying vzLogger removes Legacy polling cron entries. Applying an enabled Legacy mode stops vzLogger/bridge and restores the configured polling cron. Upgrade success includes removing stale cron entries before restoring the intended polling state.
+- **SM-LIFE-001** — Fresh installation sets `VZLOGGER.ENABLED=1` and `VZLOGGER.BRIDGEENABLED=0`. With no configured meter, both services remain stopped. Allowed upgrades preserve the corresponding previous vzLogger or inactive desired state.
+- **SM-LIFE-002** — Apply starts configured services only when their desired states and dependencies are satisfied. Disabled or meterless Apply stops services and removes the vzLogger override without deleting the last valid generated configuration. Upgrade and uninstall remove obsolete Legacy cron references.
 - **SM-LIFE-003** — The plugin-managed systemd drop-in points vzLogger to the plugin-owned configuration. Never overwrite an unrelated `/etc/vzlogger.conf`.
 - **SM-LIFE-004** — Uninstall removes plugin-owned services, drop-ins, runtime/cache artifacts, udev rules, apt source/key, and only packages proven by an ownership marker to have been introduced by the plugin.
 - **SM-LIFE-005** — Broader platform or meter support must not be claimed without matching target-system or representative-hardware evidence. `LB_MINIMUM` and architecture metadata are installation gates, not test evidence. The latest confirmed platform remains in `../support-matrix.md`; current limitations remain in `../known-limitations.md`. Coding rules and review may support an expectation of portability but must not be described as device-tested support.
@@ -129,7 +122,7 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 
 - **SM-UI-001** — Desktop and mobile browsers provide the same functions and information. Follow the responsive viewport and acceptance requirements in `../../AGENTS.md` and `test-device-workflow.md`.
 - **SM-UI-002** — German and English UI phrases, templates, validation messages, and user documentation must remain synchronized. Exercise the longer German labels during responsive testing.
-- **SM-UI-003** — Current plugin UI translations live only in LoxBerry's native `templates/lang/language_de.ini` and `language_en.ini` resources, separated into shared, vzLogger, and Legacy namespaces. Do not restore duplicate `language.txt` trees or custom language loaders.
+- **SM-UI-003** — Current plugin UI translations live only in LoxBerry's native `templates/lang/language_de.ini` and `language_en.ini` resources, separated into shared and vzLogger namespaces. Do not restore duplicate `language.txt` trees or custom language loaders.
 - **SM-UI-004** — Localize only plugin-authored text written for users in the browser, including the explanatory part of browser validation and action messages. Do not localize established technical terms, product or project names, protocol and format identifiers, commands, paths, configuration keys, API values, systemd states, or comparable machine-relevant identifiers.
 - **SM-UI-005** — Keep technical CLI output, logs, and unmodified diagnostics from the operating system, systemd, or external programs in English. This keeps operation, troubleshooting, and automated evaluation language-independent; a localized UI may add a translated explanation without rewriting the technical detail.
 - **SM-UI-006** — Disabled controls preserve their values and visually disable the associated label/help region. Unsaved state must be visible where activation, meter, template, or channel state has changed.
@@ -144,7 +137,7 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 
 - **SM-VER-001** — Regression tests belong under `tests/`, must be deterministic and reusable, and should test shared modules without requiring a live MQTT broker or production filesystem where possible.
 - **SM-VER-002** — Run the repository Perl/PHP/shell checks appropriate to changed files. Installed behavior must additionally be deployed and verified on the disposable LoxBerry according to `test-device-workflow.md`.
-- **SM-VER-003** — UI changes require authenticated Chrome and Firefox checks on both vzLogger and Legacy pages at `1280x800` and `390x844`; Chrome additionally covers `360x800` and `320x568` smoke checks. Verify keyboard reachability, overflow, clipping, relevant interactions, and browser-console errors. Lifecycle changes require the install/upgrade/uninstall evidence in `lifecycle-test-expectations.md`.
+- **SM-VER-003** — UI changes require authenticated Chrome and Firefox checks on the vzLogger page at `1280x800` and `390x844`; Chrome additionally covers `360x800` and `320x568` smoke checks. Verify keyboard reachability, overflow, clipping, relevant interactions, and browser-console errors. Lifecycle changes require the install/upgrade/uninstall evidence in `lifecycle-test-expectations.md`.
 - **SM-VER-004** — Preserve remote configuration and service state during tests. Verify checksums around failed, concurrent, or read-only actions.
 - **SM-VER-005** — Update both user guides and `CHANGELOG.md` when behavior, configuration, dependencies, compatibility, or upgrade steps change. Record confirmed limitations in `../known-limitations.md` rather than presenting them as supported.
 - **SM-VER-006** — Local packages and official releases follow `local-builds.md` and `release-process.md`; suffixless release archives are produced only by the GitHub release workflow.

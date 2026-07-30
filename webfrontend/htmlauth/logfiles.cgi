@@ -42,13 +42,13 @@ if (-d $runtime_dir && opendir(my $dir, $runtime_dir)) {
 
 $template->param(
 	LOGLIST => LoxBerry::Web::loglist_html(),
-	LEGACY_RUNTIME_LOGS => \@runtime_logs,
-	HAS_LEGACY_RUNTIME_LOGS => scalar(@runtime_logs) ? 1 : 0,
+	RUNTIME_LOGS => \@runtime_logs,
+	HAS_RUNTIME_LOGS => scalar(@runtime_logs) ? 1 : 0,
 );
 
 my $title = $L{'COMMON.PLUGIN_TITLE'} || "SmartMeter v2";
 LoxBerry::Web::lbheader(
-	"$title - " . ($L{'LEGACY.LOGFILETABLEROWS_TITLE'} || "Logs"),
+	"$title - " . ($L{'HELP.LOGS_TITLE'} || "Logs"),
 	$manual_url,
 	"",
 	"nojqm",

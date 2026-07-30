@@ -10,7 +10,7 @@ use JSON::PP;
 use Test::More;
 
 my $repo = "$FindBin::Bin/..";
-my @sections = qw(COMMON HELP VZLOGGER LEGACY);
+my @sections = qw(COMMON HELP VZLOGGER);
 
 sub slurp_utf8
 {
@@ -62,7 +62,7 @@ my $english = parse_language_file($english_path);
 my $german = parse_language_file($german_path);
 
 is_deeply([sort keys %$german], [sort keys %$english], "German and English resources have identical keys");
-ok(!grep(!/^(?:COMMON|HELP|VZLOGGER|LEGACY)\.[A-Z][A-Z0-9_]*$/, keys %$english), "only the documented sections and non-empty keys are used");
+ok(!grep(!/^(?:COMMON|HELP|VZLOGGER)\.[A-Z][A-Z0-9_]*$/, keys %$english), "only the documented sections and non-empty keys are used");
 is_deeply([sort grep { $german->{$_} eq "" } keys %$german], [], "German resources contain no empty values");
 is_deeply([sort grep { $english->{$_} eq "" } keys %$english], [], "English resources contain no empty values");
 my @placeholder_mismatches;
@@ -86,8 +86,8 @@ find(
 );
 foreach my $path (@template_paths) {
 	my $source = slurp_utf8($path);
-	unlike($source, qr/T::/, "$path contains no legacy T:: translation aliases");
-	$referenced{$1} = 1 while $source =~ /<TMPL_(?:VAR|IF|UNLESS)\b[^>]*?\b((?:COMMON|HELP|VZLOGGER|LEGACY)\.[A-Z][A-Z0-9_]*)\b/gi;
+	unlike($source, qr/T::/, "$path contains no obsolete T:: translation aliases");
+		$referenced{$1} = 1 while $source =~ /<TMPL_(?:VAR|IF|UNLESS)\b[^>]*?\b((?:COMMON|HELP|VZLOGGER)\.[A-Z][A-Z0-9_]*)\b/gi;
 }
 
 my @runtime_paths;
@@ -107,7 +107,7 @@ my $loader_count = 0;
 foreach my $path (@runtime_paths) {
 	my $source = slurp_utf8($path);
 	unlike($source, qr{load_plugin_language|T::|(?:en|de)/language\.txt|language\.dat}, "$path contains no obsolete language loader or alias");
-	$referenced{$3} = 1 while $source =~ /\$([A-Za-z_]\w*)\s*->\s*\{\s*(["'])((?:COMMON|HELP|VZLOGGER|LEGACY)\.[A-Z][A-Z0-9_]*)\2\s*\}/g;
+	$referenced{$2} = 1 while $source =~ /\$(?:L|phrases|[A-Za-z_]\w*phrases)\s*->\s*\{\s*(["'])((?:COMMON|HELP|VZLOGGER)\.[A-Z][A-Z0-9_]*)\1\s*\}/g;
 	$referenced{$2} = 1 while $source =~ /(["'])(VZLOGGER\.(?:EXPERT|CHANNEL)_VALID_[A-Z0-9_]+)\1/g;
 
 	my $readlanguage_count = () = $source =~ /LoxBerry::System::readlanguage\s*\(/g;
@@ -119,7 +119,7 @@ foreach my $path (@runtime_paths) {
 	my @language_hashes = $source =~ /%([A-Za-z_]\w*)\s*=\s*LoxBerry::System::readlanguage\s*\(/g;
 	foreach my $hash (@language_hashes) {
 		my $literal_accesses = 0;
-		while ($source =~ /\$\Q$hash\E\s*\{\s*(["'])((?:COMMON|HELP|VZLOGGER|LEGACY)\.[A-Z][A-Z0-9_]*)\1\s*\}/g) {
+		while ($source =~ /\$\Q$hash\E\s*\{\s*(["'])((?:COMMON|HELP|VZLOGGER)\.[A-Z][A-Z0-9_]*)\1\s*\}/g) {
 			$referenced{$2} = 1;
 			$literal_accesses++;
 		}
@@ -155,16 +155,13 @@ like($english->{'VZLOGGER.LOCAL_INDEX_HELP'}, qr/never.*Internet/i, "English loc
 like($german->{'VZLOGGER.LOCAL_INDEX_HELP'}, qr/niemals.*Internet/i, "German local-index help states the public-exposure prohibition");
 like($english->{'HELP.OBIS_TEXT'}, qr/background.*Save and apply/i, "English OBIS help distinguishes discovery persistence from Apply");
 like($german->{'HELP.OBIS_TEXT'}, qr/Hintergrund.*Speichern und anwenden/i, "German OBIS help distinguishes discovery persistence from Apply");
-like($english->{'LEGACY.FORMTABLE_UDP_PORT_VALIDATION'}, qr/65535/, "English Legacy port error documents the backend limit");
-like($german->{'LEGACY.FORMTABLE_UDP_PORT_VALIDATION'}, qr/65535/, "German Legacy port error documents the backend limit");
+ok(!grep(/^LEGACY\./, keys %$english), "English resources contain no Legacy section");
+ok(!grep(/^LEGACY\./, keys %$german), "German resources contain no Legacy section");
 
 my $live_cgi = slurp_utf8("$repo/webfrontend/htmlauth/vzlogger_live.cgi");
 unlike($live_cgi, qr/vzLogger Live-Daten|Daten werden geladen|Kanal-Metadaten konnten/, "live-data CGI contains no embedded German UI phrases");
 my $config_cgi = slurp_utf8("$repo/webfrontend/htmlauth/vzlogger_config.cgi");
 unlike($config_cgi, qr/HTTP_ACCEPT_LANGUAGE|\$german\b|Configuration saved|Konfiguration gespeichert/, "configuration CGI uses native resources instead of manual bilingual text");
-my $legacy_template = slurp_utf8("$repo/templates/multi/main.html");
-unlike($legacy_template, qr/>None<|>Odd<|>Even<|-Protocol\)/, "Legacy visible choices and protocol suffix are localized");
-
 my $meter_templates = JSON::PP->new->decode(slurp_utf8("$repo/templates/meter_templates.json"));
 my ($generic_sml) = grep { ($_->{id} || "") eq "genericsml" } @$meter_templates;
 is($generic_sml->{label_de}, "Allgemeines SML", "generic SML template has a German display label");

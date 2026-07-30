@@ -27,9 +27,9 @@ Die Suche läuft im Hintergrund. Warte auf ihren Abschluss und öffne das Ergebn
 ## Speichern und anwenden scheitert
 
 - **Konfiguration ungültig:** Korrigiere das markierte Feld. Ports dürfen `1–65535`, QoS nur `0` oder `1` sein.
-- **Aktion läuft bereits:** Warte, bis Suche, Apply oder Moduswechsel beendet ist. Änderungen werden durch eine gemeinsame Sperre geschützt.
+- **Aktion läuft bereits:** Warte, bis Suche, Apply oder eine Dienstaktion beendet ist. Änderungen werden durch eine gemeinsame Sperre geschützt.
 - **Zeitüberschreitung oder sudo-Fehler:** Öffne **Logs**, suche nach der zugehörigen Aktion und wiederhole sie nicht fortlaufend.
-- **Dienst bleibt gestoppt:** Mindestens ein aktives Meter und eine gültige Konfiguration sind nötig. Bei inaktivem Modus oder ohne Meter stoppt Apply die Dienste absichtlich.
+- **Dienst bleibt gestoppt:** Gespeicherte Aktivierung, mindestens ein aktives Meter und eine gültige Konfiguration sind nötig. Bei deaktiviertem vzLogger oder ohne Meter stoppt Apply die Dienste absichtlich.
 
 ## vzLogger oder Bridge läuft nicht
 
@@ -63,8 +63,8 @@ Der Entwurf muss gültiges JSONC enthalten und das vollständige Schema erfülle
 
 Der Recovery-Endpunkt akzeptiert nur `POST` mit dem angezeigten Token. Er startet nur einen konfigurierten, aktiven oder aktivierbaren Dienst und installiert oder aktiviert keine Units. Prüfe Methode, Token-Header, leeren Body und Zielpfad. Sende Token niemals über das öffentliche Internet.
 
-## Legacy-Abfrage liefert keine Werte
+## Upgrade auf 2.1.0.0 wird blockiert
 
-Prüfe Zeitplan, Protokoll und Lesekopf. **Jetzt auslesen** führt eine einzelne Abfrage aus; die Logansicht zeigt deren Ergebnis. Legacy und vzLogger laufen nie gleichzeitig. Beim Wechsel zu Legacy werden vzLogger und Bridge kontrolliert gestoppt.
+Das Upgrade stoppt vor dem Dateiaustausch, wenn Legacy noch aktiv ist oder eine ältere Konfiguration als aktives Legacy erkannt wird. Bleibe auf 2.0.1.0 oder installiere diese Version erneut, aktiviere vzLogger und führe **Speichern und anwenden** erfolgreich aus. Versuche danach das Upgrade erneut.
 
 Hilft das nicht, sichere die relevante Logmeldung ohne Passwörter oder Schlüssel und ergänze Pluginversion, LoxBerry-Version, Zählermodell, Lesekopf und gewähltes Protokoll bei einer Supportanfrage.

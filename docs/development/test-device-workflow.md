@@ -85,7 +85,7 @@ The deployment script normalizes uploaded Perl, CGI, module, and shell files to 
 
 Record the initial state before a destructive test:
 
-- Expert Mode and active implementation
+- Expert Mode and saved vzLogger/bridge activation
 - checksums of `vzlogger.conf`, `vzlogger_expert.conf`, and relevant plugin configuration
 - `vzlogger` and `smartmeter-v2-vzlogger-bridge` service states
 
@@ -108,7 +108,7 @@ The browser check complements target-side syntax checks; it is required when exe
 
 ### Desktop and mobile UI acceptance
 
-For UI, template, CSS, navigation, or user-facing text changes, test the installed vzLogger and Legacy pages at these CSS viewport sizes:
+For UI, template, CSS, navigation, or user-facing text changes, test the installed vzLogger page at these CSS viewport sizes:
 
 | Profile | Viewport | Required use |
 | --- | --- | --- |
@@ -117,7 +117,7 @@ For UI, template, CSS, navigation, or user-facing text changes, test the install
 | Mobile compact | `360x800` | Layout, navigation, forms, and long labels |
 | Mobile minimum | `320x568` | Graceful layout only; no clipped or unreachable plugin functions |
 
-Use an authenticated browser session and reach both pages through the visible implementation tabs so native LoxBerry V4 navigation and AJAX actions are exercised. At Desktop and Mobile primary sizes, check the initial render and every changed interaction, including relevant collapsibles, dialogs, validation, and action buttons. Use the compact and minimum sizes whenever layout, controls, navigation, or text lengths changed.
+Use an authenticated browser session and reach the page through the normal plugin navigation so native LoxBerry V4 navigation and AJAX actions are exercised. At Desktop and Mobile primary sizes, check the initial render and every changed interaction, including relevant collapsibles, dialogs, validation, and action buttons. Use the compact and minimum sizes whenever layout, controls, navigation, or text lengths changed.
 
 The minimum browser matrix is:
 
@@ -130,7 +130,7 @@ Acceptance requires:
 - identical available functions and information on desktop and mobile;
 - no plugin-caused horizontal page scrolling (`document.documentElement.scrollWidth <= document.documentElement.clientWidth`), excluding closed off-canvas LoxBerry side/help panels;
 - no clipped or overlapping labels, controls, status text, paths, identifiers, or URLs;
-- usable implementation tabs, navigation, forms, collapsibles, dialogs, and action buttons without zooming;
+- usable navigation, forms, collapsibles, dialogs, and action buttons without zooming;
 - safe wrapping or stacking of tables and multi-column form rows; and
 - successful rendering without HTTP 500 or browser-console errors introduced by the plugin.
 
