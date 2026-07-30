@@ -4,6 +4,29 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+## 2.0.1.1 - 2026-07-30
+
+SmartMeter v2 2.0.1.1 is a focused maintenance release for the frozen Legacy line.
+
+### Highlights
+
+- Preserve the inactive state when upgrading from historical releases such as 2.0.0.10: a configuration with meter reading disabled now remains inactive instead of being marked as vzLogger.
+- Keep active historical Legacy configurations mapped to Legacy, and leave explicit `legacy`, `vzlogger`, and `none` selections unchanged.
+- Prevent the immediate reading used by the Legacy reboot interval from blocking the final privileged upgrade steps.
+- Add regression coverage for historical, explicit, missing, and repeatedly migrated implementation states.
+
+### Upgrade notes
+
+- No manual configuration migration is required. Existing active Legacy, active vzLogger, and inactive installations retain their selected state.
+- Legacy remains functionally frozen. Migrate to vzLogger successfully before upgrading to SmartMeter v2 2.1.0.0 or later.
+
+### Known issues
+
+- Target-device evidence is currently limited to Debian 13/trixie on arm64. Other LoxBerry, Debian, Raspberry Pi OS, and CPU-platform combinations have not been confirmed on a target device.
+- Representative meter evidence currently covers one ISK meter using SML at 9600 baud/8N1. Other meters, OMS, templates marked `limited`, and arbitrary custom OBIS identifiers have not been verified with representative hardware.
+- The functionally frozen Legacy web administration retains its documented CSRF exposure. Keep the complete LoxBerry installation inside a trusted LAN and do not expose its web interface to the Internet.
+- See the version-bound [German limitations](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/Smartmeter-V2.0.1.1/docs/known-limitations.de.md), [English limitations](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/Smartmeter-V2.0.1.1/docs/known-limitations.en.md), [German support matrix](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/Smartmeter-V2.0.1.1/docs/support-matrix.de.md), and [English support matrix](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/blob/Smartmeter-V2.0.1.1/docs/support-matrix.en.md) for the complete compatibility boundaries.
+
 ## 2.0.1.0 - 2026-07-29
 
 SmartMeter v2 2.0.1.0 is the final release containing the Legacy meter-reading implementation. Legacy remains available but functionally frozen in this release and is planned for removal in SmartMeter v2 2.1.0.0.

@@ -57,7 +57,7 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 
 ## 4. Legacy Contract And Validation
 
-- **SM-LEG-001** — Legacy readers, parsers, and `sm_logger.pl` remain functionally frozen through the final Legacy release 2.0.1.0 and are planned for removal in 2.1.0.0. Do not add Legacy features or perform an object-oriented rewrite; make only compatibility, validation, security, or critical defect fixes on the protected Legacy maintenance line.
+- **SM-LEG-001** — Legacy readers, parsers, and `sm_logger.pl` are functionally frozen. Version 2.0.1.0 is the final Legacy feature baseline; the protected 2.0.1.x maintenance line receives only compatibility, validation, security, or critical defect fixes. Legacy is removed in 2.1.0.0. Do not add Legacy features or perform an object-oriented rewrite.
 - **SM-LEG-002** — A Legacy save is atomic: if any general value is invalid, reject the complete save before changing configuration, cron, or services, and identify the affected fields in German and English.
 - **SM-LEG-003** — General Legacy inputs use these exact constraints:
   - `IMPLEMENTATION`: `none|legacy`
@@ -118,8 +118,8 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 
 ## 9. Lifecycle And Ownership Boundaries
 
-- **SM-LIFE-001** — Fresh installation defaults to vzLogger mode, with the bridge and optional debug logs disabled. Installation over an existing version preserves the previous `vzlogger`, `legacy`, or `none` mode.
-- **SM-LIFE-002** — Applying vzLogger removes Legacy polling cron entries. Applying an enabled Legacy mode stops vzLogger/bridge and restores the configured polling cron. Upgrade success includes removing stale cron entries before restoring the intended polling state.
+- **SM-LIFE-001** — Fresh installation defaults to vzLogger mode, with the bridge and optional debug logs disabled. Installation over an existing version preserves the previous `vzlogger`, `legacy`, or `none` mode. A historical configuration without `MAIN.IMPLEMENTATION` maps `MAIN.READ=1` to `legacy`; `MAIN.READ=0` or a missing `MAIN.READ` maps to `none`.
+- **SM-LIFE-002** — Applying vzLogger removes Legacy polling cron entries. Applying an enabled Legacy mode stops vzLogger/bridge and restores the configured polling cron. Upgrade success includes removing stale cron entries before restoring the intended polling state. The immediate Legacy reading for the reboot interval must close an inherited lifecycle configuration-lock descriptor before executing the reader so it cannot block the following root hook.
 - **SM-LIFE-003** — The plugin-managed systemd drop-in points vzLogger to the plugin-owned configuration. Never overwrite an unrelated `/etc/vzlogger.conf`.
 - **SM-LIFE-004** — Uninstall removes plugin-owned services, drop-ins, runtime/cache artifacts, udev rules, apt source/key, and only packages proven by an ownership marker to have been introduced by the plugin.
 - **SM-LIFE-005** — Broader platform or meter support must not be claimed without matching target-system or representative-hardware evidence. `LB_MINIMUM` and architecture metadata are installation gates, not test evidence. The latest confirmed platform remains in `../support-matrix.md`; current limitations remain in `../known-limitations.md`. Coding rules and review may support an expectation of portability but must not be described as device-tested support.

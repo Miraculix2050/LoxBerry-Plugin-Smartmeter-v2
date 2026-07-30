@@ -52,7 +52,10 @@ Expected:
   - previous `vzlogger` remains `vzlogger`;
   - previous `legacy` remains `legacy`;
   - previous `none` remains `none`.
+- A historical configuration without `MAIN.IMPLEMENTATION` maps `MAIN.READ=1`
+  to `legacy` and maps `MAIN.READ=0` or a missing `MAIN.READ` to `none`.
 - An active Legacy configuration with the reboot polling interval is restored and receives one immediate reading without rebooting.
+- The immediate Legacy reboot-interval reading does not inherit the upgrade configuration lock and therefore cannot block the following root lifecycle hook.
 
 ## Implementation Switching
 

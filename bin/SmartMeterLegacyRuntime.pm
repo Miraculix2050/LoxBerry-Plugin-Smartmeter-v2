@@ -5,6 +5,7 @@ use warnings;
 use Exporter qw(import);
 use Fcntl qw(:flock);
 use File::Path qw(make_path);
+use POSIX ();
 use SmartMeterVZLoggerConfig qw(implementation_mode);
 
 our @EXPORT_OK = qw(
@@ -116,6 +117,12 @@ sub _start_fetch_now
 	my $pid = fork();
 	return 0 if (!defined($pid));
 	if ($pid == 0) {
+		my $config_lock_fd = $ENV{SMARTMETER_CONFIG_LOCK_FD};
+		if (defined($config_lock_fd) && $config_lock_fd =~ /\A\d+\z/) {
+			POSIX::close($config_lock_fd);
+		}
+		delete $ENV{SMARTMETER_CONFIG_LOCK_FD};
+		delete $ENV{SMARTMETER_CONFIG_LOCK_FILE};
 		open(STDIN, "<", "/dev/null");
 		open(STDOUT, ">", "/dev/null");
 		open(STDERR, ">", "/dev/null");

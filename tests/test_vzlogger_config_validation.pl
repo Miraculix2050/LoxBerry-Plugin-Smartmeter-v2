@@ -28,7 +28,9 @@ is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "none", "MAIN.RE
 is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "legacy", "MAIN.READ" => 0)), "legacy", "explicit Legacy mode is retained independently of READ");
 is(implementation_mode(TestConfig->new("MAIN.IMPLEMENTATION" => "vzlogger", "MAIN.READ" => 1)), "vzlogger", "explicit vzLogger mode is retained independently of READ");
 is(implementation_mode(TestConfig->new("MAIN.READ" => 1)), "legacy", "missing mode infers Legacy from enabled reads");
-is(implementation_mode(TestConfig->new("MAIN.READ" => 0)), "vzlogger", "missing mode infers vzLogger from disabled Legacy reads");
+is(implementation_mode(TestConfig->new("MAIN.READ" => 0)), "none", "missing mode preserves disabled historical reads as inactive");
+is(implementation_mode(TestConfig->new()), "none", "missing mode and READ use the safe inactive state");
+is(implementation_mode(undef), "none", "missing configuration uses the safe inactive state");
 
 my $webserver_test_dir = tempdir(CLEANUP => 1);
 my $general_json = "$webserver_test_dir/general.json";
