@@ -1,7 +1,7 @@
 # SmartMeter v2 User Guide
 
 - **Audience:** LoxBerry users, including users without Linux or vzLogger experience
-- **Status:** Current implemented development state on `master`
+- **Status:** Documentation for the repository or plugin version from which this page was opened
 
 ## Overview
 
@@ -13,8 +13,8 @@ SmartMeter v2 reads meters through an optical I/R reading head using vzLogger. v
 
 1. Check the [requirements and known limitations](user/en/installation.md#requirements).
 2. Download the official ZIP for the required version from [GitHub Releases](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/releases) and install it through LoxBerry Plugin Management.
-3. Connect the reading head and open **SmartMeter v2 → SmartMeter configuration (vzLogger)**.
-4. Enable vzLogger and select **Rescan for I/R reading heads**.
+3. Connect the reading head and open **SmartMeter v2**. The **vzLogger configuration** page appears.
+4. Switch on **vzLogger enabled** and select **Rescan for I/R reading heads**.
 5. Open the reading head, select SML, D0, or OMS, and initialize it from a suitable template when needed.
 6. Select **Save and apply**. OBIS discovery can access the reading head only afterwards.
 7. Start **Read OBIS channels**, enable the required channels, and select **Output in SmartMeter** when needed.

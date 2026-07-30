@@ -29,7 +29,7 @@ if [ -f "$CONFIG_FILE" ]; then
 	read_enabled=$(sed -n 's/^READ=//p' "$CONFIG_FILE" | tail -n 1)
 	if [ "$implementation" = "legacy" ] || { [ -z "$implementation" ] && [ "$read_enabled" = "1" ]; }; then
 		echo "<ERROR> SmartMeter v2 2.1.0.0 no longer contains the Legacy implementation."
-		echo "<ERROR> Reinstall or keep 2.0.1.0, switch to vzLogger, and successfully use Save and apply before upgrading again."
+		echo "<ERROR> Reinstall or keep the latest supported 2.0.1.x Legacy maintenance release (currently 2.0.1.1), switch to vzLogger, and successfully use Save and apply before upgrading again."
 		echo "<ERROR> No plugin files or configuration were changed."
 		exit 3
 	fi

@@ -1,5 +1,7 @@
 # Erweiterte Funktionen
 
+[← Messwerte und Ausgaben](outputs.md) · [Zurück zur Übersicht](../../User-Guide.de.md) · [Weiter: Fehlerbehebung →](troubleshooting.md)
+
 ## Benutzerdefiniertes Meter mit JSONC
 
 Wähle **Benutzerdefiniert (JSON)** nur, wenn das Standardformular dein Protokoll oder Gerät nicht abbildet. Der Editor erwartet genau ein vollständiges vzLogger-Meter-Objekt:
@@ -69,3 +71,5 @@ Für ein Bridge-Problem:
 4. Setze die Logstufe anschließend wieder zurück.
 
 Das Debug-Log enthält Paket-, Service-, Validierungs-, Mapping-, Cache- und begrenzte MQTT-Diagnosen. Passwörter und private Schlüssel werden maskiert. Das getrennte native vzLogger-Log `vzlogger-native.log` wird nur geschrieben, wenn die vzLogger-Debugoption aktiv ist.
+
+[← Messwerte und Ausgaben](outputs.md) · [Zurück zur Übersicht](../../User-Guide.de.md) · [Weiter: Fehlerbehebung →](troubleshooting.md)

@@ -1,5 +1,7 @@
 # Troubleshooting
 
+[← Advanced features](advanced.md) · [Back to the overview](../../User-Guide.en.md) · [Next: Technical reference →](reference.md)
+
 Work through the advice for the visible symptom. Do not change several settings at once. Check the result after each step.
 
 ## Installation or update fails
@@ -7,20 +9,20 @@ Work through the advice for the visible symptom. Do not change several settings 
 1. Open the installation log in LoxBerry Plugin Management.
 2. First find the plugin's final success or failure status. Generic LoxBerry warnings are not automatically plugin failures.
 3. Check Internet access, free storage, and the LoxBerry package sources.
-4. If installation of `vzlogger` or `mosquitto-clients` fails, resolve the package error first and run the installation again.
+4. If installation of `vzlogger`, `mosquitto-clients`, or `libdevice-serialport-perl` fails, check the Internet connection and access to the Volkszaehler project's Cloudsmith repository. Resolve the package error first and run the installation again.
 
 ## Reading head or device path is missing
 
 1. Check power, seating, and alignment of the reading head.
 2. Disconnect the reading head briefly and reconnect it.
-3. Reload the SmartMeter page and select **Detect devices again**.
+3. Reload the SmartMeter page and select **Rescan for I/R reading heads**.
 4. Check whether the expected stable plugin path appears below `/dev/serial/smartmeter/`. Use it instead of `/dev/ttyUSB0`.
 
 If no device is detected, first try the reading head on another USB port. A visible device path confirms only the USB device, not the correct protocol or installation on the meter.
 
 ## OBIS discovery finds no values
 
-Check protocol, baud rate, parity, and reading-head position. Some meters transmit values only after activation at the meter. Automatic discovery is unavailable for OMS meters.
+Check protocol, baud rate, parity, and reading-head position. Some meters transmit values only after activation at the meter. OBIS discovery supports OMS only when the installed vzLogger version provides OMS support. If the UI reports that OMS is unsupported, discovery, validation, and apply are disabled for that meter.
 
 Discovery runs in the background. Wait for completion and open the result again. Detected identifiers are then stored, but only **Save and apply** adds selected channels to the active configuration.
 
@@ -65,6 +67,8 @@ The recovery endpoint accepts only `POST` with the displayed token. It starts on
 
 ## Upgrade to 2.1.0.0 is blocked
 
-The upgrade stops before replacing files when Legacy is still active or an older configuration is recognized as active Legacy. Stay on or reinstall 2.0.1.0, activate vzLogger, and complete **Save and apply** successfully. Then retry the upgrade.
+The upgrade stops before replacing files when Legacy is still active or an older configuration is recognized as active Legacy. Stay on or reinstall the latest supported 2.0.1.x Legacy maintenance release (currently 2.0.1.1). Activate vzLogger and complete **Save and apply** successfully. Then retry the upgrade.
 
-If the issue remains, save the relevant log message without passwords or keys and include the plugin version, LoxBerry version, meter model, reading head, and selected protocol in a support request.
+If the issue remains, open a request in [GitHub Issues](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/issues). Include the plugin version, LoxBerry version, meter model, reading head, selected protocol, and relevant log message. Remove MQTT passwords, recovery tokens, private keys, complete certificates, and other private device data first.
+
+[← Advanced features](advanced.md) · [Back to the overview](../../User-Guide.en.md) · [Next: Technical reference →](reference.md)

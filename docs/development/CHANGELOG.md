@@ -4,6 +4,7 @@ This file records implementation detail that is intentionally omitted from user-
 
 ## Unreleased
 
+- Align the user-documentation contracts and regression assertions with current UI labels, dependencies, supported intervals, conditional OMS discovery, and the maintained 2.0.1.x Legacy upgrade path.
 - Release the inherited configuration-lock descriptor and metadata before independent OBIS-discovery and bridge-fallback child processes continue, while preserving verified inheritance for synchronous nested helpers.
 
 ## 2.1.0.0 - 2026-07-30

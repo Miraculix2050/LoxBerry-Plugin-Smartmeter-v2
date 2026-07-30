@@ -18,12 +18,12 @@ Die Dokumentation auf `master` beschreibt den aktuellen Entwicklungsstand. Verwe
 
 ## Main features / Hauptfunktionen
 
-- Detection of reading heads below `/dev/serial/smartmeter/`
-- Guided SML, D0, and OMS configuration plus custom JSONC
-- OBIS discovery and channel selection
-- Live readings and browser-local charts
-- MQTT, optional HTTP-cache, and UDP output
-- Direct vzLogger targets for Volkszähler, InfluxDB, and MySmartGrid
+- Detection of reading heads below `/dev/serial/smartmeter/` / Erkennung von Leseköpfen unter `/dev/serial/smartmeter/`
+- Guided SML, D0, and OMS configuration plus custom JSONC / Geführte SML-, D0- und OMS-Konfiguration sowie benutzerdefiniertes JSONC
+- OBIS discovery and channel selection / OBIS-Suche und Kanalauswahl
+- Live readings and browser-local charts / Live-Messwerte und browserlokale Diagramme
+- MQTT, optional HTTP cache, and UDP output / MQTT-, optionale HTTP-Cache- und UDP-Ausgabe
+- Direct vzLogger targets for Volkszähler, InfluxDB, and MySmartGrid / Direkte vzLogger-Ziele für Volkszähler, InfluxDB und MySmartGrid
 
 ## Development
 

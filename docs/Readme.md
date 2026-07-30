@@ -1,8 +1,8 @@
 # SmartMeter v2 documentation / Dokumentation
 
-This directory follows the implementation on `master`. Documentation opened from an installed release is tied to that release tag.
+This directory documents the repository version from which it is opened. On `master` it follows current development; documentation opened from an installed release is tied to that release tag.
 
-Dieses Verzeichnis folgt der Implementierung auf `master`. Die aus einer installierten Version geöffnete Dokumentation ist an deren Release-Tag gebunden.
+Dieses Verzeichnis dokumentiert die Repository-Version, über die es geöffnet wurde. Auf `master` folgt es der aktuellen Entwicklung; die aus einer installierten Version geöffnete Dokumentation ist an deren Release-Tag gebunden.
 
 ## English
 

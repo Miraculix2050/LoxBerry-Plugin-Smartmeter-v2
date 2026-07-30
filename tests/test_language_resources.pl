@@ -67,6 +67,7 @@ is_deeply([sort grep { $german->{$_} eq "" } keys %$german], [], "German resourc
 is_deeply([sort grep { $english->{$_} eq "" } keys %$english], [], "English resources contain no empty values");
 is($german->{'VZLOGGER.SERVICE_ACTION_HIDE'}, "Im Hintergrund weiterlaufen lassen", "German service action button describes background continuation");
 is($english->{'VZLOGGER.SERVICE_ACTION_HIDE'}, "Continue in background", "English service action button describes background continuation");
+is($english->{'VZLOGGER.METER_USER_JSON_DOCS'}, "Parameter documentation (German)", "English UI identifies the German-only parameter documentation");
 like($german->{'VZLOGGER.SERVICE_ACTION_BACKGROUND_LOCKED'}, qr/Serviceaktionen.*gesperrt/, "German background notice explains the shared service lock");
 like($english->{'VZLOGGER.SERVICE_ACTION_BACKGROUND_LOCKED'}, qr/service actions.*unavailable/i, "English background notice explains the shared service lock");
 my @placeholder_mismatches;

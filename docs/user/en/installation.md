@@ -1,13 +1,22 @@
 # Installation, Update, and Uninstall
 
+[Back to the overview](../../User-Guide.en.md) · [Next: Configure vzLogger →](configuration.md)
+
 ## Requirements
 
 - LoxBerry 4.0.0 or newer. This is the installation gate, not evidence for every newer platform; check the [support matrix](../../support-matrix.en.md).
 - An optical I/R reading head that the target exposes below `/dev/serial/smartmeter/`.
 - Access to LoxBerry Plugin Management and the installation log.
+- Internet access for download and installation. The download path must reach GitHub; LoxBerry itself must reach the external Cloudsmith package repository maintained by the Volkszaehler project.
 - For vzLogger, a reachable MQTT broker. The LoxBerry MQTT settings are normally inherited.
 
-The plugin installs `vzlogger` and `mosquitto-clients` through LoxBerry's normal package list. It does not bundle vzLogger.
+The plugin configures the Volkszaehler package source and installs `vzlogger`, `mosquitto-clients`, and `libdevice-serialport-perl` through LoxBerry's normal package management. It does not bundle these packages. If the package source cannot be reached, plugin installation cannot finish successfully.
+
+## Stable and prerelease versions
+
+The stable channel is recommended for normal use. Prereleases provide newer changes for evaluation and may still contain unknown defects. LoxBerry checks the prerelease channel only when you explicitly allow prereleases in Plugin Management.
+
+For either channel, install only the finished `Smartmeter-V<version>.zip` attached to the matching GitHub release. The source-code archives also offered by GitHub are not installable LoxBerry packages.
 
 ## Prepare the reading head and meter
 
@@ -33,6 +42,8 @@ If the installation log says that `udevadm` could not run, disconnect and reconn
 
 ## Update
 
+Create a current LoxBerry backup before a major update. Normal updates preserve persistent SmartMeter settings and applied vzLogger files, but a backup remains the safest recovery path after a device, storage, or installation failure. The plugin has no separate backup or restore wizard.
+
 1. Open LoxBerry Plugin Management and start the offered SmartMeter v2 update, or install the official ZIP for the target version.
 2. Check the installation log when it finishes.
 3. Open the configuration page and verify the saved desired states and current service states.
@@ -40,7 +51,7 @@ If the installation log says that `udevadm` could not run, disconnect and reconn
 
 Version 2.1.0.0 preserves a valid generated vzLogger configuration, channel UUIDs, output keys, the Expert draft, bridge outputs, and recovery settings. Previous `vzlogger` and `none` modes migrate to the matching enabled or disabled desired state; the previous bridge switch is migrated independently.
 
-An upgrade is blocked before file replacement when Legacy is still active, including older installations inferred as active Legacy. Stay on or reinstall 2.0.1.0, activate vzLogger there, and complete **Save and apply** successfully before retrying 2.1.0.0. Inactive Legacy settings are removed during an allowed upgrade and are not retained as a backup. No reboot is required.
+An upgrade is blocked before file replacement when Legacy is still active, including older installations inferred as active Legacy. Stay on or reinstall the latest supported 2.0.1.x Legacy maintenance release (currently 2.0.1.1). Activate vzLogger there and complete **Save and apply** successfully before retrying the upgrade to 2.1.0.0. Inactive Legacy settings are removed during an allowed upgrade and are not retained as a backup. No reboot is required.
 
 ## Uninstall
 
@@ -60,3 +71,5 @@ LoxBerry and SmartMeter v2 are intended only for a trusted LAN. Do not expose th
 - Loxone recovery endpoint
 
 The vzLogger service and HTTP cache are unauthenticated. Disabling the index is not access control. Meter readings can reveal presence and activity. Prefer HTTPS and a source-IP allow-list for recovery, and never use router port forwarding or a public reverse proxy for these endpoints.
+
+[Back to the overview](../../User-Guide.en.md) · [Next: Configure vzLogger →](configuration.md)
