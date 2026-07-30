@@ -18,10 +18,10 @@ sub clean_boolean
 sub implementation_mode
 {
 	my ($plugin_cfg) = @_;
-	return "legacy" if (!$plugin_cfg);
+	return "none" if (!$plugin_cfg);
 	my $mode = $plugin_cfg->param("MAIN.IMPLEMENTATION") || "";
 	return $mode if ($mode =~ /\A(?:none|legacy|vzlogger)\z/);
-	return (($plugin_cfg->param("MAIN.READ") || "0") eq "1") ? "legacy" : "vzlogger";
+	return (($plugin_cfg->param("MAIN.READ") || "0") eq "1") ? "legacy" : "none";
 }
 
 sub set_implementation_mode

@@ -75,8 +75,12 @@ migrate_config()
 			sed -i '/^READ=/a IMPLEMENTATION=legacy' "$configfile"
 			echo "<INFO> Added default implementation mode: legacy"
 		else
-			sed -i '/^READ=/a IMPLEMENTATION=vzlogger' "$configfile"
-			echo "<INFO> Added default implementation mode: vzlogger"
+			if grep -q '^READ=' "$configfile"; then
+				sed -i '/^READ=/a IMPLEMENTATION=none' "$configfile"
+			else
+				sed -i '/^\[MAIN\]/a IMPLEMENTATION=none' "$configfile"
+			fi
+			echo "<INFO> Preserved inactive implementation mode: none"
 		fi
 	fi
 

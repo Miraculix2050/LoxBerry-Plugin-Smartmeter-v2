@@ -4,6 +4,8 @@ This file records implementation detail that is intentionally omitted from user-
 
 ## Unreleased
 
+- Preserve the inactive state when upgrading a historical configuration without `MAIN.IMPLEMENTATION`: `MAIN.READ=0` or a missing value now maps to `none`, while `MAIN.READ=1` continues to map to `legacy`.
+- Close the inherited lifecycle configuration-lock descriptor before the immediate Legacy reboot-interval reading is executed, so the following root lifecycle hook can complete without lock contention.
 - Keep the root-owned privileged-helper directory traversable on a fresh installation so the unprivileged runtime can verify the exact sudoers-approved service helpers before Save/Apply invokes them.
 - Clarify development-versus-release documentation, tested support claims, standard and Legacy MQTT topics, HTTP-cache versus UDP data flow, meter-template evidence, LoxBerry log-retention provenance, and actual plugin-folder paths; serialize all top-level configuration, lifecycle, discovery, recovery, and service-state mutations through one verified non-blocking lock; keep recovery actions inside the 320-pixel mobile viewport; and validate channel metadata when the GitHub release asset is published.
 - Reorganize documentation by audience, assign stable identifiers to normative developer requirements, separate compatibility limitations from the maintainer evidence backlog, clarify stable versus prerelease metadata, and remove the completed vzLogger migration plan.

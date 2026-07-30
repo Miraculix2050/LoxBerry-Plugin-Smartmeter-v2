@@ -2,6 +2,7 @@
 
 use strict;
 use warnings;
+use Fcntl qw(:flock);
 use File::Path qw(make_path);
 use File::Temp qw(tempdir);
 use FindBin;
@@ -115,5 +116,57 @@ close($upgrade_fh);
 like($upgrade_source, qr/smartmeter_legacy_runtime\.pl"\s*\\?\s*synchronize/, "upgrade lifecycle uses the shared Legacy runtime entry point");
 like($upgrade_source, qr/--start-minimal-now/, "upgrade starts Legacy reboot polling immediately");
 unlike($upgrade_source, qr/case "\$cron_interval"/, "upgrade lifecycle contains no duplicate cron interval matrix");
+
+open(my $legacy_runtime_fh, "<", "$FindBin::Bin/../bin/SmartMeterLegacyRuntime.pm") or die $!;
+my $legacy_runtime_source = do { local $/; <$legacy_runtime_fh> };
+close($legacy_runtime_fh);
+like(
+	$legacy_runtime_source,
+	qr/POSIX::close\(\$config_lock_fd\).*?delete \$ENV\{SMARTMETER_CONFIG_LOCK_FD\}/s,
+	"immediate reboot polling closes the inherited lifecycle configuration lock before exec",
+);
+
+SKIP: {
+	skip "Linux /proc is required for the inherited descriptor probe", 2 if (!-d "/proc/$$/fd");
+	my $probe_dir = tempdir(CLEANUP => 1);
+	my $probe_marker = "$probe_dir/inherited-lock.txt";
+	my $config_lock_file = "$probe_dir/vzlogger_config.lock";
+	open(my $config_lock_fh, ">>", $config_lock_file) or die $!;
+	flock($config_lock_fh, LOCK_EX) or die $!;
+	my $config_lock_fd = fileno($config_lock_fh);
+
+	open(my $probe_fh, ">", "$home/bin/plugins/plugin/fetch.pl") or die $!;
+	print $probe_fh <<'PROBE';
+#!/usr/bin/perl
+use strict;
+use warnings;
+my $fd = $ENV{SMARTMETER_LOCK_PROBE_FD};
+my $lock_file = $ENV{SMARTMETER_LOCK_PROBE_FILE};
+my $fd_target = readlink("/proc/$$/fd/$fd");
+open(my $marker, ">", $ENV{SMARTMETER_LOCK_PROBE_MARKER}) or die $!;
+print $marker((defined($fd_target) && $fd_target eq $lock_file) ? "open\n" : "closed\n");
+close($marker);
+PROBE
+	close($probe_fh);
+
+	local $ENV{SMARTMETER_CONFIG_LOCK_FD} = $config_lock_fd;
+	local $ENV{SMARTMETER_CONFIG_LOCK_FILE} = $config_lock_file;
+	local $ENV{SMARTMETER_LOCK_PROBE_FD} = $config_lock_fd;
+	local $ENV{SMARTMETER_LOCK_PROBE_FILE} = $config_lock_file;
+	local $ENV{SMARTMETER_LOCK_PROBE_MARKER} = $probe_marker;
+	$cfg->param("MAIN.CRON", "M");
+	($message, $ok) = apply_legacy_runtime($home, "plugin", $cfg, start_minimal_now => 1);
+	ok($ok, "immediate reboot polling starts with an inherited lifecycle lock");
+	foreach (1 .. 100) {
+		last if (-f $probe_marker);
+		select(undef, undef, undef, 0.01);
+	}
+	my $probe_result = "missing\n";
+	if (open(my $marker_fh, "<", $probe_marker)) {
+		$probe_result = <$marker_fh>;
+		close($marker_fh);
+	}
+	is($probe_result, "closed\n", "executed Legacy reader does not retain the lifecycle configuration lock");
+}
 
 done_testing();
