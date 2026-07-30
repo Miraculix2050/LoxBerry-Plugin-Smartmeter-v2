@@ -7,7 +7,7 @@
 3. Configure at least one active meter.
 4. Apply the state with **Save and apply**.
 
-The switch stores the desired vzLogger state only when you use **Save and apply**. Start, Stop, and Restart are temporary service actions and do not change it. A valid existing `vzlogger.conf` remains available while vzLogger is disabled and is reused on later reactivation.
+The switch stores the desired vzLogger state only when you use **Save and apply**. Start, Stop, and Restart are temporary service actions and do not change it. While a service action is running, the controls for both services are unavailable. **Continue in background** closes the progress dialog while a notice remains visible until the action finishes. A valid existing `vzlogger.conf` remains available while vzLogger is disabled and is reused on later reactivation.
 
 ## Add a reading head
 

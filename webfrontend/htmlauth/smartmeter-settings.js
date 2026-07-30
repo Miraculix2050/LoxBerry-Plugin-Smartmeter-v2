@@ -66,23 +66,31 @@
 			else document.execCommand("copy");
 		}
 
-		function show_action_success(message) {
+		function show_service_feedback(message, state, timeout) {
 			var element = document.getElementById("service_action_feedback");
 			if (service_action_feedback_timer) window.clearTimeout(service_action_feedback_timer);
+			service_action_feedback_timer = null;
+			if (!element) return;
 			element.textContent = message;
-			element.classList.remove("is-error");
+			element.classList.remove("is-error", "is-running", "is-visible");
+			if (!message) return;
+			if (state == "error") element.classList.add("is-error");
+			else if (state == "running") element.classList.add("is-running");
 			element.classList.add("is-visible");
-			service_action_feedback_timer = window.setTimeout(function () {
-				element.classList.remove("is-visible");
-				service_action_feedback_timer = null;
-			}, 4000);
+			if (timeout) {
+				service_action_feedback_timer = window.setTimeout(function () {
+					element.classList.remove("is-visible");
+					service_action_feedback_timer = null;
+				}, timeout);
+			}
+		}
+
+		function show_action_success(message) {
+			show_service_feedback(message, "success", 4000);
 		}
 
 		function clear_service_success() {
-			if (service_action_feedback_timer) window.clearTimeout(service_action_feedback_timer);
-			service_action_feedback_timer = null;
-			var element = document.getElementById("service_action_feedback");
-			if (element) element.classList.remove("is-visible");
+			show_service_feedback("", "", 0);
 		}
 
 		function set_service_button_state(id, visible, enabled, reason) {
@@ -177,6 +185,10 @@
 		function hide_service_action_overlay() {
 			var overlay = document.getElementById("service_action_overlay");
 			if (overlay.open) overlay.close();
+			if (service_action_running) {
+				var title = document.getElementById("service_action_title").textContent.replace(/[.!?]\s*$/, "");
+				show_service_feedback(title + ". " + obis_text("service_action_background_locked_text"), "running", 0);
+			}
 		}
 
 		function close_service_action_overlay() {
@@ -197,7 +209,9 @@
 			document.getElementById("vzlogger_form").removeAttribute("aria-busy");
 			if (result == "success") {
 				hide_service_action_overlay();
+				show_action_success(obis_text("service_action_success_text"));
 			} else {
+				clear_service_success();
 				var overlay = document.getElementById("service_action_overlay");
 				if (!overlay.open) overlay.showModal();
 				overlay.focus();
@@ -239,7 +253,6 @@
 					action_ok = !!response.ok;
 					action_result = !action_ok ? "failed" : (response.warning ? "warning" : "success");
 					action_message = response.message || (response.ok ? "OK" : obis_text("service_action_failed_text"));
-					if (action_result == "success") show_action_success(obis_text("service_action_success_text"));
 					render_service_snapshot(response);
 					needs_status_refresh = !response.services;
 				})
@@ -981,15 +994,11 @@
 			var bridge_enabled = saved_bridge && ui.bridge && !!config.valid && !expert_invalid && !expert_unapplied && !!applied.mqtt_enabled && !!config.mqtt_enabled && !service_action_running;
 			set_control_disabled("#save_apply_button", expert_invalid || configuration_action_running || service_action_running);
 			if (expert_invalid && config.expert_message) {
-				var feedback = document.getElementById("service_action_feedback");
-				feedback.textContent = config.expert_message;
-				feedback.classList.add("is-error", "is-visible");
+				show_service_feedback(config.expert_message, "error", 0);
 			} else if (config.expert_mode && config.expert_valid) {
 				var feedback = document.getElementById("service_action_feedback");
 				if (feedback.classList.contains("is-error")) {
-					feedback.textContent = config.expert_message || "";
-					feedback.classList.remove("is-error");
-					feedback.classList.toggle("is-visible", !!feedback.textContent);
+					show_service_feedback(config.expert_message || "", "success", 0);
 				}
 			}
 			$("#vzlogger_service_action_reason").text(vz_enabled ? "" : (service_action_running ? busy_reason : vz_reason));
@@ -1343,5 +1352,10 @@
 		$(".meter-panel").each(function () { initialize_meter_panel(this, false); });
 		initialize_collapsible_persistence();
 		update_recovery_controls();
+		document.getElementById("service_action_overlay").addEventListener("cancel", function (event) {
+			if (!service_action_running) return;
+			event.preventDefault();
+			hide_service_action_overlay();
+		});
 		document.getElementById("vzlogger_form").addEventListener("submit", sync_channel_definitions);
 		window.addEventListener("pagehide", sync_channel_definitions);

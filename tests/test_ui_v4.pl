@@ -52,6 +52,12 @@ like($vzlogger, qr/<details\b(?=[^>]*\bid="recovery_settings_panel")(?=[^>]*\blb
 like($vzlogger, qr/<dialog\b(?=[^>]*\bid="ir_scan_overlay")(?=[^>]*\baction-overlay-standard\b)[^>]*>/, "I/R scan uses the single standard-width native action dialog");
 like($vzlogger, qr/<dialog\b(?=[^>]*\bid="obis_search_overlay")(?=[^>]*\baction-overlay-standard\b)[^>]*>/, "OBIS discovery uses the single standard-width native action dialog");
 like($vzlogger, qr/<dialog\b(?=[^>]*\bid="service_action_overlay")(?=[^>]*\baction-overlay-standard\b)[^>]*>/, "service actions use the single standard-width native action dialog");
+like($vzlogger, qr/service_action_background_locked_text.*?SERVICE_ACTION_BACKGROUND_LOCKED/s, "hidden service actions expose a localized background-lock notice");
+like($vzlogger, qr/show_service_feedback\(title \+ "\. " \+ obis_text\("service_action_background_locked_text"\), "running", 0\)/, "hiding a running service action keeps its action-specific notice visible");
+like($vzlogger, qr/service_action_overlay.*?addEventListener\("cancel".*?preventDefault\(\).*?hide_service_action_overlay\(\)/s, "Escape uses the same background path while a service action is running");
+like($vzlogger, qr/classList\.remove\("is-error", "is-running", "is-visible"\)/, "service feedback clears stale result classes before changing state");
+like($vzlogger, qr/var vz_enabled = .*?!service_action_running.*?var bridge_enabled = .*?!service_action_running/s, "one running service action keeps both service control groups locked");
+unlike($vzlogger, qr/service_action_(?:show_)?progress/, "hidden service actions do not add a progress link");
 like($vzlogger, qr/<dialog\b(?=[^>]*\bid="configuration_action_overlay")(?=[^>]*\baction-overlay-wide\b)[^>]*>/, "configuration actions use the single wide native action dialog");
 like($vzlogger, qr/id="obis_search_spinner".*?getElementById\("obis_search_spinner"\)/s, "OBIS discovery updates its own spinner explicitly");
 unlike($vzlogger, qr/querySelector\("\.obis-search-spinner"\)/, "OBIS discovery does not modify another action dialog's spinner");
@@ -82,6 +88,7 @@ like($shared, qr/\bpi-save\b/, "shared UI applies PrimeIcons to primary actions"
 
 my $styles = $sources{'webfrontend/htmlauth/smartmeter-v4.css'} . $sources{'webfrontend/htmlauth/smartmeter-vzlogger.css'} . $sources{'webfrontend/htmlauth/smartmeter-settings.css'};
 like($styles, qr/\.recovery-loxone-fields\s*\{[^}]*grid-template-columns/s, "Loxone copy-and-paste fields use a responsive grid");
+like($styles, qr/\.service-action-feedback\.is-running\s*\{[^}]*overflow-wrap:\s*anywhere/s, "background service feedback remains readable on narrow screens");
 like($vzlogger, qr/class="recovery-endpoints-help"/, "Loxone copy-and-paste help uses its dedicated full-width class");
 unlike($vzlogger, qr/class="[^"]*service-help[^"]*recovery-endpoints-help/, "Loxone copy-and-paste help does not inherit the narrow service help column");
 like($styles, qr/\.recovery-endpoints-help\s*\{[^}]*width:\s*100%/s, "Loxone copy-and-paste help uses the full available width");
