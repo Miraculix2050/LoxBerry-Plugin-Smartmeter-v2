@@ -7,8 +7,9 @@ use Fcntl qw(:flock);
 use File::Basename qw(dirname);
 use File::Copy qw(copy);
 use File::Path qw(make_path);
+use POSIX ();
 
-our @EXPORT_OK = qw(acquire_config_lock promote_files_atomic);
+our @EXPORT_OK = qw(acquire_config_lock release_config_lock_for_background_child promote_files_atomic);
 
 sub acquire_config_lock
 {
@@ -30,8 +31,14 @@ sub _inherited_config_lock
 {
 	my ($file) = @_;
 	my $fd = $ENV{SMARTMETER_CONFIG_LOCK_FD};
-	return if (!defined($fd) || $fd !~ /\A\d+\z/ || $fd < 3 || $fd > 255);
 	return if (!defined($ENV{SMARTMETER_CONFIG_LOCK_FILE}) || $ENV{SMARTMETER_CONFIG_LOCK_FILE} ne $file);
+	return _open_verified_lock_descriptor($fd, $file);
+}
+
+sub _open_verified_lock_descriptor
+{
+	my ($fd, $file) = @_;
+	return if (!defined($fd) || $fd !~ /\A\d+\z/ || $fd < 3 || $fd > 255 || !defined($file));
 	open(my $fh, ">&", $fd) or return;
 	my @handle_stat = stat($fh);
 	my @file_stat = stat($file);
@@ -48,6 +55,24 @@ sub _publish_config_lock
 	fcntl($fh, $setfd, 0) if (defined($setfd));
 	$ENV{SMARTMETER_CONFIG_LOCK_FD} = $fd;
 	$ENV{SMARTMETER_CONFIG_LOCK_FILE} = $file;
+}
+
+sub release_config_lock_for_background_child
+{
+	my ($lock) = @_;
+	my $handle_fd = defined($lock) ? fileno($lock) : undef;
+	close($lock) if (defined($handle_fd));
+	my $published_fd = $ENV{SMARTMETER_CONFIG_LOCK_FD};
+	my $published_file = $ENV{SMARTMETER_CONFIG_LOCK_FILE};
+	my $published_lock = (!defined($handle_fd) || !defined($published_fd) || $published_fd ne "$handle_fd")
+		? _open_verified_lock_descriptor($published_fd, $published_file)
+		: undef;
+	if ($published_lock) {
+		POSIX::close($published_fd);
+		close($published_lock);
+	}
+	delete $ENV{SMARTMETER_CONFIG_LOCK_FD};
+	delete $ENV{SMARTMETER_CONFIG_LOCK_FILE};
 }
 
 sub promote_files_atomic

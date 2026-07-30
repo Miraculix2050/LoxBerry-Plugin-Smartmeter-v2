@@ -6,7 +6,7 @@ use File::Temp qw(tempdir);
 use FindBin;
 use Test::More;
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
+use SmartMeterVZLoggerRuntime qw(acquire_config_lock release_config_lock_for_background_child promote_files_atomic);
 
 my $dir = tempdir(CLEANUP => 1);
 my ($lock, $error) = acquire_config_lock($dir);
@@ -45,6 +45,37 @@ open(my $wrong_fh, ">", "$dir/not-the-lock") or die $!;
 	like($invalid_error, qr/already running/i, "invalid inherited descriptor returns the busy error");
 }
 close($wrong_fh);
+
+SKIP: {
+	skip "background lock inheritance test requires Linux procfs", 3 if ($^O ne "linux" || !-d "/proc/$$/fd");
+	my $ready = "$dir/background-ready";
+	my $pid = fork();
+	die "Could not fork background lock probe: $!" if (!defined($pid));
+	if ($pid == 0) {
+		my ($child_nested_lock, $child_nested_error) = acquire_config_lock($dir);
+		exit 3 if (!$child_nested_lock);
+		release_config_lock_for_background_child($child_nested_lock);
+		open(my $ready_fh, ">", $ready) or exit 2;
+		print {$ready_fh} "ready";
+		close($ready_fh);
+		sleep(10);
+		exit 0;
+	}
+	for (1 .. 100) {
+		last if (-e $ready);
+		select(undef, undef, undef, 0.05);
+	}
+	ok(-e $ready, "background child releases the configuration lock before continuing");
+	my $lock_file = "$dir/vzlogger_config.lock";
+	my @targets = grep { defined($_) } map { scalar(readlink($_)) } glob("/proc/$pid/fd/*");
+	ok(!(grep { $_ eq $lock_file } @targets), "background child retains no descriptor for the configuration lock");
+	undef $lock;
+	my ($while_child_lock, $while_child_error) = acquire_config_lock($dir);
+	ok($while_child_lock, "configuration lock is reusable while the detached child remains alive") or diag($while_child_error);
+	undef $while_child_lock;
+	kill("TERM", $pid);
+	waitpid($pid, 0);
+}
 
 undef $lock;
 ($lock, $error) = acquire_config_lock($dir);

@@ -14,7 +14,7 @@ use LoxBerry::System;
 use FindBin;
 use lib $FindBin::Bin;
 use SmartMeterVZLoggerExpert qw(read_text write_text_atomic update_expert_log_settings format_expert_validation);
-use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
+use SmartMeterVZLoggerRuntime qw(acquire_config_lock release_config_lock_for_background_child promote_files_atomic);
 use SmartMeterVZLoggerConfig qw(clean_number clean_qos sanitize_topic vzlogger_enabled);
 
 my $home = $lbhomedir;
@@ -426,6 +426,7 @@ sub start_bridge
 	my $pid = fork();
 	die "Could not fork bridge process: $!\n" if (!defined($pid));
 	if ($pid == 0) {
+		release_config_lock_for_background_child($config_lock);
 		open STDIN, "</dev/null";
 		open STDOUT, ">/dev/null";
 		open STDERR, ">/dev/null";

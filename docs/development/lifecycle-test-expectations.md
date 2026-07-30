@@ -31,6 +31,7 @@
 - Bridge operation additionally requires `VZLOGGER.BRIDGEENABLED=1`, valid applied configuration, and a suitable MQTT source.
 - Start and Restart require a saved enabled and startable state. Stop is always available. These actions never change either persisted activation value.
 - Concurrent configuration or service actions are rejected without partial writes.
+- Independent OBIS-discovery and bridge-fallback background processes release the parent action lock before continuing and cannot block later configuration or service actions.
 
 ## Recovery
 

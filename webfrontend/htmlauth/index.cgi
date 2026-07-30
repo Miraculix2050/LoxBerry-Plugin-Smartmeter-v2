@@ -59,7 +59,7 @@ use lib "$FindBin::Bin/../../bin";
 use SmartMeterVZLoggerChannels qw(parse_obis compose_obis normalize_obis default_output_key stable_uuid read_json write_json_atomic load_catalog lookup_obis new_document initialize_channel_definitions validate_document localize_validation_errors);
 use SmartMeterVZLoggerBridge qw(bridge_topic effective_channel_topics normalize_mapping_keys);
 use SmartMeterVZLoggerExpert qw(read_text write_text_atomic validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping update_expert_log_settings expert_configs_equal);
-use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
+use SmartMeterVZLoggerRuntime qw(acquire_config_lock release_config_lock_for_background_child promote_files_atomic);
 use SmartMeterVZLoggerConfig qw(protocol_for_meter normalized_meter_mode clean_qos vzlogger_enabled set_vzlogger_enabled read_webserver_settings);
 use SmartMeterWebSecurity qw(csrf_token validate_csrf_token);
 use SmartMeterVZLoggerObisStatus qw(read_obis_status write_obis_status resolved_obis_status watchdog_running watchdog_pid_running);
@@ -2095,6 +2095,7 @@ sub run_vzlogger_obis_test
 	my $pid = fork();
 	return ui_text($L{'VZLOGGER.UI_OBIS_FORK_FAILED'}, error => $!) . "\n" if (!defined($pid));
 	if ($pid == 0) {
+		release_config_lock_for_background_child();
 		setsid() or exit 127;
 		$0 = "$lbpplugindir-vzlogger-obis-watchdog";
 		open STDIN, "</dev/null";
