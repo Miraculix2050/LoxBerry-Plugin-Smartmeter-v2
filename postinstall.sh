@@ -41,15 +41,11 @@ smartmeter_acquire_config_lock "/var/run/shm/$PDIR" || exit 4
 
 /bin/sed -i "s#REPLACEBYSUBFOLDER#$PDIR#" "$PCONFIG/smartmeter.cfg"
 /bin/sed -i "s#REPLACEBYNAME#$PSHNAME#" "$PCONFIG/smartmeter.cfg"
-/bin/sed -i "s#REPLACELBHOMEDIR#$LBHOMEDIR#" "$PBIN/reboot_cron_runner.sh"
-/bin/sed -i "s#REPLACELBPPLUGINDIR#$PDIR#" "$PBIN/reboot_cron_runner.sh"
-
 for executable in \
 	"$PBIN/vzlogger_config.pl" \
 	"$PBIN/vzlogger_validate.pl" \
 	"$PBIN/vzlogger_control.pl" \
 	"$PBIN/vzlogger_mqtt_bridge.pl" \
-	"$PBIN/smartmeter_legacy_runtime.pl" \
 	"$PCGI/vzlogger_live.cgi" \
 	"$PCGI/vzlogger_config.cgi"
 do

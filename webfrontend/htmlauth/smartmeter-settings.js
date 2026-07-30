@@ -222,12 +222,12 @@
 			data.append("lang", ui_language);
 			data.append("service_action", action);
 			if (/-vzlogger$/.test(action)) {
-				data.append("implementation", smartmeterToggleValue("implementation"));
+				data.append("vzlogger_enabled", smartmeterToggleValue("vzlogger_enabled"));
 				data.append("vzlogger_service_debug", smartmeterToggleValue("vzlogger_service_debug"));
 				data.append("vzlogger_loglevel", $("#vzlogger_loglevel").val());
 			} else {
-				data.append("implementation", smartmeterToggleValue("implementation"));
-				data.append("read", smartmeterToggleValue("read"));
+				data.append("vzlogger_enabled", smartmeterToggleValue("vzlogger_enabled"));
+				data.append("bridge_enabled", smartmeterToggleValue("bridge_enabled"));
 			}
 			append_csrf(data);
 			fetch("./index.cgi", { method: "POST", body: data, credentials: "same-origin", cache: "no-store" })
@@ -240,12 +240,6 @@
 					action_result = !action_ok ? "failed" : (response.warning ? "warning" : "success");
 					action_message = response.message || (response.ok ? "OK" : obis_text("service_action_failed_text"));
 					if (action_result == "success") show_action_success(obis_text("service_action_success_text"));
-					if (response.ok && /^(?:start|restart)-/.test(action)) {
-						initial_implementation_value = smartmeterToggleValue("implementation");
-						saved_implementation = initial_implementation_value;
-						if (/-bridge$/.test(action)) initial_read_value = smartmeterToggleValue("read");
-						update_activation_dirty_hints();
-					}
 					render_service_snapshot(response);
 					needs_status_refresh = !response.services;
 				})
@@ -361,10 +355,9 @@
 		}
 
 		function mark_configuration_form_saved(response) {
-			initial_implementation_value = smartmeterToggleValue("implementation");
-			saved_implementation = initial_implementation_value;
-			initial_read_value = smartmeterToggleValue("read");
-			document.getElementById("implementation_changed").value = "0";
+			initial_vzlogger_enabled = smartmeterToggleValue("vzlogger_enabled");
+			saved_vzlogger_enabled = initial_vzlogger_enabled;
+			initial_bridge_enabled = smartmeterToggleValue("bridge_enabled");
 			update_activation_dirty_hints();
 			$("#vzlogger_mqttpass, #vzlogger_mqttkeypass").val("");
 			$("#vzlogger_mqttpass_reset, #vzlogger_mqttkeypass_reset").prop("checked", false);
@@ -915,8 +908,8 @@
 			poll_service_status();
 		});
 
-		smartmeterSetToggleValue("read", initial_read_value);
-		smartmeterSetToggleValue("implementation", initial_implementation_value);
+		smartmeterSetToggleValue("bridge_enabled", initial_bridge_enabled);
+		smartmeterSetToggleValue("vzlogger_enabled", initial_vzlogger_enabled);
 		smartmeterSetToggleValue("expert_mode", expert_mode_active ? "1" : "0");
 		smartmeterSetToggleValue("sendudp", settings_defaults.sendudp);
 		smartmeterSetToggleValue("bridge_mqtt_enabled", settings_defaults.bridgeMqttEnabled);
@@ -1012,10 +1005,10 @@
 
 		function update_all_control_states() {
 			var ui = {
-				vzlogger: smartmeterToggleValue("implementation") == "vzlogger",
+				vzlogger: smartmeterToggleValue("vzlogger_enabled") == "1",
 				local: smartmeterToggleValue("vzlogger_localenabled") == "1",
 				mqtt: expert_mode_active ? expert_mqtt_enabled : smartmeterToggleValue("vzlogger_mqttenabled") == "1",
-				bridge_switch: smartmeterToggleValue("read") == "1",
+				bridge_switch: smartmeterToggleValue("bridge_enabled") == "1",
 				bridge_mqtt: smartmeterToggleValue("bridge_mqtt_enabled") == "1",
 				http_cache: smartmeterToggleValue("http_cache_enabled") == "1",
 				udp: smartmeterToggleValue("sendudp") == "1",
@@ -1169,26 +1162,11 @@
 			schedule_service_poll();
 		});
 
-		function set_implementation_tab_state(id, active) {
-			var state = $("#" + id);
-			if (!state.length) return;
-			var label = state.attr(active ? "data-active-label" : "data-inactive-label") || "";
-			state.toggleClass("is-active", active).toggleClass("is-inactive", !active).attr("title", label).attr("aria-label", label);
-			state.find(".implementation-state-icon").text(active ? "✓" : "–");
-		}
-
-		function set_implementation_tab_states(mode) {
-			set_implementation_tab_state("vzlogger_tab_state", mode == "vzlogger");
-			set_implementation_tab_state("legacy_tab_state", mode == "legacy");
-		}
-
 		function update_activation_dirty_hints() {
-			var implementation_changed = smartmeterToggleValue("implementation") != initial_implementation_value;
-			var bridge_changed = smartmeterToggleValue("read") != initial_read_value;
-			$("#implementation_changed").val(implementation_changed ? "1" : "0");
-			$("#implementation_unsaved").prop("hidden", !implementation_changed);
+			var activation_changed = smartmeterToggleValue("vzlogger_enabled") != initial_vzlogger_enabled;
+			var bridge_changed = smartmeterToggleValue("bridge_enabled") != initial_bridge_enabled;
+			$("#vzlogger_activation_unsaved").prop("hidden", !activation_changed);
 			$("#bridge_activation_unsaved").prop("hidden", !bridge_changed);
-			set_implementation_tab_states(saved_implementation);
 		}
 
 		function update_vzlogger_controls() { update_activation_dirty_hints(); update_all_control_states(); }
@@ -1275,8 +1253,8 @@
 			if (!panel.length) return;
 			var mode = $("#" + serial + "_meter").val();
 			var standard_meter = ["sml", "d0", "oms"].indexOf(mode) >= 0;
-			var global_disabled = smartmeterToggleValue("implementation") != "vzlogger";
-			var runtime_action_disabled = saved_implementation != "vzlogger";
+			var global_disabled = smartmeterToggleValue("vzlogger_enabled") != "1";
+			var runtime_action_disabled = saved_vzlogger_enabled != "1";
 			var meter_disabled = standard_meter && smartmeterToggleValue(serial + "_enabled") == "0";
 			var name_control = $("#" + serial + "_name");
 			var enabled_control = $("#" + serial + "_enabled");

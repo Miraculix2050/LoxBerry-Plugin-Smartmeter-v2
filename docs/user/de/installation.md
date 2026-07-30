@@ -27,7 +27,7 @@ Die Vorlagen sind bewährte Ausgangswerte, aber kein Kompatibilitätsversprechen
 5. Prüfe im Installationslog die abschließenden Erfolgsmeldungen. Allgemeine LoxBerry-Warnungen sind nicht automatisch ein Pluginfehler.
 6. Öffne SmartMeter v2. Ein Neustart ist normalerweise nicht erforderlich.
 
-Eine Neuinstallation startet mit ausgewähltem vzLogger-Modus, aber ohne konfiguriertes Meter. Daher bleiben vzLogger und Bridge zunächst gestoppt. Die Bridge ist ausgeschaltet; ihre vorbereiteten Ausgabevorgaben sind MQTT-Zeitstempel an, HTTP-Cache aus und UDP aus.
+Eine Neuinstallation aktiviert den vzLogger-Sollzustand, enthält aber noch kein konfiguriertes Meter. Daher bleiben vzLogger und Bridge zunächst gestoppt. Die Bridge ist ausgeschaltet; ihre vorbereiteten Ausgabevorgaben sind MQTT-Zeitstempel an, HTTP-Cache aus und UDP aus.
 
 Falls `udevadm` im Installationslog nicht ausgeführt werden konnte, trenne den USB-Lesekopf und verbinde ihn erneut. Starte LoxBerry nur neu, wenn der Gerätepfad danach weiterhin fehlt.
 
@@ -35,14 +35,12 @@ Falls `udevadm` im Installationslog nicht ausgeführt werden konnte, trenne den 
 
 1. Öffne die LoxBerry-Pluginverwaltung und starte das angebotene SmartMeter-v2-Update beziehungsweise installiere das offizielle ZIP der Zielversion.
 2. Prüfe nach Abschluss das Installationslog.
-3. Öffne beide Konfigurationsseiten und kontrolliere den aktiven Modus und die Dienstzustände.
-4. Öffne die Live-Daten beziehungsweise führe bei Legacy eine manuelle Abfrage aus.
+3. Öffne die Konfigurationsseite und kontrolliere die gespeicherten Sollzustände und aktuellen Dienstzustände.
+4. Öffne die Live-Daten und bestätige aktuelle Messwerte.
 
-Ein Update bewahrt den gespeicherten Modus `vzlogger`, `legacy` oder `none`, die erzeugte gültige vzLogger-Konfiguration, den Expert-Entwurf, Legacy-Einstellungen und vorhandene Ausgabeauswahl. Ältere Installationen behalten ihr bisheriges Bridge-Verhalten: Bridge-MQTT bleibt zunächst aus und der HTTP-Cache an, bis du es änderst.
+Version 2.1.0.0 bewahrt eine gültige erzeugte vzLogger-Konfiguration, Kanal-UUIDs, Ausgabeschlüssel, den Expert-Entwurf, Bridge-Ausgaben und Recovery-Einstellungen. Die bisherigen Modi `vzlogger` und `none` werden in den entsprechenden aktivierten oder deaktivierten Sollzustand überführt; der bisherige Bridge-Schalter wird unabhängig migriert.
 
-Ein Neustart ist nicht erforderlich. Beim Legacy-Intervall **Beim Systemstart** wird nach einem erfolgreichen Update sofort eine Messung gestartet.
-
-Für das Update auf 2.0.1.0 ist keine manuelle Konfigurationsmigration erforderlich. 2.0.1.0 ist die letzte Version mit Legacy; wechsle vor einem späteren Upgrade auf 2.1.0.0 zu vzLogger und führe **Speichern/Anwenden** erfolgreich aus.
+Ein Upgrade wird vor dem Dateiaustausch blockiert, wenn Legacy noch aktiv ist; dies gilt auch für ältere Installationen, die als aktives Legacy erkannt werden. Bleibe auf 2.0.1.0 oder installiere diese Version erneut, aktiviere dort vzLogger und führe **Speichern und anwenden** erfolgreich aus, bevor du 2.1.0.0 erneut versuchst. Inaktive Legacy-Einstellungen werden bei einem erlaubten Upgrade gelöscht und nicht als Sicherung aufbewahrt. Ein Neustart ist nicht erforderlich.
 
 ## Deinstallieren
 

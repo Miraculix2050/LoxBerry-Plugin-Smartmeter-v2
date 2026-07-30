@@ -2,15 +2,14 @@
 
 This page collects details for diagnosis, backup, and advanced integration. [Configuration](configuration.md) and [Outputs](outputs.md) are sufficient for normal setup.
 
-## Services and modes
+## Services and desired states
 
 | Component | Purpose | When active |
 |---|---|---|
-| `vzlogger` | Reads meters and publishes readings by MQTT | vzLogger mode, valid configuration, at least one active meter |
+| `vzlogger` | Reads meters and publishes readings by MQTT | `VZLOGGER.ENABLED=1`, valid configuration, at least one active meter |
 | `smartmeter-v2-vzlogger-bridge` | Produces bridge MQTT, HTTP cache, and UDP | Bridge enabled and a usable applied output exists |
-| Legacy cron job | Starts classic meter polls | Only in Legacy mode on the selected schedule |
 
-Legacy and vzLogger are mutually exclusive. An inactive or meterless state stops the related services without deleting a valid generated configuration.
+Disabled or meterless state stops the related services without deleting a valid generated configuration. Manual Start, Stop, and Restart do not change the saved desired states.
 
 ## Configuration and runtime paths
 
@@ -18,7 +17,7 @@ Legacy and vzLogger are mutually exclusive. An inactive or meterless state stops
 
 | Path | Content |
 |---|---|
-| LoxBerry plugin configuration `smartmeter.cfg` | Legacy settings, mode, and output defaults |
+| LoxBerry plugin configuration `smartmeter.cfg` | Desired states, meter settings, and output defaults |
 | LoxBerry plugin configuration `vzlogger.conf` | Applied vzLogger runtime configuration |
 | `vzlogger_expert.conf` in the plugin configuration directory | Separate Expert Mode draft |
 | `vzlogger_channel_definitions.json` | Complete UI model of active and inactive channels |
@@ -64,7 +63,7 @@ Output keys may contain 1–64 characters. `:` and `;` are reserved delimiters. 
 | MQTT QoS | `0` or `1` |
 | MQTT topic | 1–256 characters without control characters, `+`, or `#` |
 | Live-data interval | Default 2 seconds; selectable up to 5 minutes |
-| Legacy and bridge UDP interval | positive integer within the form limit |
+| Bridge UDP interval | positive integer within the form limit |
 | Recovery | POST only, token required, optional IP filter and cooldown |
 
 A fresh installation prepares bridge MQTT as on and HTTP cache and UDP as off; they take effect only after the bridge is enabled. Upgrades preserve existing selections.

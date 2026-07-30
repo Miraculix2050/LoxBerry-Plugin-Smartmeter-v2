@@ -5,9 +5,7 @@
 
 ## Überblick
 
-SmartMeter v2 liest Zählerdaten über einen optischen I/R-Lesekopf. Die Standardimplementierung verwendet vzLogger. vzLogger liest den Zähler und veröffentlicht Messwerte per MQTT. Die optionale SmartMeter-Bridge kann daraus MQTT-Zeitstempel, einen HTTP-Cache und UDP-Daten für Loxone erzeugen.
-
-Legacy ist ein getrennter Rückfallweg für bestehende Installationen oder Zählerkonfigurationen, die vzLogger noch nicht abdeckt. Beide Implementierungen laufen niemals gleichzeitig; beide dürfen ausgeschaltet sein.
+SmartMeter v2 liest Zählerdaten über einen optischen I/R-Lesekopf mit vzLogger. vzLogger veröffentlicht Messwerte per MQTT. Die optionale SmartMeter-Bridge kann daraus MQTT-Zeitstempel, einen HTTP-Cache und UDP-Daten für Loxone erzeugen.
 
 > **Sicherheit:** Verwende LoxBerry, den vzLogger-HTTP-Dienst, den SmartMeter-HTTP-Cache und den Recovery-Endpunkt nur in einem vertrauenswürdigen LAN. Gib diese Dienste niemals über den Router oder einen öffentlichen Reverse-Proxy ins Internet frei.
 
@@ -31,7 +29,6 @@ Eine ausführliche Erklärung steht unter [Konfiguration](user/de/configuration.
 - [vzLogger konfigurieren](user/de/configuration.md)
 - [Messwerte und Ausgaben verwenden](user/de/outputs.md)
 - [Erweiterte Funktionen](user/de/advanced.md)
-- [Legacy verwenden](user/de/legacy.md)
 - [Fehler beheben](user/de/troubleshooting.md)
 - [Technische Referenz](user/de/reference.md)
 - [Bekannte Einschränkungen](known-limitations.de.md)
@@ -45,4 +42,3 @@ Eine ausführliche Erklärung steht unter [Konfiguration](user/de/configuration.
 - **vzLogger:** Externes Programm, das den Zähler liest und Messwerte veröffentlicht.
 - **SmartMeter-Bridge:** Optionaler Plugin-Dienst, der ausgewählte vzLogger-MQTT-Werte für MQTT-Zeitstempel, HTTP-Cache und UDP verarbeitet.
 - **Channel/Kanal:** Konfiguration eines einzelnen Messwerts.
-- **Legacy:** Frühere, getrennte Ausleseimplementierung des Plugins.

@@ -45,11 +45,17 @@ fi
 . "$LOCK_HELPER"
 smartmeter_acquire_config_lock "$RUNTIME_DIR" || exit 4
 
+for cron_folder in cron.01min cron.03min cron.05min cron.10min cron.15min cron.30min cron.hourly cron.reboot
+do
+	rm -f "$LBHOMEDIR/system/cron/$cron_folder/$PSHNAME"
+done
+
 if [ -f "$BRIDGE_UNIT" ]; then
 	echo "<INFO> Removing SmartMeter vzLogger bridge service."
 	if command -v systemctl >/dev/null 2>&1; then
 		systemctl stop "$BRIDGE_SERVICE" >/dev/null 2>&1 || true
 		systemctl disable "$BRIDGE_SERVICE" >/dev/null 2>&1 || true
+		systemctl reset-failed "$BRIDGE_SERVICE" >/dev/null 2>&1 || true
 	fi
 	rm -f "$BRIDGE_UNIT"
 else

@@ -11,59 +11,6 @@
 	box-sizing: border-box;
 }
 
-.smartmeter-page .implementation-tabs {
-	display: flex;
-	gap: .65rem;
-	margin: 0 0 1rem;
-	border: 0 !important;
-	border-radius: 0;
-	padding: 0;
-	overflow: visible;
-	background: transparent;
-	box-shadow: none;
-}
-
-.smartmeter-page .implementation-tabs .lb-btn {
-	display: flex;
-	flex: 1 1 0;
-	align-items: center;
-	justify-content: center;
-	gap: .55rem;
-	min-height: 44px;
-	margin: 0 !important;
-	border: 1px solid #c0c0c0 !important;
-	border-radius: .25rem;
-	white-space: normal;
-	text-align: center;
-}
-
-.smartmeter-page .implementation-tabs .lb-btn-active {
-	border-color: #5b9418 !important;
-	background: #70ad21 !important;
-	color: #fff !important;
-}
-
-.smartmeter-page .implementation-tabs .lb-btn-active:hover,
-.smartmeter-page .implementation-tabs .lb-btn-active:focus-visible {
-	background: #62991d !important;
-}
-
-.smartmeter-page .implementation-state {
-	display: inline-flex;
-	flex: 0 0 auto;
-	align-items: center;
-	justify-content: center;
-	width: 1.45rem;
-	height: 1.45rem;
-	border-radius: 50%;
-	background: #777;
-	color: #fff;
-	font-weight: 700;
-}
-
-.smartmeter-page .implementation-state.is-active { background: #2f7d32; }
-.smartmeter-page .implementation-state.is-inactive { background: #777; }
-
 .smartmeter-page .lb-table,
 .smartmeter-page table.settings-table,
 .smartmeter-page .service-panel table {
@@ -239,10 +186,6 @@
 
 @media (max-width: 640px) {
 	.smartmeter-page { width: 100%; }
-
-	.smartmeter-page .implementation-tabs {
-		flex-direction: column;
-	}
 
 	.smartmeter-page .settings-table,
 	.smartmeter-page .settings-table tbody,

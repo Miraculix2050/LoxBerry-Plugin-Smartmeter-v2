@@ -2,7 +2,7 @@
 
 # Runs as root after LoxBerry has installed dependencies and executed the
 # normal postinstall/postupgrade scripts. Keep vzLogger stopped unless the
-# plugin configuration explicitly enables the vzLogger implementation.
+# plugin configuration explicitly enables the service.
 
 PTEMPDIR=$1
 PSHNAME=$2
@@ -52,9 +52,12 @@ fi
 . "$LOCK_HELPER"
 smartmeter_acquire_config_lock "$RUNTIME_DIR" || exit 4
 
-implementation=""
+vzlogger_enabled="0"
 if [ -f "$CONFIG_FILE" ]; then
-	implementation=$(sed -n 's/^IMPLEMENTATION=//p' "$CONFIG_FILE" | tail -n 1)
+	vzlogger_enabled=$(awk '
+		/^\[/ { section=$0 }
+		section == "[VZLOGGER]" && /^ENABLED=/ { sub(/^ENABLED=/, ""); print; exit }
+	' "$CONFIG_FILE")
 fi
 
 install_ir_head_udev_rule()
@@ -154,7 +157,7 @@ do
 	fi
 done
 
-if [ "$implementation" = "vzlogger" ] && has_configured_vzlogger_meter; then
+if [ "$vzlogger_enabled" = "1" ] && has_configured_vzlogger_meter; then
 	was_active_before_upgrade=0
 	if [ -f "$PREUPGRADE_ACTIVE_FILE" ]; then
 		was_active_before_upgrade=1
@@ -164,7 +167,7 @@ if [ "$implementation" = "vzlogger" ] && has_configured_vzlogger_meter; then
 		if [ "$was_active_before_upgrade" = "1" ]; then
 			echo "<INFO> vzLogger was active before upgrade. Applying configuration and restarting configured services."
 		else
-			echo "<INFO> vzLogger mode is active. Applying configuration and restarting configured services."
+			echo "<INFO> vzLogger desired state is enabled. Applying configuration and restarting configured services."
 		fi
 		if "$VZLOGGER_CONTROL" apply; then
 			echo "<INFO> Applied active vzLogger configuration after install or upgrade."
@@ -191,10 +194,10 @@ if command -v systemctl >/dev/null 2>&1; then
 	fi
 
 	if systemctl list-unit-files vzlogger.service >/dev/null 2>&1; then
-		if [ "$implementation" = "vzlogger" ]; then
-			echo "<INFO> vzLogger mode is active but no meter is configured. Stopping and disabling vzLogger service."
+		if [ "$vzlogger_enabled" = "1" ]; then
+			echo "<INFO> vzLogger is enabled but no meter is configured. Stopping and disabling vzLogger service."
 		else
-			echo "<INFO> Legacy mode is active. Stopping and disabling vzLogger service."
+			echo "<INFO> vzLogger is disabled. Stopping and disabling vzLogger service."
 		fi
 		systemctl stop vzlogger.service >/dev/null 2>&1 || true
 		systemctl disable vzlogger.service >/dev/null 2>&1 || true
@@ -203,10 +206,10 @@ if command -v systemctl >/dev/null 2>&1; then
 		echo "<INFO> vzLogger service is not installed."
 	fi
 	if systemctl list-unit-files "$BRIDGE_SERVICE" >/dev/null 2>&1; then
-		if [ "$implementation" = "vzlogger" ]; then
+		if [ "$vzlogger_enabled" = "1" ]; then
 			echo "<INFO> Stopping MQTT bridge because no vzLogger meter is configured."
 		else
-			echo "<INFO> Stopping MQTT bridge because vzLogger mode is disabled."
+			echo "<INFO> Stopping MQTT bridge because vzLogger is disabled."
 		fi
 		systemctl stop "$BRIDGE_SERVICE" >/dev/null 2>&1 || true
 		systemctl disable "$BRIDGE_SERVICE" >/dev/null 2>&1 || true

@@ -261,11 +261,11 @@
 		let sum = hasBucketStatistics ? bucket.sum : 0;
 		let count = hasBucketStatistics ? bucket.count : 0;
 		if (bucket && !hasBucketStatistics) {
-			const legacy = new Map();
+			const historical = new Map();
 			[bucket.first, bucket.minimum, bucket.maximum, bucket.last].forEach(point => {
-				if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) legacy.set(point.x + "|" + point.y, point);
+				if (point && Number.isFinite(point.x) && Number.isFinite(point.y)) historical.set(point.x + "|" + point.y, point);
 			});
-			legacy.forEach(point => { sum += point.y; count += 1; });
+			historical.forEach(point => { sum += point.y; count += 1; });
 		}
 		values.forEach(point => {
 			if (Number.isFinite(point.sampleCount)) {
@@ -772,7 +772,7 @@
 			transaction.objectStore("readings").clear(); transaction.objectStore("buckets").clear(); transaction.objectStore("gaps").clear();
 			await done;
 		}
-		try { sessionStorage.removeItem(Live.HISTORY_STORAGE_KEY); } catch (_) { /* Ignore unavailable legacy storage. */ }
+		try { sessionStorage.removeItem(Live.HISTORY_STORAGE_KEY); } catch (_) { /* Ignore unavailable previous storage. */ }
 		historyStorageAvailable = storageWasAvailable;
 		if (currentData) ingest(currentData);
 		updateChart();

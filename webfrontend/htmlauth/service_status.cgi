@@ -15,14 +15,11 @@ my $bin_dir = "$install_folder/bin/plugins/$plugin_folder";
 my $details = ($ENV{QUERY_STRING} || "") =~ /(?:\A|&)details=1(?:&|\z)/ ? 1 : 0;
 my $config = read_ini("$config_dir/smartmeter.cfg");
 
-my $implementation = value($config, "MAIN.IMPLEMENTATION", "");
-$implementation = value($config, "MAIN.READ", "0") eq "1" ? "legacy" : "vzlogger"
-	if ($implementation !~ /\A(?:vzlogger|legacy|none)\z/);
 my $expert_mode = value($config, "VZLOGGER.EXPERTMODE", "0") eq "1";
 my $mqtt_enabled = $expert_mode ? runtime_mqtt_enabled("$config_dir/vzlogger.conf")
 	: value($config, "VZLOGGER.MQTTENABLED", "1") eq "1";
-my $bridge_enabled = value($config, "MAIN.READ", "0") eq "1";
-my $vzlogger_expected = $implementation eq "vzlogger";
+my $bridge_enabled = value($config, "VZLOGGER.BRIDGEENABLED", "0") eq "1";
+my $vzlogger_expected = value($config, "VZLOGGER.ENABLED", "0") eq "1";
 my $bridge_expected = $vzlogger_expected && $mqtt_enabled && $bridge_enabled;
 my $runtime = read_service_runtime(qw(vzlogger smartmeter-v2-vzlogger-bridge));
 my $response = {

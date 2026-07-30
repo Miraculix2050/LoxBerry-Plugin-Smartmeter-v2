@@ -6,7 +6,7 @@ use FindBin;
 use JSON::PP;
 use Test::More;
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerChannels qw(parse_obis compose_obis normalize_obis default_output_key valid_output_key stable_uuid load_catalog lookup_obis new_document migrate_legacy_meter validate_document localize_validation_errors native_channel output_order_mapping ordered_output_names);
+use SmartMeterVZLoggerChannels qw(parse_obis compose_obis normalize_obis default_output_key valid_output_key stable_uuid load_catalog lookup_obis new_document initialize_channel_definitions validate_document localize_validation_errors native_channel output_order_mapping ordered_output_names);
 
 my $catalog = load_catalog("$FindBin::Bin/../templates/obis_catalog.json");
 is($catalog->{version}, 1, "catalog schema version");
@@ -20,16 +20,16 @@ is(compose_obis("1-0:1.8.0", 254), "1-0:1.8.0*254", "highest explicit storage in
 is(compose_obis("1-0:1.8.0", 255), "1-0:1.8.0", "storage 255 composes to canonical unspecified state");
 is(compose_obis("1-0:1.8.0", 256), "", "storage index above the DLMS range is rejected");
 is(compose_obis("1-0:1.8.0", -1), "", "negative storage index is rejected");
-is(stable_uuid("smartmeter-v2:reader:1-0:1.8.0"), "85dc2e4a-9ce8-78e0-7edb-fe9b8c2716cc", "legacy UUID algorithm remains stable");
+is(stable_uuid("smartmeter-v2:reader:1-0:1.8.0"), "85dc2e4a-9ce8-78e0-7edb-fe9b8c2716cc", "historical UUID algorithm remains stable");
 my $migrated = new_document();
-my $legacy_rows = migrate_legacy_meter($migrated, "reader", "smartmeter-v2",
+my $initial_rows = initialize_channel_definitions($migrated, "reader", "smartmeter-v2",
 	[{identifier=>"1-0:1.8.0",name=>"Import_Total_OBIS_1.8.0"},{identifier=>"1-0:2.8.0"}], ["1-0:1.8.0"], ["1-0:1.8.0*5"], $catalog);
-is(scalar(@$legacy_rows), 3, "migration retains discovered, deselected, and custom identifiers");
-ok($legacy_rows->[0]->{enabled} && !$legacy_rows->[1]->{enabled}, "legacy selection and deselection are retained");
-is($legacy_rows->[0]->{uuid}, stable_uuid("smartmeter-v2:reader:1-0:1.8.0"), "first migrated instance keeps its previous UUID");
-is($legacy_rows->[0]->{plugin_output}->{key}, "Consumption_Total_OBIS_1.8.0", "migration uses the catalog-based output key");
-ok(!exists($legacy_rows->[0]->{plugin_output}->{legacy_keys}), "migration does not create additional cache aliases");
-is(compose_obis($legacy_rows->[2]->{obis}, $legacy_rows->[2]->{storage}), "1-0:1.8.0*5", "legacy custom F value is retained");
+is(scalar(@$initial_rows), 3, "initialization retains discovered, deselected, and custom identifiers");
+ok($initial_rows->[0]->{enabled} && !$initial_rows->[1]->{enabled}, "selection and deselection are retained");
+is($initial_rows->[0]->{uuid}, stable_uuid("smartmeter-v2:reader:1-0:1.8.0"), "first initialized instance keeps its historical UUID");
+is($initial_rows->[0]->{plugin_output}->{key}, "Consumption_Total_OBIS_1.8.0", "initialization uses the catalog-based output key");
+ok(!exists($initial_rows->[0]->{plugin_output}->{legacy_keys}), "initialization creates no obsolete cache aliases");
+is(compose_obis($initial_rows->[2]->{obis}, $initial_rows->[2]->{storage}), "1-0:1.8.0*5", "custom F value is retained");
 
 for my $case (
 	["1-0:1.8.0", "active_energy_import"], ["1-0:16.7.0", "active_power_total"], ["7-0:1.8.0", "gas_volume"],
@@ -102,7 +102,7 @@ like(join("\n", @$localized_errors), qr/ungültiger Output Key/, "UI channel-val
 
 my $output_order = output_order_mapping({
 	"uuid-2" => { serial => "reader", name => "Second", channel_index => 2 },
-	"uuid-0" => { serial => "reader", name => "First", channel_index => 0, legacy_names => ["Ignored_Legacy"] },
+	"uuid-0" => { serial => "reader", name => "First", channel_index => 0 },
 	"uuid-x" => { serial => "reader", name => "No_Index" },
 });
 my %output_values = (

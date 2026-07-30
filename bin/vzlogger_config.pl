@@ -9,9 +9,9 @@ use FindBin;
 use JSON::PP;
 use LoxBerry::System;
 use lib $FindBin::Bin;
-use SmartMeterVZLoggerChannels qw(read_json write_json_atomic load_catalog lookup_obis new_document migrate_legacy_meter validate_document native_channel normalize_obis);
+use SmartMeterVZLoggerChannels qw(read_json write_json_atomic load_catalog lookup_obis new_document initialize_channel_definitions validate_document native_channel normalize_obis);
 use SmartMeterVZLoggerCustomChannels qw(assign_custom_channel_uuids);
-use SmartMeterVZLoggerConfig qw(read_mqtt_settings clean_number clean_qos sanitize_topic protocol_for_meter normalized_meter_mode serial_mode implementation_mode);
+use SmartMeterVZLoggerConfig qw(read_mqtt_settings clean_number clean_qos sanitize_topic protocol_for_meter normalized_meter_mode vzlogger_enabled);
 
 my $home = $lbhomedir;
 my $psubfolder = $lbpplugindir;
@@ -44,7 +44,7 @@ my $local_index = clean_boolean($plugin_cfg->param("VZLOGGER.LOCALINDEX"), 1);
 my $local_timeout = clean_number($plugin_cfg->param("VZLOGGER.LOCALTIMEOUT"), 30);
 my $local_buffer = clean_integer($plugin_cfg->param("VZLOGGER.LOCALBUFFER"), -1);
 my $retry = clean_number($plugin_cfg->param("VZLOGGER.RETRY"), 30);
-my $vzlogger_mode = implementation_mode($plugin_cfg) eq "vzlogger";
+my $vzlogger_mode = vzlogger_enabled($plugin_cfg);
 
 my @meters;
 my %channel_mapping;
@@ -80,18 +80,11 @@ foreach my $config_key (sort keys %flat_config) {
 			my @selected = config_list_values("$section.OBISCHANNELS");
 			my @custom = custom_channels($section);
 			my $selected_ref = defined($plugin_cfg->param("$section.OBISCHANNELS")) ? \@selected : undef;
-			$definitions = migrate_legacy_meter($channel_document, $serial, $psubfolder, \@available, $selected_ref, \@custom, $obis_catalog);
+			$definitions = initialize_channel_definitions($channel_document, $serial, $psubfolder, \@available, $selected_ref, \@custom, $obis_catalog);
 			$channel_document_changed = 1;
 		}
 		my @channels;
 		my $aggtime = clean_integer(config_scalar_value("$section.AGGTIME"), 0);
-		foreach my $definition (@$definitions) {
-			next if (ref($definition->{plugin_output}) ne "HASH");
-			if (exists($definition->{plugin_output}->{legacy_keys})) {
-				delete $definition->{plugin_output}->{legacy_keys};
-				$channel_document_changed = 1;
-			}
-		}
 		my %identifier_counts;
 		foreach my $definition (@$definitions) {
 			next if (!$definition->{enabled});
@@ -205,11 +198,11 @@ sub write_json
 
 sub standard_meter_config
 {
-	my ($section, $protocol, $device, $implementation_enabled) = @_;
+	my ($section, $protocol, $device, $service_enabled) = @_;
 	my $meter_enabled = clean_boolean(config_scalar_value("$section.ENABLED"), 1);
 	my $allowskip = clean_boolean(config_scalar_value("$section.ALLOWSKIP"), 1);
 	my $meter = {
-		enabled => ($implementation_enabled && $meter_enabled) ? JSON::PP::true : JSON::PP::false,
+		enabled => ($service_enabled && $meter_enabled) ? JSON::PP::true : JSON::PP::false,
 		allowskip => $allowskip ? JSON::PP::true : JSON::PP::false,
 		protocol => $protocol,
 		device => $device,
@@ -221,9 +214,8 @@ sub standard_meter_config
 	if ($protocol eq "sml") {
 		set_optional_integer($meter, "interval", config_scalar_value("$section.INTERVAL"), 1);
 		set_optional_text($meter, "pullseq", config_scalar_value("$section.PULLSEQ"));
-		my $legacy_manual = config_scalar_value("$section.METER") eq "manual";
-		set_optional_integer($meter, "baudrate", config_scalar_value("$section.BAUDRATE"), 0) if ($legacy_manual || config_scalar_value("$section.BAUDRATESET") eq "1");
-		set_optional_enum($meter, "parity", configured_parity_optional($section), qr/\A(?:8n1|7e1|7o1|7n1)\z/i) if ($legacy_manual || config_scalar_value("$section.PARITYSET") eq "1");
+		set_optional_integer($meter, "baudrate", config_scalar_value("$section.BAUDRATE"), 0) if (config_scalar_value("$section.BAUDRATESET") eq "1");
+		set_optional_enum($meter, "parity", configured_parity_optional($section), qr/\A(?:8n1|7e1|7o1|7n1)\z/i) if (config_scalar_value("$section.PARITYSET") eq "1");
 		set_optional_boolean($meter, "use_local_time", config_scalar_value("$section.USELOCALTIME"));
 	} elsif ($protocol eq "d0") {
 		set_optional_integer($meter, "interval", config_scalar_value("$section.INTERVAL"), 1);
@@ -379,12 +371,6 @@ sub configured_parity_optional
 	my ($section) = @_;
 	my $mode = config_scalar_value("$section.PARITYMODE");
 	return lc($mode) if (defined($mode) && $mode =~ /\A(?:8n1|7e1|7o1|7n1)\z/i);
-	my $legacy = serial_mode(
-		$plugin_cfg->param("$section.DATABITS"),
-		$plugin_cfg->param("$section.PARITY"),
-		$plugin_cfg->param("$section.STOPBITS")
-	);
-	return lc($legacy) if ($legacy && first_config_value($section, "DATABITS", "PARITY", "STOPBITS"));
 	return "";
 }
 

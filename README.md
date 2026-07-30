@@ -1,8 +1,8 @@
 # SmartMeter v2 for LoxBerry
 
-SmartMeter v2 reads smart meters through optical I/R reading heads on LoxBerry. The standard implementation uses vzLogger; a separate Legacy implementation remains available for existing configurations.
+SmartMeter v2 reads smart meters through optical I/R reading heads on LoxBerry using vzLogger.
 
-SmartMeter v2 liest Smart Meter über optische I/R-Leseköpfe am LoxBerry aus. Standardmäßig kommt vzLogger zum Einsatz; für bestehende Konfigurationen bleibt eine getrennte Legacy-Implementierung verfügbar.
+SmartMeter v2 liest Smart Meter über optische I/R-Leseköpfe am LoxBerry mit vzLogger aus.
 
 ## User documentation / Benutzerdokumentation
 
@@ -24,7 +24,6 @@ Die Dokumentation auf `master` beschreibt den aktuellen Entwicklungsstand. Verwe
 - Live readings and browser-local charts
 - MQTT, optional HTTP-cache, and UDP output
 - Direct vzLogger targets for Volkszähler, InfluxDB, and MySmartGrid
-- Reversible Legacy fallback
 
 ## Development
 

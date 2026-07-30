@@ -2,15 +2,14 @@
 
 Diese Seite bündelt Details für Diagnose, Sicherung und fortgeschrittene Integration. Für die normale Einrichtung genügen [Konfiguration](configuration.md) und [Ausgaben](outputs.md).
 
-## Dienste und Modi
+## Dienste und Sollzustände
 
 | Bestandteil | Aufgabe | Wann aktiv |
 |---|---|---|
-| `vzlogger` | Liest Meter und veröffentlicht Messwerte per MQTT | vzLogger-Modus, gültige Konfiguration, mindestens ein aktives Meter |
+| `vzlogger` | Liest Meter und veröffentlicht Messwerte per MQTT | `VZLOGGER.ENABLED=1`, gültige Konfiguration, mindestens ein aktives Meter |
 | `smartmeter-v2-vzlogger-bridge` | Erzeugt Bridge-MQTT, HTTP-Cache und UDP | Bridge aktiviert und nutzbare angewendete Ausgabe vorhanden |
-| Legacy-Cronjob | Startet klassische Meterabfragen | Nur im Legacy-Modus nach gewähltem Zeitplan |
 
-Legacy und vzLogger sind gegenseitig ausgeschlossen. Ein inaktiver oder meterloser Zustand stoppt die zugehörigen Dienste, ohne eine gültige erzeugte Konfiguration zu löschen.
+Ein deaktivierter oder meterloser Zustand stoppt die zugehörigen Dienste, ohne eine gültige erzeugte Konfiguration zu löschen. Manuelle Aktionen Start, Stopp und Neustart ändern die gespeicherten Sollzustände nicht.
 
 ## Konfigurations- und Laufzeitpfade
 
@@ -18,7 +17,7 @@ Legacy und vzLogger sind gegenseitig ausgeschlossen. Ein inaktiver oder meterlos
 
 | Pfad | Inhalt |
 |---|---|
-| LoxBerry-Pluginkonfiguration `smartmeter.cfg` | Legacy-Einstellungen, Modus- und Ausgabevorgaben |
+| LoxBerry-Pluginkonfiguration `smartmeter.cfg` | Sollzustände, Meter-Einstellungen und Ausgabevorgaben |
 | LoxBerry-Pluginkonfiguration `vzlogger.conf` | Angewendete vzLogger-Laufzeitkonfiguration |
 | `vzlogger_expert.conf` im Plugin-Konfigurationsordner | Getrennter Expert-Mode-Entwurf |
 | `vzlogger_channel_definitions.json` | Vollständiges UI-Modell aktiver und inaktiver Kanäle |
@@ -64,7 +63,7 @@ Ausgabeschlüssel dürfen 1–64 Zeichen lang sein. `:` und `;` sind reservierte
 | MQTT-QoS | `0` oder `1` |
 | MQTT-Topic | 1–256 Zeichen, ohne Steuerzeichen, `+` oder `#` |
 | Live-Datenintervall | Standard 2 Sekunden; wählbar bis 5 Minuten |
-| Legacy- und Bridge-UDP-Intervall | positive Ganzzahl gemäß Formulargrenze |
+| Bridge-UDP-Intervall | positive Ganzzahl gemäß Formulargrenze |
 | Recovery | nur POST, Token erforderlich, optional IP-Filter und Cooldown |
 
 Eine Neuinstallation bereitet Bridge-MQTT als an, HTTP-Cache und UDP als aus vor; wirksam werden sie erst nach Aktivierung der Bridge. Upgrades bewahren vorhandene Auswahl.

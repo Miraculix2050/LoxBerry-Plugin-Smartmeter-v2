@@ -94,12 +94,12 @@ sub validate_config
 		return \@native;
 	}
 
-	my $mode_enabled = vzlogger_mode_enabled();
+	my $service_enabled = vzlogger_service_enabled();
 	my $active_meters = grep { ref($_) eq "HASH" && $_->{enabled} } @{$config->{meters}};
-	if ($mode_enabled && !$active_meters) {
-		push @errors, "No active meter is configured. Enable and configure at least one meter before starting vzLogger.";
-	} elsif (!$mode_enabled && !@{$config->{meters}}) {
-		push @warnings, "No meters are configured because the vzLogger implementation is disabled.";
+	if (!$active_meters) {
+		push @warnings, $service_enabled
+			? "No active meter is configured. vzLogger and the bridge remain stopped."
+			: "No meters are configured because vzLogger is disabled.";
 	}
 
 	my (%uuid_seen, %device_seen);
@@ -523,14 +523,14 @@ sub read_plugin_config
 	return \%plugin_config;
 }
 
-sub vzlogger_mode_enabled
+sub vzlogger_service_enabled
 {
 	my $config = read_plugin_config();
-	return (($config->{"MAIN.IMPLEMENTATION"} || "") eq "vzlogger") ? 1 : 0;
+	return (($config->{"VZLOGGER.ENABLED"} || "0") eq "1") ? 1 : 0;
 }
 
 sub bridge_enabled
 {
 	my $config = read_plugin_config();
-	return (($config->{"MAIN.IMPLEMENTATION"} || "") eq "vzlogger" && ($config->{"MAIN.READ"} || "0") eq "1") ? 1 : 0;
+	return (($config->{"VZLOGGER.ENABLED"} || "0") eq "1" && ($config->{"VZLOGGER.BRIDGEENABLED"} || "0") eq "1") ? 1 : 0;
 }

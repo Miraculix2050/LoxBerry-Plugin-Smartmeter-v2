@@ -9,14 +9,9 @@
 <!-- ****************************************************************************************** -->
 
 <TMPL_IF FORM_VZLOGGER>
-	<div class="lb-btn-group implementation-tabs" role="navigation" aria-label="<TMPL_VAR NAME=COMMON.PLUGIN_TITLE>">
-		<a href="./index.cgi?form=vzlogger" class="lb-btn lb-btn-active"><span id="vzlogger_tab_state" class="implementation-state <TMPL_IF VZLOGGER_IMPLEMENTATION_ACTIVE>is-active<TMPL_ELSE>is-inactive</TMPL_IF>" data-active-label="<TMPL_VAR NAME=COMMON.IMPLEMENTATION_ACTIVE>" data-inactive-label="<TMPL_VAR NAME=COMMON.IMPLEMENTATION_INACTIVE>" title="<TMPL_IF VZLOGGER_IMPLEMENTATION_ACTIVE><TMPL_VAR NAME=COMMON.IMPLEMENTATION_ACTIVE><TMPL_ELSE><TMPL_VAR NAME=COMMON.IMPLEMENTATION_INACTIVE></TMPL_IF>" aria-label="<TMPL_IF VZLOGGER_IMPLEMENTATION_ACTIVE><TMPL_VAR NAME=COMMON.IMPLEMENTATION_ACTIVE><TMPL_ELSE><TMPL_VAR NAME=COMMON.IMPLEMENTATION_INACTIVE></TMPL_IF>"><span class="implementation-state-icon" aria-hidden="true"><TMPL_IF VZLOGGER_IMPLEMENTATION_ACTIVE>✓<TMPL_ELSE>–</TMPL_IF></span></span><span class="implementation-tab-label"><TMPL_VAR NAME=COMMON.MENU_VZLOGGER></span></a>
-		<a href="./index_legacy.cgi?form=legacy" class="lb-btn"><span id="legacy_tab_state" class="implementation-state <TMPL_IF LEGACY_IMPLEMENTATION_ACTIVE>is-active<TMPL_ELSE>is-inactive</TMPL_IF>" data-active-label="<TMPL_VAR NAME=COMMON.IMPLEMENTATION_ACTIVE>" data-inactive-label="<TMPL_VAR NAME=COMMON.IMPLEMENTATION_INACTIVE>" title="<TMPL_IF LEGACY_IMPLEMENTATION_ACTIVE><TMPL_VAR NAME=COMMON.IMPLEMENTATION_ACTIVE><TMPL_ELSE><TMPL_VAR NAME=COMMON.IMPLEMENTATION_INACTIVE></TMPL_IF>" aria-label="<TMPL_IF LEGACY_IMPLEMENTATION_ACTIVE><TMPL_VAR NAME=COMMON.IMPLEMENTATION_ACTIVE><TMPL_ELSE><TMPL_VAR NAME=COMMON.IMPLEMENTATION_INACTIVE></TMPL_IF>"><span class="implementation-state-icon" aria-hidden="true"><TMPL_IF LEGACY_IMPLEMENTATION_ACTIVE>✓<TMPL_ELSE>–</TMPL_IF></span></span><span class="implementation-tab-label"><TMPL_VAR NAME=COMMON.MENU_LEGACY></span></a>
-	</div>
 	<form method="post" name="vzlogger_form" id="vzlogger_form" action="./index.cgi">
 	<input type="hidden" name="saveformdata" value="1">
 	<input type="hidden" id="csrf_token" name="csrf_token" value="<TMPL_VAR NAME=CSRF_TOKEN ESCAPE=HTML>">
-	<input type="hidden" id="implementation_changed" name="implementation_changed" value="0">
 	<span id="expert_mode_enable_failed_text" hidden><TMPL_VAR NAME=VZLOGGER.EXPERT_MODE_ENABLE_FAILED></span>
 	<span id="expert_mode_overwrite_confirm_text" hidden><TMPL_VAR NAME=VZLOGGER.EXPERT_MODE_OVERWRITE_CONFIRM></span>
 	<span id="expert_mode_active_help_text" hidden><TMPL_VAR NAME=VZLOGGER.EXPERT_MODE_ACTIVE_HELP></span>
@@ -40,10 +35,10 @@
 		<p class="service-panel-description"><TMPL_VAR NAME=VZLOGGER.VZLOGGER_SERVICE_DESCRIPTION></p>
 		<table border="0">
 		<tr>
-			<td class="service-label"><label for="implementation"><TMPL_VAR NAME=COMMON.IMPLEMENTATION_MODE></label></td>
-			<td class="service-controls"><input id="implementation_value" name="implementation" type="hidden" value="<TMPL_VAR VZLOGGER_IMPLEMENTATION>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=COMMON.IMPLEMENTATION_MODE>"><input id="implementation" class="smartmeter-toggle-input" type="checkbox" data-off-value="none" data-on-value="vzlogger" onChange="smartmeterSyncToggle(this); update_vzlogger_controls();"><span class="lb-toggle-slider" aria-hidden="true"></span></label><span id="implementation_unsaved" class="activation-unsaved" hidden><TMPL_VAR NAME=VZLOGGER.ACTIVATION_UNSAVED_RUNTIME></span></td>
+			<td class="service-label"><label for="vzlogger_enabled"><TMPL_VAR NAME=VZLOGGER.SERVICE_ENABLED></label></td>
+			<td class="service-controls"><input id="vzlogger_enabled_value" name="vzlogger_enabled" type="hidden" value="<TMPL_VAR VZLOGGER_ENABLED>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.SERVICE_ENABLED>"><input id="vzlogger_enabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onChange="smartmeterSyncToggle(this); update_vzlogger_controls();"><span class="lb-toggle-slider" aria-hidden="true"></span></label><span id="vzlogger_activation_unsaved" class="activation-unsaved" hidden><TMPL_VAR NAME=VZLOGGER.ACTIVATION_UNSAVED_RUNTIME></span></td>
 			<td class="service-spacer">&nbsp;</td>
-			<td class="service-help"><TMPL_VAR NAME=COMMON.IMPLEMENTATION_MODE_HELP></td>
+			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.SERVICE_ENABLED_HELP></td>
 		</tr>
 		<tr>
 			<td class="service-label"><TMPL_VAR NAME=VZLOGGER.STATUS></td>
@@ -71,8 +66,8 @@
 		<p class="service-panel-description"><TMPL_VAR NAME=VZLOGGER.BRIDGE_SERVICE_DESCRIPTION></p>
 		<table border="0">
 		<tr>
-			<td class="service-label"><label for="read"><TMPL_VAR NAME=VZLOGGER.READ_METERS></label></td>
-			<td class="service-controls"><input id="read_value" name="read" type="hidden" value="<TMPL_VAR READ>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.READ_METERS>" aria-disabled="true"><input id="read" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onChange="smartmeterSyncToggle(this); update_bridge_controls();" disabled><span class="lb-toggle-slider" aria-hidden="true"></span></label><span id="bridge_activation_unsaved" class="activation-unsaved" hidden><TMPL_VAR NAME=VZLOGGER.ACTIVATION_UNSAVED_RUNTIME></span></td>
+			<td class="service-label"><label for="bridge_enabled"><TMPL_VAR NAME=VZLOGGER.READ_METERS></label></td>
+			<td class="service-controls"><input id="bridge_enabled_value" name="bridge_enabled" type="hidden" value="<TMPL_VAR BRIDGE_ENABLED>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.READ_METERS>" aria-disabled="true"><input id="bridge_enabled" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onChange="smartmeterSyncToggle(this); update_bridge_controls();" disabled><span class="lb-toggle-slider" aria-hidden="true"></span></label><span id="bridge_activation_unsaved" class="activation-unsaved" hidden><TMPL_VAR NAME=VZLOGGER.ACTIVATION_UNSAVED_RUNTIME></span></td>
 			<td class="service-spacer">&nbsp;</td>
 			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.READ_METERS_HELP></td>
 		</tr>
@@ -635,9 +630,9 @@
 			name: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_REGISTRATION_NAME_HELP ESCAPE=JS>"
 		};
 
-		var saved_implementation = "<TMPL_VAR IMPLEMENTATION>";
-		var initial_implementation_value = "<TMPL_VAR IMPLEMENTATION_SWITCH_VALUE>";
-		var initial_read_value = "<TMPL_VAR READ>";
+		var saved_vzlogger_enabled = "<TMPL_VAR VZLOGGER_ENABLED>";
+		var initial_vzlogger_enabled = "<TMPL_VAR VZLOGGER_ENABLED>";
+		var initial_bridge_enabled = "<TMPL_VAR BRIDGE_ENABLED>";
 		var expert_mode_active = "<TMPL_VAR VZLOGGER_EXPERT_MODE_VALUE>" == "1";
 		var expert_source_present = "<TMPL_VAR VZLOGGER_EXPERT_SOURCE_PRESENT>" == "1";
 		var expert_runtime_applied = "<TMPL_VAR VZLOGGER_EXPERT_APPLIED>" == "1";

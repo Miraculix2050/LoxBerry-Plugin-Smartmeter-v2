@@ -66,9 +66,10 @@ sub run_validator
 	write_json("$dir/vzlogger_channels.json", $args{mapping});
 	write_json("$dir/vzlogger_channel_definitions.json", $args{definitions});
 	open(my $cfg, ">", "$dir/smartmeter.cfg") or die $!;
-	print $cfg "[MAIN]\nIMPLEMENTATION=" . ($args{implementation} || "vzlogger") . "\nREAD=" . ($args{read} || 0) . "\n";
-	print $cfg "SENDUDP=" . ($args{sendudp} || 0) . "\n";
+	print $cfg "[MAIN]\nSENDUDP=" . ($args{sendudp} || 0) . "\n";
 	print $cfg "[VZLOGGER]\n";
+	print $cfg "ENABLED=" . (defined($args{enabled}) ? $args{enabled} : 1) . "\n";
+	print $cfg "BRIDGEENABLED=" . ($args{bridge_enabled} || 0) . "\n";
 	print $cfg "EXPERTMODE=1\n" if ($args{expert});
 	print $cfg "BRIDGEMQTTENABLED=$args{bridge_mqtt}\n" if (defined($args{bridge_mqtt}));
 	print $cfg "HTTPCACHEENABLED=$args{http_cache}\n" if (defined($args{http_cache}));
@@ -125,8 +126,8 @@ like($output, qr/required format: 1-64 characters/, "invalid mapping key reports
 ($config, $mapping, $definitions) = base_case();
 $config->{meters}->[0]->{enabled} = JSON::PP::false;
 ($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
-isnt($exit, 0, "vzLogger mode requires an active meter");
-like($output, qr/No active meter/, "missing active meter is explained");
+is($exit, 0, "enabled vzLogger accepts a configuration without an active meter");
+like($output, qr/No active meter.*remain stopped/, "missing active meter is explained as a stopped state");
 
 ($config, $mapping, $definitions) = base_case();
 $config->{local}->{port} = 65536;
@@ -191,16 +192,16 @@ like($output, qr/channel must be chn0/, "mapping chn name must match generated c
 ($config, $mapping, $definitions) = base_case();
 $definitions->{meters}->{reader}->[0]->{plugin_output}->{enabled} = JSON::PP::false;
 $mapping = {};
-($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, read=>1);
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, bridge_enabled=>1);
 like($output, qr/bridge is enabled but no active plugin output/i, "enabled bridge requires an output channel");
 
 ($config, $mapping, $definitions) = base_case();
-($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, read=>1, bridge_mqtt=>0, http_cache=>0, sendudp=>0);
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, bridge_enabled=>1, bridge_mqtt=>0, http_cache=>0, sendudp=>0);
 like($output, qr/MQTT, HTTP cache, and UDP outputs are all disabled/, "enabled bridge requires at least one output");
 
 ($config, $mapping, $definitions) = base_case();
 $config->{mqtt}->{timestamp} = JSON::PP::false;
-($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, read=>1, bridge_mqtt=>1, http_cache=>0);
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, bridge_enabled=>1, bridge_mqtt=>1, http_cache=>0);
 like($output, qr/timestamp output is configured but disabled/i, "configured bridge MQTT timestamps are effectively disabled without source timestamps");
 like($output, qr/MQTT, HTTP cache, and UDP outputs are all disabled/, "timestamp gating participates in the effective bridge output validation");
 
@@ -218,7 +219,7 @@ is($exit, 0, "custom JSON meter keeps protocol-specific extension fields and ide
 $config->{meters} = [];
 $definitions->{meters} = {};
 $mapping = {};
-($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, implementation=>"none");
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions, enabled=>0);
 is($exit, 0, "disabled vzLogger mode permits a meterless configuration");
 like($output, qr/<WARNING> No meters/, "meterless disabled mode reports a warning");
 

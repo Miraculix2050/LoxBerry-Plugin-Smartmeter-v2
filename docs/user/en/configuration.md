@@ -1,15 +1,13 @@
 # Configure vzLogger
 
-## Select the mode
-
-The **SmartMeter configuration (vzLogger)** and **SmartMeter configuration (Legacy)** tabs only open their respective pages. They do not immediately switch the running implementation.
+## Set the desired service state
 
 1. Open the vzLogger page.
 2. Switch **Active** on.
 3. Configure at least one active meter.
 4. Apply the state with **Save and apply**.
 
-A green check mark on the tab identifies the saved active mode. Legacy and vzLogger never run at the same time; both may be inactive. Activating vzLogger removes the Legacy cron jobs. A valid existing `vzlogger.conf` survives a switch to Legacy or `none` and is reused on later reactivation.
+The switch stores the desired vzLogger state only when you use **Save and apply**. Start, Stop, and Restart are temporary service actions and do not change it. A valid existing `vzlogger.conf` remains available while vzLogger is disabled and is reused on later reactivation.
 
 ## Add a reading head
 
@@ -29,7 +27,7 @@ A new reading head remains marked **New / unsaved** until applied. A reading hea
 
 **Initialize from template** is available for SML and D0. A template sets only the known serial starting values and, for D0, the read timeout. Name, activation, device, intervals, sequences, and channels remain unchanged.
 
-Templates are based on project experience. Check their values against your meter documentation. Templates marked `limited` may require Legacy-specific sequences that the standard form cannot represent.
+Templates are based on project experience. Check their values against your meter documentation. Templates marked `limited` may require sequences that the standard form cannot represent; use Custom JSONC when vzLogger supports the required behavior.
 
 ## Basic meter settings
 
@@ -45,10 +43,10 @@ Empty optional fields are omitted from `vzlogger.conf`. The standard form always
 
 Select **Save and apply** before starting OBIS discovery. The action saves form values, generates and validates the configuration, and establishes the requested service state:
 
-- Active vzLogger mode with at least one active meter installs the plugin override, enables vzLogger, and restarts it.
+- Enabled vzLogger with at least one active meter installs the plugin override, enables vzLogger, and restarts it.
 - An active bridge is installed, enabled, and started.
 - A disabled bridge is stopped and removed from autostart.
-- An inactive or meterless mode stops vzLogger and the bridge and removes the plugin override.
+- A disabled or meterless configuration stops vzLogger and the bridge and removes the plugin override.
 
 A failure never replaces the last coherent valid runtime configuration. Submitted values may remain saved for correction.
 

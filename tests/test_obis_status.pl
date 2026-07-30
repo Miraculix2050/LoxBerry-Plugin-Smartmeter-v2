@@ -30,7 +30,7 @@ ok(!watchdog_pid_running("invalid", "smartmeter-v2"), "invalid watchdog PID is r
 ok(!watchdog_pid_running(99999999, "smartmeter-v2"), "missing watchdog PID is rejected");
 
 my $index = do { open(my $fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/index.cgi") or die $!; local $/; <$fh> };
-like($index, qr/ajaxaction.*?service-status\|obis-status/s, "legacy AJAX status URL delegates before heavy module loading");
+like($index, qr/ajaxaction.*?service-status\|obis-status/s, "lightweight AJAX status URL delegates before heavy module loading");
 my $endpoint = do { open(my $fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/obis_status.cgi") or die $!; local $/; <$fh> };
 like($endpoint, qr/REQUEST_METHOD.*?405 Method Not Allowed/s, "OBIS status endpoint rejects non-GET requests");
 like($endpoint, qr/Cache-Control: no-store/, "OBIS status endpoint disables caching");

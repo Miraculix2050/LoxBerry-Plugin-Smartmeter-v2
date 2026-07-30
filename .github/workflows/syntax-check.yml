@@ -84,6 +84,10 @@ jobs:
             [ ! -f "$file" ] || sh -n "$file"
           done
 
+      - name: Test 2.1 upgrade migration
+        shell: bash
+        run: sh tests/test_upgrade_2_1.sh
+
       - name: Run vzLogger configuration tests
         shell: bash
         run: |
@@ -108,7 +112,6 @@ jobs:
           perl tests/test_recovery.pl
           perl tests/test_release_metadata.pl
           perl tests/test_documentation_links.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_legacy_runtime.pl
 
       - name: Validate development release metadata
         shell: bash

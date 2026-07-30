@@ -26,6 +26,7 @@ PTEMPL="$LBPTEMPL/$PDIR"
 BACKUP="$PTEMPPATH/smartmeter-upgrade"
 configfile="$PCONFIG/smartmeter.cfg"
 LOCK_HELPER="$PTEMPPATH/sbin/smartmeter_config_lock.sh"
+PCGI=${LBPCGI:-${LBPHTMLAUTH:-}}
 
 if [ ! -r "$LOCK_HELPER" ]; then
 	echo "<ERROR> SmartMeter configuration lock helper is missing."
@@ -59,53 +60,70 @@ migrate_config()
 		return 1
 	fi
 
-	if ! grep -q '^SENDMQTT=' "$configfile"; then
-		sed -i '/^UDPPORT=/a SENDMQTT=0' "$configfile"
-		echo "<INFO> Added default MQTT send setting"
-	fi
-
 	if ! grep -q '^MQTTTOPIC=' "$configfile"; then
-		sed -i '/^SENDMQTT=/a MQTTTOPIC=smartmeter' "$configfile"
+		sed -i '/^UDPPORT=/a MQTTTOPIC=smartmeter' "$configfile"
 		echo "<INFO> Added default MQTT topic"
 	fi
 
-	if ! grep -q '^IMPLEMENTATION=' "$configfile"; then
-		read_enabled=$(sed -n 's/^READ=//p' "$configfile")
-		if [ "$read_enabled" = "1" ]; then
-			sed -i '/^READ=/a IMPLEMENTATION=legacy' "$configfile"
-			echo "<INFO> Added default implementation mode: legacy"
-		else
-			sed -i '/^READ=/a IMPLEMENTATION=vzlogger' "$configfile"
-			echo "<INFO> Added default implementation mode: vzlogger"
-		fi
+	implementation=$(sed -n 's/^IMPLEMENTATION=//p' "$configfile" | tail -n 1)
+	bridge_enabled=$(sed -n 's/^READ=//p' "$configfile" | tail -n 1)
+	current_enabled=$(awk '$0 == "[VZLOGGER]" { section=1; next } /^\[/ { section=0 } section && /^ENABLED=/ { sub(/^ENABLED=/, ""); print; exit }' "$configfile")
+	current_bridge=$(awk '$0 == "[VZLOGGER]" { section=1; next } /^\[/ { section=0 } section && /^BRIDGEENABLED=/ { sub(/^BRIDGEENABLED=/, ""); print; exit }' "$configfile")
+	case "$implementation" in
+		none) vzlogger_enabled=0 ;;
+		vzlogger) vzlogger_enabled=1 ;;
+		*)
+			case "$current_enabled" in
+				0|1) vzlogger_enabled=$current_enabled ;;
+				*) vzlogger_enabled=0 ;;
+			esac
+			;;
+	esac
+	if [ -z "$bridge_enabled" ]; then
+		bridge_enabled=$current_bridge
 	fi
+	[ "$bridge_enabled" = "1" ] || bridge_enabled=0
 
 	if ! grep -q '^\[VZLOGGER\]' "$configfile"; then
 		cat >> "$configfile" <<'EOF'
 
 [VZLOGGER]
-LOCALPORT=18080
-UDPINTERVAL=5
-DEBUG=0
-VZLOGGERDEBUG=0
-LOGLEVEL=0
 EOF
-		echo "<INFO> Added default vzLogger settings"
-	else
-		for setting in \
-			"LOCALPORT=18080" \
-			"UDPINTERVAL=5" \
-			"DEBUG=0" \
-			"VZLOGGERDEBUG=0" \
-			"LOGLEVEL=0"
-		do
-			key=${setting%%=*}
-			if ! grep -q "^$key=" "$configfile"; then
-				sed -i "/^\[VZLOGGER\]/a $setting" "$configfile"
-				echo "<INFO> Added default vzLogger setting $key"
-			fi
-		done
 	fi
+
+	tmp_config="$configfile.2.1.$$"
+	awk -v enabled="$vzlogger_enabled" -v bridge="$bridge_enabled" '
+		/^\[/ {
+			section=$0
+			print
+			if (section == "[VZLOGGER]") {
+				print "ENABLED=" enabled
+				print "BRIDGEENABLED=" bridge
+			}
+			next
+		}
+		section == "[MAIN]" && /^(IMPLEMENTATION|READ|CRON|SENDMQTT)=/ { next }
+		section == "[VZLOGGER]" && /^(ENABLED|BRIDGEENABLED)=/ { next }
+		/^LEGACY_[^=]*=/ { next }
+		{ print }
+	' "$configfile" > "$tmp_config" || return 1
+	chmod 0640 "$tmp_config" 2>/dev/null || true
+	mv "$tmp_config" "$configfile" || return 1
+	echo "<INFO> Migrated vzLogger and bridge activation and removed obsolete Legacy settings."
+
+	for setting in \
+		"LOCALPORT=18080" \
+		"UDPINTERVAL=5" \
+		"DEBUG=0" \
+		"VZLOGGERDEBUG=0" \
+		"LOGLEVEL=0"
+	do
+		key=${setting%%=*}
+		if ! grep -q "^$key=" "$configfile"; then
+			sed -i "/^\[VZLOGGER\]/a $setting" "$configfile"
+			echo "<INFO> Added default vzLogger setting $key"
+		fi
+	done
 
 	if ! grep -q '^CACHEUDPINTERVAL=' "$configfile"; then
 		old_interval=$(sed -n 's/^UDPINTERVAL=//p' "$configfile" | head -n 1)
@@ -123,6 +141,58 @@ EOF
 	fi
 }
 
+cleanup_channel_definitions()
+{
+	definitions="$PCONFIG/vzlogger_channel_definitions.json"
+	[ -f "$definitions" ] || return 0
+	tmp_definitions="$definitions.2.1.$$"
+	if ! perl -MJSON::PP -e '
+		use strict; use warnings;
+		my ($source, $target) = @ARGV;
+		open(my $in, "<:raw", $source) or die "$source: $!\n";
+		local $/; my $data = JSON::PP->new->utf8->decode(<$in>); close($in);
+		my $clean; $clean = sub {
+			my ($value) = @_;
+			if (ref($value) eq "HASH") {
+				delete $value->{legacy_keys}; delete $value->{legacy_names};
+				$clean->($_) for values %$value;
+			} elsif (ref($value) eq "ARRAY") { $clean->($_) for @$value; }
+		};
+		$clean->($data);
+		open(my $out, ">:raw", $target) or die "$target: $!\n";
+		print {$out} JSON::PP->new->utf8->canonical->pretty->encode($data);
+		close($out) or die "$target: $!\n";
+	' "$definitions" "$tmp_definitions"; then
+		rm -f "$tmp_definitions"
+		echo "<ERROR> Could not remove obsolete channel aliases."
+		return 1
+	fi
+	chmod 0600 "$tmp_definitions" 2>/dev/null || true
+	mv "$tmp_definitions" "$definitions" || return 1
+}
+
+cleanup_legacy_runtime()
+{
+	for cron_folder in cron.01min cron.03min cron.05min cron.10min cron.15min cron.30min cron.hourly cron.reboot
+	do
+		rm -f "$LBHOMEDIR/system/cron/$cron_folder/$PSHNAME"
+	done
+	rm -f \
+		"$PBIN/fetch.pl" \
+		"$PBIN/sm_logger.pl" \
+		"$PBIN/sml_parser.php" \
+		"$PBIN/php_sml_parser.class.php" \
+		"$PBIN/SmartMeterLegacyRuntime.pm" \
+		"$PBIN/smartmeter_legacy_runtime.pl" \
+		"$PBIN/reboot_cron_runner.sh" \
+		"$PTEMPL/multi/main.html"
+	if [ -n "$PCGI" ]; then
+		rm -f "$PCGI/$PDIR/index_legacy.cgi" "$PCGI/$PDIR/fetch.cgi"
+	fi
+	rm -f "/var/run/shm/$PDIR/fetch.lock"
+	echo "<INFO> Removed obsolete Legacy runtime files and cron entries."
+}
+
 echo "<INFO> Restoring persistent SmartMeter configuration."
 mkdir -p "$PCONFIG"
 if [ -d "$BACKUP/config" ]; then
@@ -136,6 +206,9 @@ echo "<INFO> Migrating SmartMeter configuration."
 if ! migrate_config; then
 	exit 2
 fi
+if ! cleanup_channel_definitions; then
+	exit 2
+fi
 
 echo "<INFO> Removing obsolete language resources."
 cleanup_obsolete_language_files
@@ -145,22 +218,12 @@ for executable in \
 	"$PBIN/vzlogger_config.pl" \
 	"$PBIN/vzlogger_validate.pl" \
 	"$PBIN/vzlogger_control.pl" \
-	"$PBIN/vzlogger_mqtt_bridge.pl" \
-	"$PBIN/smartmeter_legacy_runtime.pl"
+	"$PBIN/vzlogger_mqtt_bridge.pl"
 do
 	chmod 0755 "$executable" 2>/dev/null || true
 done
 
-echo "<INFO> Restoring automatic Legacy meter polling."
-if "$PBIN/smartmeter_legacy_runtime.pl" \
-	synchronize "$LBHOMEDIR" "$PSHNAME" "$PDIR" "$configfile" --start-minimal-now
-then
-	echo "<OK> Synchronized Legacy polling runtime after upgrade."
-else
-	echo "<WARNING> Could not synchronize Legacy polling runtime after upgrade."
-	rm -r "$BACKUP" 2>/dev/null || true
-	exit 1
-fi
+cleanup_legacy_runtime
 
 rm -r "$BACKUP" 2>/dev/null || true
 exit 0

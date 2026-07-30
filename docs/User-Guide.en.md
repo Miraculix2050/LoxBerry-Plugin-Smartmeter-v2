@@ -5,9 +5,7 @@
 
 ## Overview
 
-SmartMeter v2 reads meters through an optical I/R reading head. The standard implementation uses vzLogger. vzLogger reads the meter and publishes readings by MQTT. The optional SmartMeter bridge can produce MQTT timestamps, an HTTP cache, and UDP data for Loxone.
-
-Legacy is a separate fallback for existing installations or meter configurations that vzLogger does not yet cover. Both implementations never run at the same time; both may be switched off.
+SmartMeter v2 reads meters through an optical I/R reading head using vzLogger. vzLogger publishes readings by MQTT. The optional SmartMeter bridge can produce MQTT timestamps, an HTTP cache, and UDP data for Loxone.
 
 > **Security:** Use LoxBerry, the vzLogger HTTP service, the SmartMeter HTTP cache, and the recovery endpoint only inside a trusted LAN. Never expose these services through router port forwarding or a public reverse proxy.
 
@@ -31,7 +29,6 @@ See [Configuration](user/en/configuration.md) for the complete workflow.
 - [Configure vzLogger](user/en/configuration.md)
 - [Use readings and outputs](user/en/outputs.md)
 - [Advanced features](user/en/advanced.md)
-- [Use Legacy](user/en/legacy.md)
 - [Troubleshooting](user/en/troubleshooting.md)
 - [Technical reference](user/en/reference.md)
 - [Known limitations](known-limitations.en.md)
@@ -45,4 +42,3 @@ See [Configuration](user/en/configuration.md) for the complete workflow.
 - **vzLogger:** External program that reads the meter and publishes readings.
 - **SmartMeter bridge:** Optional plugin service that processes selected vzLogger MQTT values for MQTT timestamps, HTTP cache, and UDP.
 - **Channel:** Configuration of one meter value.
-- **Legacy:** The plugin's earlier, separate reading implementation.

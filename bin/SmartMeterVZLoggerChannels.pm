@@ -9,7 +9,7 @@ use JSON::PP;
 our @EXPORT_OK = qw(
 	parse_obis compose_obis normalize_obis default_output_key valid_output_key output_key_format stable_uuid
 	read_json write_json_atomic load_catalog lookup_obis
-	new_document migrate_legacy_meter validate_document localize_validation_errors native_channel
+	new_document initialize_channel_definitions validate_document localize_validation_errors native_channel
 	output_order_mapping ordered_output_names
 );
 
@@ -70,7 +70,7 @@ sub stable_uuid
 {
 	my ($seed) = @_;
 	my $hex = md5_hex(defined($seed) ? $seed : "");
-	# Keep the exact legacy layout so the first migrated channel retains the UUID
+	# Keep the historical layout so existing channel UUIDs remain stable.
 	# previously generated from plugin, reader, and identifier.
 	return join("-", substr($hex, 0, 8), substr($hex, 8, 4), substr($hex, 12, 4), substr($hex, 16, 4), substr($hex, 20, 12));
 }
@@ -171,7 +171,7 @@ sub new_document
 	return { version => 1, meters => {} };
 }
 
-sub migrate_legacy_meter
+sub initialize_channel_definitions
 {
 	my ($document, $serial, $plugin_id, $discovered, $selected, $custom, $catalog) = @_;
 	$document ||= new_document();
@@ -185,20 +185,20 @@ sub migrate_legacy_meter
 		my $raw = ref($item) eq "HASH" ? $item->{identifier} : $item;
 		my $identifier = normalize_obis($raw);
 		next if (!$identifier || $seen{$identifier}++);
-		push @definitions, _legacy_definition($serial, $plugin_id, $identifier,
+		push @definitions, _initial_definition($serial, $plugin_id, $identifier,
 			$selection_explicit ? !!$selected{$identifier} : 1, "discovered", scalar(@definitions), $catalog);
 	}
 	foreach my $raw (@{ref($selected) eq "ARRAY" ? $selected : []}, @{ref($custom) eq "ARRAY" ? $custom : []}) {
 		my $identifier = normalize_obis($raw);
 		next if (!$identifier || $seen{$identifier}++);
-		push @definitions, _legacy_definition($serial, $plugin_id, $identifier, 1,
+		push @definitions, _initial_definition($serial, $plugin_id, $identifier, 1,
 			$selected{$identifier} ? "migrated" : "manual", scalar(@definitions), $catalog);
 	}
 	$document->{meters}->{$serial} = \@definitions;
 	return \@definitions;
 }
 
-sub _legacy_definition
+sub _initial_definition
 {
 	my ($serial, $plugin_id, $identifier, $enabled, $origin, $index, $catalog) = @_;
 	my $parsed = parse_obis($identifier);

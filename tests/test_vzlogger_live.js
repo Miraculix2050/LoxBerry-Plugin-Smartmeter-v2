@@ -91,7 +91,7 @@ const storedGaps = [
 	{ uuid:"total", x:11001 },
 	{ uuid:"total", x:21001, previousX:21000, nextX:61001 }
 ];
-assert.deepEqual(Live.filterStoredGaps(storedGapReadings, storedGaps).map(gap => gap.x), [21001], "legacy cadence gaps are discarded while a real stored interruption remains");
+assert.deepEqual(Live.filterStoredGaps(storedGapReadings, storedGaps).map(gap => gap.x), [21001], "obsolete cadence gaps are discarded while a real stored interruption remains");
 assert.deepEqual(Live.styleFor("total").dash, [], "all live-chart channels use continuous lines");
 
 const rangeNow = Live.RANGE_VALUES[3] + 1000000;
