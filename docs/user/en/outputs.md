@@ -1,5 +1,7 @@
 # Use Readings and Outputs
 
+[← Configure vzLogger](configuration.md) · [Back to the overview](../../User-Guide.en.md) · [Next: Advanced features →](advanced.md)
+
 ## Understand the data flow
 
 vzLogger reads meters and publishes readings by MQTT below:
@@ -127,3 +129,5 @@ The `name` field is the MySmartGrid registration name, not a general display nam
 HTTP and UDP begin with `Last_Update` and `Last_UpdateLoxEpoche`. Active output keys then follow in `chnN` order, followed by additional values alphabetically.
 
 When a matching instantaneous-power reading is absent, the bridge can calculate import or export power from two different energy-counter readings. A directional power value suppresses its matching calculation; a signed total-power value suppresses both.
+
+[← Configure vzLogger](configuration.md) · [Back to the overview](../../User-Guide.en.md) · [Next: Advanced features →](advanced.md)

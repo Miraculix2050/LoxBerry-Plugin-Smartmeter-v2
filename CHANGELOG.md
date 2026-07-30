@@ -6,6 +6,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ### Fixed
 
+- Correct and synchronize the German and English user documentation, including OMS discovery, Legacy upgrade guidance, UI labels, prerequisites, MQTT setup, backups, navigation, and tested-support boundaries.
 - Prevent independent OBIS-discovery and bridge-fallback background processes from retaining the completed parent action's configuration lock.
 - Use the full available width for the Loxone copy-and-paste instructions and clarify how to transfer the displayed recovery settings into Loxone Config.
 - Keep an action-specific notice visible while a hidden vzLogger or bridge service action continues and both service controls remain locked.

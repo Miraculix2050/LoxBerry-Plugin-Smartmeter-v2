@@ -1,5 +1,7 @@
 # Messwerte und Ausgaben verwenden
 
+[← vzLogger konfigurieren](configuration.md) · [Zurück zur Übersicht](../../User-Guide.de.md) · [Weiter: Erweiterte Funktionen →](advanced.md)
+
 ## Datenfluss verstehen
 
 vzLogger liest Meter und veröffentlicht die Messwerte per MQTT unter:
@@ -29,7 +31,7 @@ Elektrische SML-Energiezähler werden für die Anzeige von Wh nach kWh umgerechn
 
 ## Bridge-MQTT
 
-Aktiviere **Bridge-Service aktiv** und **Unix- und Loxone-Zeitstempel per MQTT veröffentlichen**. Die Bridge übernimmt Broker, Authentifizierung, TLS, QoS und Retain aus der angewendeten vzLogger-Konfiguration und veröffentlicht auf:
+Aktiviere **Bridge-Service aktiv** und **Unix- und Loxone-Timestamp über MQTT veröffentlichen**. Die Bridge übernimmt Broker, Authentifizierung, TLS, QoS und Retain aus der angewendeten vzLogger-Konfiguration und veröffentlicht auf:
 
 ```text
 <Basis-Topic>/bridge
@@ -127,3 +129,5 @@ Das Feld `name` ist der MySmartGrid-Registrierungsname und kein allgemeiner Anze
 HTTP und UDP beginnen mit `Last_Update` und `Last_UpdateLoxEpoche`. Danach folgen aktive Ausgabeschlüssel nach `chnN`, anschließend Zusatzwerte alphabetisch.
 
 Fehlt eine passende Momentanleistung, kann die Bridge aus zwei unterschiedlichen Energiezählerständen berechnete Bezugs- oder Lieferleistung erzeugen. Vorhandene richtungsbezogene Leistungswerte unterdrücken jeweils die passende Berechnung; eine vorzeichenbehaftete Gesamtleistung unterdrückt beide.
+
+[← vzLogger konfigurieren](configuration.md) · [Zurück zur Übersicht](../../User-Guide.de.md) · [Weiter: Erweiterte Funktionen →](advanced.md)

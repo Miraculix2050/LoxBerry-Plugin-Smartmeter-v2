@@ -1,9 +1,11 @@
 # Configure vzLogger
 
+[← Installation, update, and uninstall](installation.md) · [Back to the overview](../../User-Guide.en.md) · [Next: Use readings and outputs →](outputs.md)
+
 ## Set the desired service state
 
 1. Open the vzLogger page.
-2. Switch **Active** on.
+2. Switch **vzLogger enabled** on.
 3. Configure at least one active meter.
 4. Apply the state with **Save and apply**.
 
@@ -31,13 +33,26 @@ Templates are based on project experience. Check their values against your meter
 
 ## Basic meter settings
 
-- **Meter enabled:** Includes the meter in the generated configuration.
+- **Meter enabled**: Includes the meter in the generated configuration.
 - **Skip errors (`allowskip`):** Recommended so one unavailable meter does not terminate other meters.
 - **Interval:** Access delay for actively polled meters; `-1` is usual for meters that push data.
 - **Aggregation time (`aggtime`):** `-1` disables aggregation. A positive value collects readings for channel processing.
 - **Fixed aggregation intervals:** Effective only with a positive aggregation time.
 
 Empty optional fields are omitted from `vzlogger.conf`. The standard form always uses the detected local device path. Use custom JSONC for a TCP-backed meter.
+
+## Set up MQTT for first use
+
+MQTT publishes the normal channel readings and provides source data for the optional SmartMeter bridge. The direct live-data view through the vzLogger HTTP service can operate independently. For a typical MQTT setup:
+
+1. Switch on **MQTT enabled**.
+2. Leave **MQTT broker**, **MQTT port**, and **MQTT user** empty when vzLogger should use the broker configured in LoxBerry. The plugin then inherits the LoxBerry system values, including its system password.
+3. Enter custom values only when vzLogger should use another broker or separate credentials. An empty password field preserves the stored password.
+4. Use a simple **MQTT base topic**, for example `smartmeter`. vzLogger automatically publishes below `<base-topic>/vzlogger`.
+5. Keep **Timestamp** enabled when the bridge should **Publish Unix and Loxone timestamps by MQTT**. HTTP cache and UDP can operate without source timestamps.
+6. Use the TLS certificate fields only when your broker requires TLS. Confirm that the CA, certificate, and key files are readable by the service; do not disable certificate verification without a specific reason.
+
+Then select **Save and apply** and use **Live data as web page** to confirm that readings appear. For problems, see [MQTT or TLS does not work](troubleshooting.md#mqtt-or-tls-does-not-work) and [Understand the data flow](outputs.md#understand-the-data-flow).
 
 ## Save for the first time
 
@@ -86,3 +101,5 @@ Both actions have a 60-second time limit. If another configuration or service ac
 ## Remove a meter
 
 **Remove meter configuration** initially hides a meter only in the current browser draft. **Save and apply** permanently removes its saved settings and plugin-owned artifacts. A removed reading head that remains connected stays hidden during ordinary page loads; a new reading-head scan recreates it with default settings.
+
+[← Installation, update, and uninstall](installation.md) · [Back to the overview](../../User-Guide.en.md) · [Next: Use readings and outputs →](outputs.md)

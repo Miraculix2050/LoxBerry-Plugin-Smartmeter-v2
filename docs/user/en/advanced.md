@@ -1,5 +1,7 @@
 # Advanced Features
 
+[← Use readings and outputs](outputs.md) · [Back to the overview](../../User-Guide.en.md) · [Next: Troubleshooting →](troubleshooting.md)
+
 ## Custom meter with JSONC
 
 Select **Custom (JSON)** only when the standard form cannot represent your protocol or device. The editor expects exactly one complete vzLogger meter object:
@@ -17,7 +19,7 @@ Select **Custom (JSON)** only when the standard form cannot represent your proto
 
 Root sections such as `meters`, `mqtt`, `local`, `push`, or `retry` are not allowed here. Comments are supported and source up to 64 KiB is stored unchanged. For runtime generation, the plugin supplies only missing UUID/`api` values in existing channels without rewriting the JSONC text.
 
-An invalid object remains saved for correction and receives a warning. It is omitted from the newly generated runtime configuration. Use the external **Parameter documentation** link for current vzLogger syntax.
+An invalid object remains saved for correction and receives a warning. It is omitted from the newly generated runtime configuration. Use the external **Parameter documentation (German)** link for current vzLogger syntax.
 
 ## Expert Mode
 
@@ -69,3 +71,5 @@ For a bridge problem:
 4. Restore the previous log level afterwards.
 
 The debug log contains package, service, validation, mapping, cache, and bounded MQTT diagnostics. Passwords and private keys are masked. The separate native vzLogger log `vzlogger-native.log` is written only while the vzLogger debug option is active.
+
+[← Use readings and outputs](outputs.md) · [Back to the overview](../../User-Guide.en.md) · [Next: Troubleshooting →](troubleshooting.md)

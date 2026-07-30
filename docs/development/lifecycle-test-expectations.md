@@ -12,12 +12,12 @@
 - Connected USB I/R heads are available below `/dev/serial/smartmeter/`.
 - Optional logs and debug logs are disabled.
 
-## Upgrade From 2.0.1.0
+## Upgrade From 2.0.1.x
 
 - `MAIN.IMPLEMENTATION=vzlogger` migrates to `VZLOGGER.ENABLED=1`.
 - `MAIN.IMPLEMENTATION=none` migrates to `VZLOGGER.ENABLED=0`.
 - `MAIN.READ` migrates to `VZLOGGER.BRIDGEENABLED`.
-- `MAIN.IMPLEMENTATION=legacy`, or a missing mode with `MAIN.READ=1`, aborts before files or configuration are changed and provides an actionable migration message.
+- `MAIN.IMPLEMENTATION=legacy`, or a missing mode with `MAIN.READ=1`, aborts before files or configuration are changed and directs the user to migrate with the latest supported 2.0.1.x Legacy maintenance release (currently 2.0.1.1).
 - Allowed upgrades remove `MAIN.IMPLEMENTATION`, `MAIN.READ`, `MAIN.CRON`, `MAIN.SENDMQTT`, every `LEGACY_*` value, old Legacy runtime files, and obsolete cron links.
 - Generated vzLogger configuration, channel UUIDs, output keys, Expert draft, bridge outputs, recovery settings, and user configuration remain intact.
 - Repeating the migration and cleanup produces the same result.

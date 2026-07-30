@@ -1,5 +1,7 @@
 # Fehlerbehebung
 
+[← Erweiterte Funktionen](advanced.md) · [Zurück zur Übersicht](../../User-Guide.de.md) · [Weiter: Technische Referenz →](reference.md)
+
 Arbeite die Hinweise zum sichtbaren Symptom durch. Ändere nicht mehrere Einstellungen gleichzeitig. Prüfe nach jedem Schritt erneut.
 
 ## Installation oder Update schlägt fehl
@@ -7,20 +9,20 @@ Arbeite die Hinweise zum sichtbaren Symptom durch. Ändere nicht mehrere Einstel
 1. Öffne in der LoxBerry-Pluginverwaltung das Installationslog.
 2. Suche zuerst nach dem abschließenden Erfolgs- oder Fehlerstatus des Plugins. Allgemeine LoxBerry-Warnungen sind nicht automatisch ein Pluginfehler.
 3. Prüfe Internetzugang, freie Speicherkapazität und die Paketquellen des LoxBerry.
-4. Schlägt die Installation von `vzlogger` oder `mosquitto-clients` fehl, behebe zuerst den Paketfehler und starte die Installation erneut.
+4. Schlägt die Installation von `vzlogger`, `mosquitto-clients` oder `libdevice-serialport-perl` fehl, prüfe die Internetverbindung und den Zugriff auf das Cloudsmith-Repository des Volkszähler-Projekts. Behebe zuerst den Paketfehler und starte die Installation erneut.
 
 ## Lesekopf oder Gerätepfad fehlt
 
 1. Prüfe Stromversorgung, Sitz und Ausrichtung des Lesekopfs.
 2. Trenne den Lesekopf kurz und verbinde ihn erneut.
-3. Lade die SmartMeter-Seite neu und wähle **Geräte neu erkennen**.
+3. Lade die SmartMeter-Seite neu und wähle **Nach I/R-Leseköpfen suchen**.
 4. Prüfe, ob der erwartete stabile Pluginpfad unter `/dev/serial/smartmeter/` erscheint. Verwende ihn und nicht `/dev/ttyUSB0`.
 
 Wird kein Gerät erkannt, prüfe den Lesekopf zunächst an einem anderen USB-Anschluss. Die Anzeige eines Gerätepfads bestätigt nur das USB-Gerät, nicht das richtige Protokoll oder die korrekte Montage am Zähler.
 
 ## OBIS-Suche findet keine Werte
 
-Prüfe Protokoll, Baudrate, Parität und Lesekopfposition. Manche Zähler senden Werte erst nach einer Aktivierung am Zähler. Bei OMS-Zählern ist die automatische Suche nicht verfügbar.
+Prüfe Protokoll, Baudrate, Parität und Lesekopfposition. Manche Zähler senden Werte erst nach einer Aktivierung am Zähler. Die OBIS-Suche unterstützt OMS nur, wenn die installierte vzLogger-Version OMS bereitstellt. Zeigt die Oberfläche den Hinweis, dass OMS nicht unterstützt wird, sind Suche, Prüfung und Anwenden für dieses Meter gesperrt.
 
 Die Suche läuft im Hintergrund. Warte auf ihren Abschluss und öffne das Ergebnis erneut. Gefundene Identifier sind dann gespeichert, aber erst **Speichern und anwenden** übernimmt ausgewählte Kanäle in die aktive Konfiguration.
 
@@ -65,6 +67,8 @@ Der Recovery-Endpunkt akzeptiert nur `POST` mit dem angezeigten Token. Er starte
 
 ## Upgrade auf 2.1.0.0 wird blockiert
 
-Das Upgrade stoppt vor dem Dateiaustausch, wenn Legacy noch aktiv ist oder eine ältere Konfiguration als aktives Legacy erkannt wird. Bleibe auf 2.0.1.0 oder installiere diese Version erneut, aktiviere vzLogger und führe **Speichern und anwenden** erfolgreich aus. Versuche danach das Upgrade erneut.
+Das Upgrade stoppt vor dem Dateiaustausch, wenn Legacy noch aktiv ist oder eine ältere Konfiguration als aktives Legacy erkannt wird. Bleibe auf der neuesten unterstützten Legacy-Wartungsversion der Reihe 2.0.1.x (derzeit 2.0.1.1) oder installiere sie erneut. Aktiviere vzLogger und führe **Speichern und anwenden** erfolgreich aus. Versuche danach das Upgrade erneut.
 
-Hilft das nicht, sichere die relevante Logmeldung ohne Passwörter oder Schlüssel und ergänze Pluginversion, LoxBerry-Version, Zählermodell, Lesekopf und gewähltes Protokoll bei einer Supportanfrage.
+Hilft das nicht, öffne eine Anfrage unter [GitHub Issues](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/issues). Ergänze Pluginversion, LoxBerry-Version, Zählermodell, Lesekopf, gewähltes Protokoll und die relevante Logmeldung. Entferne vorher MQTT-Passwörter, Recovery-Token, private Schlüssel, vollständige Zertifikate und andere private Gerätedaten.
+
+[← Erweiterte Funktionen](advanced.md) · [Zurück zur Übersicht](../../User-Guide.de.md) · [Weiter: Technische Referenz →](reference.md)

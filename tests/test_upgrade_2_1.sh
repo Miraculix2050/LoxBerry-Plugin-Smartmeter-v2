@@ -39,20 +39,22 @@ prepare blocked '[MAIN]
 IMPLEMENTATION=legacy
 READ=0'
 before=$(sha256sum "$WORK/blocked/config/smartmeter-v2/smartmeter.cfg")
-if run_preupgrade "$WORK/blocked"; then
+if blocked_output=$(run_preupgrade "$WORK/blocked" 2>&1); then
 	echo "active Legacy upgrade unexpectedly succeeded" >&2
 	exit 1
 fi
+printf '%s\n' "$blocked_output" | grep -q 'latest supported 2.0.1.x Legacy maintenance release (currently 2.0.1.1)'
 after=$(sha256sum "$WORK/blocked/config/smartmeter-v2/smartmeter.cfg")
 [ "$before" = "$after" ]
 [ ! -d "$WORK/blocked/package/smartmeter-upgrade" ]
 
 prepare inferred '[MAIN]
 READ=1'
-if run_preupgrade "$WORK/inferred"; then
+if inferred_output=$(run_preupgrade "$WORK/inferred" 2>&1); then
 	echo "inferred active Legacy upgrade unexpectedly succeeded" >&2
 	exit 1
 fi
+printf '%s\n' "$inferred_output" | grep -q 'latest supported 2.0.1.x Legacy maintenance release (currently 2.0.1.1)'
 
 prepare vzlogger '[MAIN]
 IMPLEMENTATION=vzlogger

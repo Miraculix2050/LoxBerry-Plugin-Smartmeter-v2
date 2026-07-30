@@ -1,7 +1,7 @@
 # SmartMeter v2 Benutzerdokumentation
 
 - **Zielgruppe:** LoxBerry-Nutzer, auch ohne Linux- oder vzLogger-Vorkenntnisse
-- **Status:** Aktuell implementierter Entwicklungsstand auf `master`
+- **Status:** Dokumentation der Repository- oder Pluginversion, über die diese Seite geöffnet wurde
 
 ## Überblick
 
@@ -13,11 +13,11 @@ SmartMeter v2 liest Zählerdaten über einen optischen I/R-Lesekopf mit vzLogger
 
 1. Prüfe die [Voraussetzungen und bekannten Einschränkungen](user/de/installation.md#voraussetzungen).
 2. Lade das offizielle ZIP der gewünschten Version von [GitHub Releases](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/releases) und installiere es über die LoxBerry-Pluginverwaltung.
-3. Schließe den Lesekopf an und öffne **SmartMeter v2 → Smartmeter Konfiguration (vzLogger)**.
-4. Aktiviere vzLogger und wähle **Nach I/R-Leseköpfen suchen**.
+3. Schließe den Lesekopf an und öffne **SmartMeter v2**. Die Seite **vzLogger-Konfiguration** erscheint.
+4. Schalte **vzLogger aktiv** ein und wähle **Nach I/R-Leseköpfen suchen**.
 5. Öffne den Lesekopf, wähle SML, D0 oder OMS und initialisiere ihn bei Bedarf aus einer passenden Vorlage.
 6. Wähle **Speichern und anwenden**. Erst danach darf die OBIS-Suche auf den Lesekopf zugreifen.
-7. Starte **OBIS-Kanäle lesen**, aktiviere die gewünschten Kanäle und wähle bei Bedarf **In SmartMeter ausgeben**.
+7. Starte **OBIS-Kanäle auslesen**, aktiviere die gewünschten Kanäle und wähle bei Bedarf **In SmartMeter ausgeben**.
 8. Aktiviere die gewünschten Bridge-Ausgaben und wähle erneut **Speichern und anwenden**.
 9. Öffne **Live-Daten als Webseite** und prüfe, ob aktuelle Werte erscheinen.
 

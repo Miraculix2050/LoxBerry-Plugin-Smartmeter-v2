@@ -1,9 +1,11 @@
 # vzLogger konfigurieren
 
+[← Installation, Update und Deinstallation](installation.md) · [Zurück zur Übersicht](../../User-Guide.de.md) · [Weiter: Messwerte und Ausgaben →](outputs.md)
+
 ## Gewünschten Dienstzustand festlegen
 
 1. Öffne die vzLogger-Seite.
-2. Schalte **Aktiv** ein.
+2. Schalte **vzLogger aktiv** ein.
 3. Konfiguriere mindestens ein aktives Meter.
 4. Übernimm den Zustand mit **Speichern und anwenden**.
 
@@ -31,13 +33,26 @@ Vorlagen beruhen auf Projekterfahrung. Prüfe die Werte gegen die Dokumentation 
 
 ## Grundlegende Meter-Einstellungen
 
-- **Meter aktiv:** Nimmt das Meter in die erzeugte Konfiguration auf.
+- **Zähler aktiv**: Nimmt das Meter in die erzeugte Konfiguration auf.
 - **Fehler überspringen (`allowskip`):** Empfohlen aktiv, damit ein nicht erreichbares Meter andere Meter nicht beendet.
 - **Intervall:** Zugriffsabstand bei aktiv abgefragten Metern; `-1` ist üblich für selbstständig sendende Meter.
 - **Aggregationszeit (`aggtime`):** `-1` deaktiviert Aggregation. Ein positiver Wert sammelt Messwerte für die Kanalauswertung.
 - **Feste Aggregationsintervalle:** Wirksam nur bei positiver Aggregationszeit.
 
 Leere optionale Felder werden nicht in `vzlogger.conf` geschrieben. Das Standardformular verwendet immer den erkannten lokalen Gerätepfad. Verwende für TCP-Meter den benutzerdefinierten JSONC-Modus.
+
+## MQTT für den ersten Betrieb einrichten
+
+MQTT veröffentlicht die normalen Kanalmesswerte und liefert der optionalen SmartMeter-Bridge ihre Quelldaten. Die direkte Live-Datenansicht über den vzLogger-HTTP-Dienst kann unabhängig davon arbeiten. Gehe für eine übliche MQTT-Einrichtung so vor:
+
+1. Schalte **MQTT aktiv** ein.
+2. Lasse **MQTT-Broker**, **MQTT-Port** und **MQTT-Benutzer** leer, wenn der in LoxBerry konfigurierte Broker verwendet werden soll. Das Plugin übernimmt dann die LoxBerry-Systemwerte einschließlich des Systempassworts.
+3. Trage eigene Werte nur ein, wenn vzLogger einen anderen Broker oder eigene Zugangsdaten verwenden soll. Ein leeres Passwortfeld behält das bereits gespeicherte Passwort bei.
+4. Verwende ein einfaches **MQTT-Basis-Topic**, zum Beispiel `smartmeter`. vzLogger veröffentlicht darunter automatisch auf `<Basis-Topic>/vzlogger`.
+5. Lasse **Zeitstempel** eingeschaltet, wenn die Bridge **Unix- und Loxone-Timestamp über MQTT veröffentlichen** soll. HTTP-Cache und UDP können auch ohne Quell-Zeitstempel arbeiten.
+6. Verwende TLS-Zertifikatsfelder nur, wenn dein Broker TLS verlangt. Prüfe dann, ob CA-, Zertifikats- und Schlüsseldateien für den Dienst lesbar sind; deaktiviere die Zertifikatsprüfung nicht ohne begründeten Bedarf.
+
+Wähle anschließend **Speichern und anwenden** und prüfe unter **Live-Daten als Webseite**, ob Werte erscheinen. Bei Problemen helfen die Abschnitte [MQTT oder TLS funktioniert nicht](troubleshooting.md#mqtt-oder-tls-funktioniert-nicht) und [Datenfluss verstehen](outputs.md#datenfluss-verstehen).
 
 ## Erstmals speichern
 
@@ -53,7 +68,7 @@ Ein Fehler ersetzt niemals die letzte zusammengehörige gültige Laufzeitkonfigu
 ## OBIS-Kanäle suchen
 
 1. Öffne das gewünschte SML-, D0- oder OMS-Meter.
-2. Wähle **OBIS-Kanäle lesen**.
+2. Wähle **OBIS-Kanäle auslesen**.
 3. Warte auf das Ergebnis oder verwende **Suche abbrechen**.
 4. Prüfe die neu gefundenen Kanäle.
 
@@ -86,3 +101,5 @@ Beide Aktionen besitzen ein Zeitlimit von 60 Sekunden. Ist eine andere Konfigura
 ## Meter entfernen
 
 **Meter-Konfiguration entfernen** blendet ein Meter zunächst nur im aktuellen Browserentwurf aus. Erst **Speichern und anwenden** löscht seine gespeicherten Einstellungen und zugehörigen Plugin-Artefakte. Ein weiterhin angeschlossener entfernter Lesekopf bleibt bei normalen Seitenaufrufen verborgen; eine neue Lesekopfsuche legt ihn mit Standardeinstellungen wieder an.
+
+[← Installation, Update und Deinstallation](installation.md) · [Zurück zur Übersicht](../../User-Guide.de.md) · [Weiter: Messwerte und Ausgaben →](outputs.md)
