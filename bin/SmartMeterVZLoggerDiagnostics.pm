@@ -6,8 +6,34 @@ use Exporter qw(import);
 
 our @EXPORT_OK = qw(
 	print_section print_command print_file redact_sensitive print_runtime_cache
-	print_log_tails capture_stream build_mqtt_capture_command
+	print_log_tails capture_stream build_mqtt_capture_command write_mqtt_auth_config
 );
+
+sub write_mqtt_auth_config
+{
+	my ($directory, $mqtt) = @_;
+	return { ok => 0, error => "invalid_config_directory" }
+		if (!defined($directory) || !-d $directory);
+	$mqtt = {} if (ref($mqtt) ne "HASH");
+	my $file = "$directory/mosquitto_sub";
+	open(my $fh, ">", $file) or return { ok => 0, error => "$!" };
+	foreach my $option (["-u", $mqtt->{user}], ["-P", $mqtt->{pass}]) {
+		my ($name, $value) = @$option;
+		next if (!defined($value) || $value eq "");
+		if (ref($value) || $value =~ /[\r\n]/) {
+			close($fh);
+			unlink($file);
+			return { ok => 0, error => "invalid_auth_value" };
+		}
+		print {$fh} "$name $value\n";
+	}
+	if (!close($fh) || !chmod(0600, $file)) {
+		my $error = "$!";
+		unlink($file);
+		return { ok => 0, error => $error || "protect_failed" };
+	}
+	return { ok => 1, file => $file };
+}
 
 sub build_mqtt_capture_command
 {
@@ -25,8 +51,6 @@ sub build_mqtt_capture_command
 	push @command, ("--capath", $mqtt->{capath}) if ($mqtt->{capath});
 	push @command, ("--cert", $mqtt->{certfile}) if ($mqtt->{certfile});
 	push @command, ("--key", $mqtt->{keyfile}) if ($mqtt->{keyfile});
-	push @command, ("-u", $mqtt->{user}) if ($mqtt->{user});
-	push @command, ("-P", $mqtt->{pass}) if ($mqtt->{pass});
 	return \@command;
 }
 

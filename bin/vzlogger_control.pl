@@ -1185,8 +1185,18 @@ sub print_mqtt_capture
 	print $fh "Subscribe topic: $topic\n";
 	print $fh "Broker: $mqtt->{host}:$mqtt->{port}\n";
 	print $fh "Capture duration: 10 seconds\n";
+	my $client_config_dir = tempdir(".smartmeter-mqtt-diagnostic-XXXXXX", DIR => $runtime_dir, CLEANUP => 1);
+	my $auth_config = SmartMeterVZLoggerDiagnostics::write_mqtt_auth_config($client_config_dir, $mqtt);
+	if (!$auth_config->{ok}) {
+		print $fh "Could not prepare protected MQTT authentication: $auth_config->{error}\n";
+		return;
+	}
 	my $command = SmartMeterVZLoggerDiagnostics::build_mqtt_capture_command(topic => $topic, mqtt => $mqtt);
-	my $capture = SmartMeterVZLoggerDiagnostics::capture_stream($fh, 512 * 1024, @$command);
+	my $capture;
+	{
+		local $ENV{XDG_CONFIG_HOME} = $client_config_dir;
+		$capture = SmartMeterVZLoggerDiagnostics::capture_stream($fh, 512 * 1024, @$command);
+	}
 	if (!$capture->{ok}) {
 		print $fh "Could not start MQTT capture: $capture->{error}\n";
 		return;
