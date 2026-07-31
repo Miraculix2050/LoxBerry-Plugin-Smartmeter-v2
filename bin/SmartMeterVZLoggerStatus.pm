@@ -152,7 +152,10 @@ sub build_service_snapshot
 		config_dir => $options{config_dir}, bin_dir => $options{bin_dir}, expert_mode => $settings->{expert_mode});
 	my $expert = $options{expert_status} || expert_status(config_dir => $options{config_dir});
 	my $expert_applied = exists($options{expert_applied}) ? $options{expert_applied}
-		: expert_configs_equal("$options{config_dir}/vzlogger_expert.conf", "$options{config_dir}/vzlogger.conf");
+		: expert_configs_equal(
+			read_text("$options{config_dir}/vzlogger_expert.conf"),
+			read_text("$options{config_dir}/vzlogger.conf"),
+		);
 	my $vzlogger_startable = $config->{valid} ? 1 : 0;
 	$vzlogger_startable = 0 if ($settings->{expert_mode} && (!$expert->{valid} || !$expert_applied));
 	my $bridge_startable = $vzlogger_startable && $mqtt_enabled && $config->{mqtt_enabled};

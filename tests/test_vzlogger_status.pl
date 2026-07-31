@@ -74,6 +74,18 @@ ok(JSON::PP::is_bool($first->{config}->{mqtt_timestamp}), "mqtt_timestamp is a J
 ok($first->{services}->{vzlogger}->{can_restart}, "valid applied expert config can restart vzLogger");
 ok($first->{services}->{bridge}->{can_start}, "valid MQTT configuration can start the bridge");
 
+open(my $runtime_fh, "<", "$config_dir/vzlogger.conf") or die $!;
+my $runtime_text = do { local $/; <$runtime_fh> };
+close($runtime_fh);
+open(my $expert_fh, ">", "$config_dir/vzlogger_expert.conf") or die $!;
+print {$expert_fh} $runtime_text;
+close($expert_fh);
+my %fallback_options = %common;
+delete($fallback_options{expert_applied});
+my $fallback = build_service_snapshot(%fallback_options);
+ok($fallback->{config}->{expert_applied}, "status fallback compares Expert configuration contents");
+ok($fallback->{services}->{vzlogger}->{can_restart}, "initial Expert status poll keeps restart available for an applied draft");
+
 $common{expert_applied} = 0;
 my $draft = build_service_snapshot(%common);
 ok(!$draft->{services}->{vzlogger}->{can_start}, "unapplied expert draft blocks vzLogger start");

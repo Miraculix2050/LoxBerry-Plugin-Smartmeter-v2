@@ -6,6 +6,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ### Fixed
 
+- Compare Expert Mode draft and runtime contents during the initial service-status poll so an applied draft keeps Start and Restart available.
 - Keep MQTT credentials out of the on-demand diagnostic process arguments by loading them from a temporary owner-only Mosquitto client configuration.
 - Make development verification change-driven and reproducible through a shared test runner with safe base-reference and empty-selection handling, while limiting LoxBerry and browser acceptance to affected target-specific behavior.
 - Preserve Expert Mode MQTT timestamp capability and unsaved Bridge-MQTT selections across service actions, and use one shared detailed service-status contract for polling and action responses.
