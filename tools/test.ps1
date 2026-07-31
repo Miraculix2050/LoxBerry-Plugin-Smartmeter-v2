@@ -48,7 +48,7 @@ $testCatalog = [ordered]@{
 	"recovery" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_recovery.pl"); Path = "tests/test_recovery.pl" }
 	"release-metadata" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_release_metadata.pl"); Path = "tests/test_release_metadata.pl" }
 	"documentation-links" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_documentation_links.pl"); Path = "tests/test_documentation_links.pl" }
-	"upgrade-2-1" = @{ Tool = "sh"; Args = @("-lc", "tests/test_upgrade_2_1.sh"); Path = "tests/test_upgrade_2_1.sh" }
+	"upgrade-2-1" = @{ Tool = "sh"; Args = @("-lc", "sh tests/test_upgrade_2_1.sh"); Path = "tests/test_upgrade_2_1.sh" }
 	"deploy-line-endings" = @{ Tool = "pwsh"; Args = @("-NoProfile", "-File", "tests/test_deploy_line_endings.ps1"); Path = "tests/test_deploy_line_endings.ps1" }
 	"vzlogger-live" = @{ Tool = "node"; Args = @("tests/test_vzlogger_live.js"); Path = "tests/test_vzlogger_live.js" }
 	"validate-development-metadata" = @{ Tool = "perl"; Args = @("tools/validate-release-metadata.pl", "--channel", "development"); Path = "tools/validate-release-metadata.pl" }
