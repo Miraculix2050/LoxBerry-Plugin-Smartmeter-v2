@@ -23,6 +23,16 @@ the normal development loop. `Full` runs every deterministic repository check
 and is required in pull-request and `master` CI. Use `-Files` for an explicit,
 reproducible selection and `-Plan` to inspect the selection without executing it.
 
+The shared Codex project environment exposes **Changed tests** as the normal
+interactive action. It runs:
+
+```powershell
+pwsh -NoProfile -File tools/test.ps1 -Profile Changed
+```
+
+A local `Full` project action is intentionally omitted. Complete automation
+belongs primarily in pull-request and `master` CI.
+
 The runner reports a test-device or browser recommendation but never accesses
 either system automatically. A missing required local runtime makes the result
 incomplete rather than reporting a false pass; CI remains the authoritative full

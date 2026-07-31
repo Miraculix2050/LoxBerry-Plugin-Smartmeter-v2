@@ -56,6 +56,12 @@ try {
 
 	$base = Invoke-Plan -BaseRef "HEAD"
 	Assert-Match $base "Profile: Changed" "An explicit base reference is accepted."
+
+	$environment = Get-Content -Raw (Join-Path $repoRoot ".codex/environments/environment.toml")
+	Assert-Match $environment '(?ms)^\[setup\]\r?\nscript = ""$' "The shared environment keeps setup empty."
+	Assert-Match $environment '(?m)^name = "Changed tests"$' "The shared environment exposes the Changed tests action."
+	Assert-Match $environment '(?m)^icon = "test"$' "The Changed tests action uses the test icon."
+	Assert-Match $environment '(?m)^command = "pwsh -NoProfile -File tools/test\.ps1 -Profile Changed"$' "The Changed tests action invokes the repository runner."
 } finally {
 	Pop-Location
 }

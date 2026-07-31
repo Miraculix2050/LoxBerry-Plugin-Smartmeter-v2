@@ -34,7 +34,7 @@
 		@{ Patterns = @("preinstall.sh", "preroot.sh", "postinstall.sh", "postroot.sh", "preupgrade.sh", "postupgrade.sh", "cron/**", "dpkg/**", "uninstall/**", "sbin/**", "templates/systemd/**", "sudoers/**", "config/smartmeter.cfg"); Groups = @("Lifecycle"); Device = "only affected lifecycle scenarios using a local package"; Browser = "only affected installed UI flows" }
 		@{ Patterns = @("plugin.cfg", "release.cfg", "prerelease.cfg", ".gitattributes", ".github/workflows/release-asset.yml", "icons/**", "tools/build-local.ps1", "tools/validate-release-metadata.pl"); Groups = @("Metadata"); Device = "none unless packaging or lifecycle behavior changed"; Browser = "none" }
 		@{ Patterns = @("tools/deploy-test-device.ps1", "tools/TestDeviceFileTransfer.ps1", "tools/TestDeviceSettings.ps1", "tools/check-test-device.ps1", "tools/configure-test-device.ps1"); Groups = @("DeploymentTooling"); Device = "none; tooling is tested locally"; Browser = "none" }
-		@{ Patterns = @("tools/test.ps1", "tools/check-perl-syntax.ps1", "tests/test-map.psd1", "tests/test_test_runner.ps1", ".github/workflows/syntax-check.yml"); Groups = @("Runner"); Device = "none"; Browser = "none" }
+		@{ Patterns = @("tools/test.ps1", "tools/check-perl-syntax.ps1", "tests/test-map.psd1", "tests/test_test_runner.ps1", ".github/workflows/syntax-check.yml", ".codex/environments/**"); Groups = @("Runner"); Device = "none"; Browser = "none" }
 		@{ Patterns = @("webfrontend/htmlauth/vendor/chart.js/**"); Groups = @("Vendor"); Device = "none"; Browser = "live page only when the vendored runtime changed" }
 	)
 
