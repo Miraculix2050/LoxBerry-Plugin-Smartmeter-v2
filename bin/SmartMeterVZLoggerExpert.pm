@@ -181,6 +181,10 @@ sub _validate_endpoint
 			if (!defined($value->{topic}) || ref($value->{topic}) || $value->{topic} eq "");
 		push @$errors, "mqtt.topic must not contain MQTT wildcards."
 			if (defined($value->{topic}) && !ref($value->{topic}) && $value->{topic} =~ /[+#]/);
+		push @$errors, 'mqtt.topic must not start with $.'
+			if (defined($value->{topic}) && !ref($value->{topic}) && $value->{topic} =~ /\A\$/);
+		push @$errors, "mqtt.topic must not end with /."
+			if (defined($value->{topic}) && !ref($value->{topic}) && $value->{topic} =~ m{/\z});
 		push @$errors, "mqtt.pass requires mqtt.user."
 			if (defined($value->{pass}) && !ref($value->{pass}) && $value->{pass} ne "" && (!defined($value->{user}) || ref($value->{user}) || $value->{user} eq ""));
 		push @$errors, "mqtt.certfile and mqtt.keyfile must be configured together."
@@ -236,6 +240,8 @@ sub _localize_expert_message
 	return _localized_phrase($phrases, 'VZLOGGER.EXPERT_VALID_MQTT_HOST') if ($message eq "mqtt.host is required when MQTT is enabled.");
 	return _localized_phrase($phrases, 'VZLOGGER.EXPERT_VALID_MQTT_TOPIC') if ($message eq "mqtt.topic is required when MQTT is enabled.");
 	return _localized_phrase($phrases, 'VZLOGGER.EXPERT_VALID_MQTT_WILDCARDS') if ($message eq "mqtt.topic must not contain MQTT wildcards.");
+	return _localized_phrase($phrases, 'VZLOGGER.EXPERT_VALID_MQTT_SYSTEM_TOPIC') if ($message eq 'mqtt.topic must not start with $.');
+	return _localized_phrase($phrases, 'VZLOGGER.EXPERT_VALID_MQTT_TRAILING_SLASH') if ($message eq "mqtt.topic must not end with /.");
 	return _localized_phrase($phrases, 'VZLOGGER.EXPERT_VALID_MQTT_USER') if ($message eq "mqtt.pass requires mqtt.user.");
 	return _localized_phrase($phrases, 'VZLOGGER.EXPERT_VALID_MQTT_CERT') if ($message eq "mqtt.certfile and mqtt.keyfile must be configured together.");
 	return _localized_phrase($phrases, 'VZLOGGER.EXPERT_VALID_JSON', error => $1) if ($message =~ /\AThe expert configuration is not valid JSON: (.*)\z/s);

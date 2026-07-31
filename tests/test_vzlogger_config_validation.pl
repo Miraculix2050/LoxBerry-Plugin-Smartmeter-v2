@@ -59,6 +59,11 @@ my $german_language = read_file("templates/lang/language_de.ini");
 
 unlike($index, qr/SmartMeterLegacyRuntime|implementation_mode|set_implementation_mode|LEGACY_/, "vzLogger CGI contains no Legacy runtime or mode switching");
 like($index, qr/rollback_failed_vzlogger_activation\(\$previous_enabled\)/, "failed activation restores the previous boolean state");
+like($index, qr/validate_submitted_vzlogger_form\(\@heads\);.*?set_vzlogger_enabled/s, "form validation completes before persisted configuration is mutated");
+like($index, qr/OMS key is required and must contain exactly 32 hexadecimal characters/, "standard form requires an exact OMS AES key");
+like($index, qr/mqtttopic must not start with \\\$/, "standard form rejects MQTT system topics");
+like($index, qr/mqtttopic must not end with \//, "standard form rejects trailing MQTT topic separators");
+like($template, qr/data-validation-regexp=.*?VZLOGGER\.MQTT_BASE_TOPIC_HELP/s, "MQTT topic help and browser validation are rendered together");
 like($index, qr/\$starting && !current_vzlogger_enabled\(\)/, "service start requires saved activation");
 like($index, qr/start_obis_discovery_background.*?!saved_vzlogger_enabled\(\)/s, "OBIS discovery requires saved activation");
 like($index, qr/if \(\$pid == 0\).*?release_config_lock_for_background_child\(\).*?setsid\(\)/s, "OBIS watchdog releases the request lock before running independently");

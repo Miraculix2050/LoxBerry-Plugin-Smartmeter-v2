@@ -146,6 +146,12 @@ like($output, qr/must not start with \$/, "MQTT system topics are rejected");
 like($output, qr/readable file/, "missing MQTT certificate file is rejected");
 
 ($config, $mapping, $definitions) = base_case();
+$config->{mqtt}->{enabled} = JSON::PP::true;
+$config->{mqtt}->{topic} = "smartmeter/";
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
+like($output, qr/must not end with \//, "trailing MQTT topic separators are rejected");
+
+($config, $mapping, $definitions) = base_case();
 $config->{meters}->[0]->{interval} = 60;
 $config->{meters}->[0]->{aggtime} = 30;
 $config->{meters}->[0]->{channels}->[0]->{aggmode} = "avg";
@@ -169,11 +175,49 @@ like($output, qr/ackseq must be empty, auto or an even-length/, "D0 ack sequence
 like($output, qr/wait_sync must be off or end/, "D0 wait_sync enum is validated");
 
 ($config, $mapping, $definitions) = base_case();
+$config->{meters}->[0]->{protocol} = "d0";
+delete $config->{meters}->[0]->{use_local_time};
+$config->{meters}->[0]->{read_timeout} = 0;
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
+like($output, qr/read_timeout must be at least 1/, "D0 read_timeout rejects zero");
+$config->{meters}->[0]->{read_timeout} = 1;
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
+is($exit, 0, "D0 read_timeout accepts one second");
+
+($config, $mapping, $definitions) = base_case();
 $config->{meters}->[0]->{protocol} = "oms";
 $config->{meters}->[0]->{channels}->[0]->{identifier} = "1.8.0*5";
 delete @{$config->{meters}->[0]}{qw(interval parity)};
 ($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
 like($output, qr/must not contain a storage index for OMS/, "OMS rejects a storage index");
+
+($config, $mapping, $definitions) = base_case();
+$config->{meters}->[0]->{protocol} = "oms";
+delete @{$config->{meters}->[0]}{qw(interval parity)};
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
+like($output, qr/key is required and must contain exactly 32 hexadecimal/, "OMS requires an AES key");
+$config->{meters}->[0]->{key} = "0123456789abcdef0123456789abcdef";
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
+is($exit, 0, "OMS accepts an exact 32-character hexadecimal AES key");
+
+for my $type (qw(device sensor invalid)) {
+	($config, $mapping, $definitions) = base_case();
+	my $native = $config->{meters}->[0]->{channels}->[0];
+	$native->{api} = "mysmartgrid";
+	$native->{middleware} = "https://example.invalid/api";
+	$native->{secretKey} = "secret";
+	$native->{device} = "meter-1";
+	$native->{type} = $type;
+	my $definition = $definitions->{meters}->{reader}->[0];
+	$definition->{api} = "mysmartgrid";
+	$definition->{api_options}->{mysmartgrid} = { middleware => "https://example.invalid/api", secretKey => "secret", device => "meter-1", type => $type };
+	($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
+	if ($type eq "invalid") {
+		like($output, qr/type must be device or sensor/, "MySmartGrid rejects unsupported type values");
+	} else {
+		is($exit, 0, "MySmartGrid accepts the exact $type API value");
+	}
+}
 
 ($config, $mapping, $definitions) = base_case();
 $definitions->{meters}->{reader}->[0]->{api} = "influxdb";

@@ -6,6 +6,9 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ### Fixed
 
+- Show the lightweight runtime service status first, load configuration details immediately afterwards, and cache-bust settings assets independently so a CSS-only change does not force every script to reload.
+- Make the existing OBIS channel configuration toggle clearly recognizable and touch-friendly with a compact neutral chevron that points down when closed and up when open, join an open mobile header directly to its content as one frame, and remove redundant mobile table-cell and outer collapsible borders.
+- Clarify and synchronize German and English vzLogger field labels and help, keep exact configuration identifiers visible and untranslated, associate dynamic controls with accessible labels and help, and align D0, OMS, MQTT, and MySmartGrid validation with the documented constraints.
 - Compare Expert Mode draft and runtime contents during the initial service-status poll so an applied draft keeps Start and Restart available.
 - Keep MQTT credentials out of the on-demand diagnostic process arguments by loading them from a temporary owner-only Mosquitto client configuration.
 - Make development verification change-driven and reproducible through a shared test runner with safe base-reference and empty-selection handling, while limiting LoxBerry and browser acceptance to affected target-specific behavior.

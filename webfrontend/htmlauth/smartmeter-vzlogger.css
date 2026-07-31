@@ -25,6 +25,11 @@
 .obis-channel-uuid { margin-left:.45em; overflow-wrap:anywhere; }
 .obis-channel-status { color:#555; font-size:85%; overflow-wrap:anywhere; }
 .obis-channel-details { margin-top:7px; }
+.obis-channel-details>summary { position:relative; box-sizing:border-box; min-height:44px; padding:10px 38px 10px 11px; border:1px solid transparent; border-radius:4px; background:#f4f6f7; color:#333; font-weight:600; line-height:1.35; cursor:pointer; list-style:none; }
+.obis-channel-details>summary::-webkit-details-marker { display:none; }
+.smartmeter-page .obis-channel-details>summary::after { content:""; position:absolute; top:calc(50% - 3.5px); right:13px; width:12px; height:7px; background:#68737d; clip-path:polygon(0 0,50% 70%,100% 0,100% 30%,50% 100%,0 30%); transform:none !important; }
+.obis-channel-details[open]>summary::after { clip-path:polygon(0 100%,50% 30%,100% 100%,100% 70%,50% 0,0 70%); }
+.obis-channel-details>summary:hover,.obis-channel-details>summary:focus-visible { background:#e9edf0; box-shadow:inset 0 0 0 2px rgba(73,133,168,.3); outline:none; }
 .obis-channel-grid { display:grid; grid-template-columns:repeat(2,minmax(15em,1fr)); gap:7px 12px; margin-top:8px; }
 .obis-channel-details[open]>.obis-channel-grid { padding:10px; background:#fffbed; border:1px solid #eadfa6; border-radius:4px; }
 .obis-channel-field label { display:block; font-weight:bold; }
@@ -46,7 +51,7 @@
 .obis-channel-toolbar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px; }
 .obis-channel-toolbar-title { margin-right:auto; font-weight:bold; }
 .meter-obis-settings>td { width:auto !important; }
-@media(max-width:800px){.obis-channel-summary,.obis-channel-grid,.obis-api-fields{grid-template-columns:1fr}.config-key-spacer{display:none}}
+@media(max-width:800px){.obis-channel-summary,.obis-channel-grid,.obis-api-fields{grid-template-columns:1fr}.obis-channel-details>summary{min-height:48px;background:#f4f6f7}.obis-channel-details[open]>summary{border-color:#eadfa6;border-radius:4px 4px 0 0}.obis-channel-details[open]>.obis-channel-grid{margin-top:0;border-top:0;border-radius:0 0 4px 4px}.config-key-spacer{display:none}}
 .recovery-token-output { display: flex; flex-wrap: wrap; gap: .4em; margin-top: .45em; }
 .recovery-token-output[hidden] { display: none; }
 .recovery-token-output input { flex: 1 1 24em; min-width: 0; font-family: monospace; }

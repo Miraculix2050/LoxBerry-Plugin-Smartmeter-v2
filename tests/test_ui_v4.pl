@@ -48,7 +48,11 @@ foreach my $template (qw(templates/settings.html)) {
 foreach my $cgi (qw(webfrontend/htmlauth/index.cgi)) {
 	like($sources{$cgi}, qr/LoxBerry::Web::lbheader\s*\([^;]*["']nojqm["']/s, "$cgi explicitly disables jQuery Mobile");
 }
-like($sources{'webfrontend/htmlauth/index.cgi'}, qr/my \$asset_version = "\$version-\$asset_mtime"/, "settings assets combine the plugin version with their newest modification time");
+like($sources{'webfrontend/htmlauth/index.cgi'}, qr/\$asset_versions\{"ASSET_VERSION_\$key"\} = "\$version-\$mtime"/, "settings assets combine the plugin version with their own modification time");
+unlike($sources{'templates/settings.html'}, qr/NAME=ASSET_VERSION(?:\s|>)/, "settings assets do not share one cache-busting version");
+for my $asset_key (qw(SMARTMETER_V4_CSS SMARTMETER_VZLOGGER_CSS SMARTMETER_UI_JS SMARTMETER_VZLOGGER_JS SMARTMETER_SETTINGS_CSS SMARTMETER_CHANNEL_MODEL_JS SMARTMETER_SETTINGS_SERVICES_JS SMARTMETER_SETTINGS_DISCOVERY_JS SMARTMETER_SETTINGS_CHANNELS_JS SMARTMETER_SETTINGS_CONFIG_JS SMARTMETER_SETTINGS_JS)) {
+	like($sources{'templates/settings.html'}, qr/NAME=ASSET_VERSION_\Q$asset_key\E\b/, "settings template versions $asset_key independently");
+}
 like($sources{'webfrontend/htmlauth/vzlogger_live.cgi'}, qr/pluginversion\(\) \. "-\$asset_mtime"/, "live assets combine the plugin version with their newest modification time");
 
 my $vzlogger = $sources{'templates/settings.html'} . join("", @sources{qw(
@@ -65,6 +69,8 @@ like($vzlogger, qr/<dialog\b(?=[^>]*\bid="ir_scan_overlay")(?=[^>]*\baction-over
 like($vzlogger, qr/<dialog\b(?=[^>]*\bid="obis_search_overlay")(?=[^>]*\baction-overlay-standard\b)[^>]*>/, "OBIS discovery uses the single standard-width native action dialog");
 like($vzlogger, qr/<dialog\b(?=[^>]*\bid="service_action_overlay")(?=[^>]*\baction-overlay-standard\b)[^>]*>/, "service actions use the single standard-width native action dialog");
 like($vzlogger, qr/service_action_background_locked_text.*?SERVICE_ACTION_BACKGROUND_LOCKED/s, "hidden service actions expose a localized background-lock notice");
+like($vzlogger, qr/var request_details = !!last_service_snapshot && !service_details_loaded/, "initial service status request is lightweight");
+like($vzlogger, qr/if \(!request_details && last_service_snapshot && !service_details_loaded\) poll_service_status\(\)/, "detailed service state follows the first visible status immediately");
 like($vzlogger, qr/show_service_feedback\(title \+ "\. " \+ obis_text\("service_action_background_locked_text"\), "running", 0\)/, "hiding a running service action keeps its action-specific notice visible");
 like($vzlogger, qr/service_action_overlay.*?addEventListener\("cancel".*?preventDefault\(\).*?hide_service_action_overlay\(\)/s, "Escape uses the same background path while a service action is running");
 like($vzlogger, qr/classList\.remove\("is-error", "is-running", "is-visible"\)/, "service feedback clears stale result classes before changing state");
@@ -78,6 +84,12 @@ like($vzlogger, qr/\bshowModal\s*\(/, "vzLogger opens native dialogs");
 like($vzlogger, qr/class="ch-api lb-select"/, "dynamic channel API selects use V4 classes directly");
 like($vzlogger, qr/class="ch-obis lb-input"/, "dynamic channel inputs use V4 classes directly");
 like($vzlogger, qr/channel_labels\.display.*?config-key-spacer.*?class="ch-display lb-input"/, "display name reserves the desktop configuration-key row before its input");
+like($vzlogger, qr/<label for=\\?"'\+html_text\(id\)/, "dynamic API option labels target their controls");
+like($vzlogger, qr/api_field_labels\[key\]\|\|key/, "dynamic API options use localized display labels");
+like($vzlogger, qr/config_key_html\('meters\[\]\.channels\[\]\.'\+key\)/, "dynamic API options retain the exact configuration identifier");
+like($vzlogger, qr/class="ch-enabled" type="checkbox" aria-label=/, "dynamic channel activation has an accessible name without relying on a tooltip");
+like($vzlogger, qr/class="ch-obis lb-input" required aria-describedby=/, "dynamic channel inputs reference visible help text");
+like($vzlogger, qr/key==='type'\?' pattern="device\|sensor"'/, "MySmartGrid type exposes its allowed API values to browser validation");
 like($vzlogger, qr/\bpi-trash\b/, "dynamic destructive actions use PrimeIcons");
 for my $key (qw(CHANNEL_SOURCE CHANNEL_API_TARGET CHANNEL_API_NONE CHANNEL_BRIDGE_OUTPUT CHANNEL_STATE_ENABLED CHANNEL_STATE_DISABLED)) {
 	like($vzlogger, qr/\bVZLOGGER\.\Q$key\E\b/, "channel summary references $key");
@@ -89,6 +101,15 @@ for my $field (qw(vzlogger_enabled bridge_enabled sendudp)) {
 	like($vzlogger, qr/id="$field"\s+class="smartmeter-toggle-input"/, "vzLogger preserves visible $field toggle id");
 }
 like($vzlogger, qr/<label for="bridge_enabled">/, "bridge desired-state label targets the visible switch");
+like($vzlogger, qr/<label for="recovery_plain_token">/, "recovery token output has a programmatic label");
+like($vzlogger, qr/id="expert_mode_help"[^>]*>.*?VZLOGGER\.EXPERT_MODE_HELP/s, "Expert Mode risk help is visible before activation");
+like($vzlogger, qr/id="expert_mode"[^>]*aria-describedby="expert_mode_help expert_mode_notice"/, "Expert Mode control references both inactive and active help");
+like($vzlogger, qr/_readtimeout"[^>]*min="1"/, "D0 read timeout browser validation matches the positive server constraint");
+like($vzlogger, qr/_omskey"[^>]*pattern="\[A-Fa-f0-9\]\{32\}"[^>]*data-required-protocol="oms"/, "OMS key exposes its required 32-hex browser constraint");
+ok(index($vzlogger, 'data-validation-regexp="^(?!\$)(?!.*\/$)[^#+]+$"') >= 0, "MQTT topic browser validation exposes all documented constraints");
+
+my $expert_editor = read_file("templates/vzlogger_config_editor.html");
+like($expert_editor, qr/<textarea id="config_editor"[^>]*aria-labelledby="config_editor_label"[^>]*aria-describedby="config_editor_help"/, "Expert configuration editor has a programmatic label and help association");
 
 my $shared = $sources{'webfrontend/htmlauth/smartmeter-ui.js'};
 for my $helper (qw(smartmeterToggleValue smartmeterSetToggleValue smartmeterSyncToggle smartmeterSetToggleDisabled smartmeterSetLinkDisabled)) {
@@ -108,6 +129,15 @@ like($styles, qr/recovery-settings-panel \.service-controls > \.lb-btn\s*\{[^}]*
 unlike($styles . $vzlogger, qr/implementation-tabs|index_legacy/, "single-implementation UI contains no implementation tabs or Legacy links");
 like($styles, qr/input:checked \+ \.lb-toggle-slider::before/, "toggle knob has an explicit checked position");
 like($styles, qr/details\.lb-collapsible\[open\] > summary/, "open collapsible headers have a distinct state");
+like($styles, qr/\.obis-channel-details>summary\s*\{[^}]*min-height:\s*44px[^}]*cursor:\s*pointer/s, "channel detail toggles have a clear desktop interaction target");
+like($styles, qr/\.smartmeter-page \.obis-channel-details>summary::after\s*\{[^}]*top:\s*calc\(50% - 3\.5px\)[^}]*width:\s*12px[^}]*height:\s*7px[^}]*background:#68737d[^}]*clip-path:polygon\(0 0,50% 70%,100% 0[^}]*transform:none !important/s, "closed channel details use a compact neutral downward chevron without inherited rotation");
+like($styles, qr/\.obis-channel-details\[open\]>summary::after\s*\{[^}]*clip-path:polygon\(0 100%,50% 30%,100% 100%/s, "open channel details replace the fixed chevron with its upward form");
+like($styles, qr/\@media\(max-width:800px\).*?\.obis-channel-details\[open\]>summary\s*\{[^}]*border-color:#eadfa6[^}]*border-radius:4px 4px 0 0[^}]*\}\.obis-channel-details\[open\]>\.obis-channel-grid\s*\{[^}]*margin-top:0[^}]*border-top:0[^}]*border-radius:0 0 4px 4px/s, "open mobile channel content connects directly below its header as one frame");
+like($styles, qr/\@media \(max-width: 700px\).*?\.service-panel tr > td,\s*\.settings-table > tbody > tr > td\s*\{\s*border:\s*0;/s, "mobile form labels, controls, and help text do not retain table-cell frames");
+like($styles, qr/\.service-panel tr > td:nth-child\(4\),\s*\.settings-table > tbody > tr > td:nth-child\(4\)\s*\{\s*border-left:\s*0;/s, "mobile help text omits its former left border");
+like($styles, qr/\@media \(max-width: 700px\).*?#vzlogger_form details\.lb-collapsible\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/s, "mobile collapsibles omit the redundant outer frame");
+like($styles, qr/\.obis-channel-details>summary:hover,\.obis-channel-details>summary:focus-visible\s*\{[^}]*box-shadow:inset[^}]*outline:none/s, "channel detail focus stays inside the shared frame width");
+like($styles, qr/\@media\(max-width:800px\).*?\.obis-channel-details>summary\s*\{[^}]*min-height:\s*48px[^}]*background:#f4f6f7/s, "channel detail toggles remain neutral and touch-friendly on mobile");
 unlike($vzlogger . $shared, qr/\blb-btn-danger\b/, "removal actions use a restrained secondary style");
 like($styles, qr/input\.obis-number-spinner\s*\{[^}]*height:\s*40px/s, "storage input uses the standard action height");
 like($styles, qr/obis-storage-clear\.lb-btn\s*\{[^}]*height:\s*40px/s, "storage clear button matches the input height");

@@ -87,12 +87,13 @@ my $cgi = CGI->new;
 my $q = $cgi->Vars;
 
 my $version = LoxBerry::System::pluginversion();
-my $asset_mtime = 0;
+my %asset_versions;
 for my $asset (qw(smartmeter-v4.css smartmeter-vzlogger.css smartmeter-ui.js smartmeter-vzlogger.js smartmeter-settings.css smartmeter-channel-model.js smartmeter-settings-services.js smartmeter-settings-discovery.js smartmeter-settings-channels.js smartmeter-settings-config.js smartmeter-settings.js)) {
 	my $mtime = (stat("$FindBin::Bin/$asset"))[9] || 0;
-	$asset_mtime = $mtime if $mtime > $asset_mtime;
+	my $key = uc($asset);
+	$key =~ s/[^A-Z0-9]+/_/g;
+	$asset_versions{"ASSET_VERSION_$key"} = "$version-$mtime";
 }
-my $asset_version = "$version-$asset_mtime";
 my $template;
 my $plugin_cfg;
 my $initial_request = scalar(keys %{$q}) == 0;
@@ -353,7 +354,7 @@ sub form_vzlogger
 		($L{'VZLOGGER.MQTT_PASSWORD_NONE_STATUS'} || "No password configured");
 
 	$template->param("FORM_VZLOGGER", 1);
-	$template->param("ASSET_VERSION" => $asset_version);
+	$template->param(%asset_versions);
 	$template->param("CSRF_TOKEN" => csrf_token($csrf_runtime_dir, $ENV{REMOTE_USER}));
 	my $enabled = current_vzlogger_enabled();
 	$template->param("VZLOGGER_ENABLED" => $enabled);
@@ -1343,7 +1344,7 @@ sub save_vzlogger_form
 	$plugin_cfg->param("VZLOGGER.BRIDGEENABLED", clean_config_value($q->{bridge_enabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.BRIDGEENABLED")) ? $plugin_cfg->param("VZLOGGER.BRIDGEENABLED") : "0"));
 	$plugin_cfg->param("MAIN.SENDUDP", clean_config_value($q->{sendudp}, qr/\A[01]\z/, $plugin_cfg->param("MAIN.SENDUDP") || "0"));
 	$plugin_cfg->param("MAIN.UDPPORT", clean_config_value($q->{udpport}, qr/\A\d+\z/, $plugin_cfg->param("MAIN.UDPPORT") || "7000"));
-	$plugin_cfg->param("MAIN.MQTTTOPIC", clean_config_value($q->{mqtttopic}, qr/\A[^#+]+\z/, $plugin_cfg->param("MAIN.MQTTTOPIC") || "smartmeter"));
+	$plugin_cfg->param("MAIN.MQTTTOPIC", clean_config_value($q->{mqtttopic}, qr/\A(?!\$)(?!.*\/\z)[^#+]+\z/, $plugin_cfg->param("MAIN.MQTTTOPIC") || "smartmeter"));
 	$plugin_cfg->param("VZLOGGER.RETRY", clean_config_value($q->{vzlogger_retry}, qr/\A\d+\z/, defined($plugin_cfg->param("VZLOGGER.RETRY")) ? $plugin_cfg->param("VZLOGGER.RETRY") : "30"));
 	$plugin_cfg->param("VZLOGGER.LOCALENABLED", clean_config_value($q->{vzlogger_localenabled}, qr/\A[01]\z/, defined($plugin_cfg->param("VZLOGGER.LOCALENABLED")) ? $plugin_cfg->param("VZLOGGER.LOCALENABLED") : "1"));
 	$plugin_cfg->param("VZLOGGER.LOCALPORT", clean_config_value($q->{vzlogger_localport}, qr/\A\d+\z/, $plugin_cfg->param("VZLOGGER.LOCALPORT") || "18080"));
@@ -1417,7 +1418,7 @@ sub save_vzlogger_form
 			$plugin_cfg->param("$serial.BAUDRATECHANGEDELAY", clean_config_value($q->{"$serial\_baudratechangedelay"}, qr/\A\d*\z/, config_scalar_value("$serial.BAUDRATECHANGEDELAY")));
 		}
 		if ($mode eq "oms" && $meter_enabled) {
-			$plugin_cfg->param("$serial.OMSKEY", clean_config_value($q->{"$serial\_omskey"}, qr/\A(?:[A-Fa-f0-9]{32})?\z/, config_scalar_value("$serial.OMSKEY")));
+			$plugin_cfg->param("$serial.OMSKEY", clean_config_value($q->{"$serial\_omskey"}, qr/\A[A-Fa-f0-9]{32}\z/, config_scalar_value("$serial.OMSKEY")));
 			$plugin_cfg->param("$serial.MBUSDEBUG", clean_config_value($q->{"$serial\_mbusdebug"}, qr/\A[01]\z/, clean_boolean(config_scalar_value("$serial.MBUSDEBUG"), 0)));
 		}
 		if (!$draft_only && $mode eq "user" && defined($q->{"$serial\_userjson"})) {
@@ -1539,8 +1540,8 @@ sub validate_submitted_vzlogger_form
 		}
 		if ($mode eq "oms") {
 			my $key = $q->{"$serial\_omskey"};
-			push @errors, "$serial: OMS key must contain exactly 32 hexadecimal characters"
-				if (defined($key) && $key ne "" && $key !~ /\A[0-9a-f]{32}\z/i);
+			push @errors, "$serial: OMS key is required and must contain exactly 32 hexadecimal characters"
+				if (!defined($key) || $key !~ /\A[0-9a-f]{32}\z/i);
 			my $debug = $q->{"$serial\_mbusdebug"};
 			push @errors, "$serial: mbus_debug must be 0 or 1" if (defined($debug) && $debug !~ /\A[01]\z/);
 		}

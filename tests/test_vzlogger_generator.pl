@@ -49,6 +49,14 @@ ENABLED=1
 ALLOWSKIP=1
 AGGTIME=-1
 AGGFIXEDINTERVAL=1
+[reader_oms]
+SERIAL=reader_oms
+METER=oms
+PROTOCOL=oms
+DEVICE=/dev/full
+ENABLED=1
+ALLOWSKIP=1
+OMSKEY=0123456789abcdef0123456789abcdef
 CFG
 close($cfg);
 
@@ -64,7 +72,7 @@ my $document = {
 		  api_options=>{influxdb=>{host=>"must-not-leak"},volkszaehler=>{},mysmartgrid=>{}}, plugin_output=>{enabled=>JSON::PP::false,key=>"Not_Output"} },
 		{ uuid=>$disabled_uuid, enabled=>JSON::PP::false, origin=>"manual", obis=>"1-0:2.8.0", storage=>undef, display_name=>"", api=>"volkszaehler", aggmode=>"none", duplicates=>0,
 		  api_options=>{influxdb=>{},volkszaehler=>{},mysmartgrid=>{}}, plugin_output=>{enabled=>JSON::PP::true,key=>"Disabled"} },
-	], reader_false => [], reader_disabled_aggregation => [] },
+	], reader_false => [], reader_disabled_aggregation => [], reader_oms => [] },
 };
 write_json_atomic("$dir/vzlogger_channel_definitions.json", $document);
 
@@ -93,6 +101,7 @@ is(scalar(@{$reader->{channels}}), 2, "only active definitions are generated");
 ok($reader->{aggfixedinterval}, "fixed aggregation interval is generated when aggregation is active");
 ok(exists($meter_by_device{"/dev/zero"}->{aggfixedinterval}) && !$meter_by_device{"/dev/zero"}->{aggfixedinterval}, "explicit false fixed interval is generated while aggregation is active");
 ok(!exists($meter_by_device{"/dev/random"}->{aggfixedinterval}), "remembered fixed interval is omitted while aggregation is disabled");
+is($meter_by_device{"/dev/full"}->{key}, "0123456789abcdef0123456789abcdef", "required OMS AES key is generated unchanged");
 is($reader->{channels}->[0]->{identifier}, "1-0:1.8.0*5", "storage index reaches vzLogger identifier");
 is($reader->{channels}->[0]->{host}, "http://influx", "active API field generated");
 is($reader->{channels}->[0]->{version}, 1, "InfluxDB version is generated");
