@@ -8,13 +8,20 @@ use File::Temp qw(tempdir);
 use JSON::PP ();
 use Test::More;
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerStatus qw(generated_config_status service_status_class build_service_snapshot);
+use SmartMeterVZLoggerStatus qw(generated_config_status service_status_class build_service_snapshot encode_service_snapshot);
 
 open(my $cgi_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/service_status.cgi") or die $!;
 my $cgi_source = do { local $/; <$cgi_fh> };
 close($cgi_fh);
 like($cgi_source, qr/local \@INC = \(\$bin_dir, \@INC\);.*?require "\$bin_dir\/SmartMeterVZLoggerStatus\.pm"/s,
 	"lightweight CGI exposes the installed plugin bin directory to status-module dependencies");
+like($cgi_source, qr/encode_service_snapshot\(\$response\)/,
+	"polling endpoint uses the shared status encoder");
+open(my $index_fh, "<", "$FindBin::Bin/../webfrontend/htmlauth/index.cgi") or die $!;
+my $index_source = do { local $/; <$index_fh> };
+close($index_fh);
+like($index_source, qr/service-action.*?encode_service_snapshot\(\$normalized_response\)/s,
+	"service-action responses use the shared status encoder");
 
 my $root = tempdir(CLEANUP => 1);
 my $config_dir = "$root/config";
@@ -60,6 +67,8 @@ my %common = (
 my $first = build_service_snapshot(%common);
 my $second = build_service_snapshot(%common);
 is_deeply($first, $second, "both status callers can use the identical snapshot contract");
+is_deeply(JSON::PP->new->decode(encode_service_snapshot($first)), JSON::PP->new->decode(encode_service_snapshot($second)),
+	"polling and action contexts encode the same service snapshot schema");
 ok(exists($first->{config}->{mqtt_timestamp}), "detailed snapshot always contains mqtt_timestamp");
 ok(JSON::PP::is_bool($first->{config}->{mqtt_timestamp}), "mqtt_timestamp is a JSON boolean");
 ok($first->{services}->{vzlogger}->{can_restart}, "valid applied expert config can restart vzLogger");

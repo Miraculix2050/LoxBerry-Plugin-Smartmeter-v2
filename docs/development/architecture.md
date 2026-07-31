@@ -9,12 +9,12 @@ does not duplicate those rules.
 | Component | Responsibility |
 |---|---|
 | Authenticated CGI endpoints | Authenticate requests, acquire the shared mutation lock, dispatch workflows, and render or return JSON |
-| `SmartMeterVZLogger*.pm` modules | Validate and transform configuration, channel, status, discovery, recovery, service-policy, and diagnostic data |
+| `SmartMeterVZLogger*.pm` modules | Validate and transform configuration, channel semantics/documents, status, discovery, recovery, service-policy, and diagnostic data |
 | `vzlogger_config.pl` / `vzlogger_validate.pl` | Generate a staged runtime configuration and validate the coherent configuration/mapping pair |
 | `vzlogger_control.pl` | Preserve the stable CLI, translate policy decisions into exact privileged helper/systemd actions, and report observed final states |
 | external vzLogger | Read meters and publish configured channel data to MQTT |
 | SmartMeter bridge | Subscribe to applied channel topics and independently provide bridge MQTT, RAM-backed HTTP cache, and optional UDP output |
-| Browser modules | Preserve form state and coordinate service, discovery, channel-editor, and live-history workflows without a build step |
+| Browser modules | Preserve form state and coordinate service, configuration, discovery, channel-editor, and live-history workflows without a build step |
 
 The CGI and CLI entry points depend on the modules. Domain and policy modules do
 not depend on CGI globals, localized strings, systemd, or production filesystem
@@ -59,3 +59,8 @@ builder as service-action responses. Discovery runs independently of the page
 request, records its state in RAM, preserves successful results across restore
 warnings, and restores the prior vzLogger state. Recovery uses pure eligibility
 policy before issuing any systemd command and never installs or enables units.
+
+Channel consumers import either stable OBIS/catalog semantics or channel-document
+operations. `SmartMeterVZLoggerChannels` remains the compatibility facade for
+existing callers. Browser workflow modules expose pure state transitions while
+`smartmeter-settings.js` retains DOM wiring and page bootstrap responsibilities.

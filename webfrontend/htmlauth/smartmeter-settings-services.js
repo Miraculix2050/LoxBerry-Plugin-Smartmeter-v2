@@ -28,5 +28,19 @@
 		}
 		return { snapshot: snapshot, expert: state };
 	}
-	return { statusUrl: statusUrl, mergeSnapshot: mergeSnapshot };
+	function pollAllowed(state) {
+		state = state || {};
+		return !state.hidden && !state.serviceActionRunning && !state.configurationActionRunning && !state.inFlight;
+	}
+	function actionOutcome(response, error, fallback) {
+		if (error) return { ok: false, result: "failed", message: (fallback || "Request failed") + ": " + (error.message || error), needsStatusRefresh: true };
+		response = response || {};
+		return {
+			ok: !!response.ok,
+			result: !response.ok ? "failed" : (response.warning ? "warning" : "success"),
+			message: response.message || (response.ok ? "OK" : (fallback || "Request failed")),
+			needsStatusRefresh: !response.services
+		};
+	}
+	return { statusUrl: statusUrl, mergeSnapshot: mergeSnapshot, pollAllowed: pollAllowed, actionOutcome: actionOutcome };
 }));

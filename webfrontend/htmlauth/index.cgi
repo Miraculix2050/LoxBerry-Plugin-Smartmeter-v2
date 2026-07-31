@@ -54,14 +54,15 @@ use strict;
 umask(0027);
 use lib $lbpbindir;
 use lib "$FindBin::Bin/../../bin";
-use SmartMeterVZLoggerChannels qw(parse_obis compose_obis normalize_obis default_output_key stable_uuid read_json write_json_atomic load_catalog lookup_obis new_document initialize_channel_definitions validate_document localize_validation_errors);
+use SmartMeterVZLoggerChannelSemantics qw(parse_obis compose_obis normalize_obis default_output_key stable_uuid load_catalog lookup_obis);
+use SmartMeterVZLoggerChannelDocument qw(read_json write_json_atomic new_document initialize_channel_definitions validate_document localize_validation_errors);
 use SmartMeterVZLoggerBridge qw(bridge_topic effective_channel_topics normalize_mapping_keys);
-use SmartMeterVZLoggerExpert qw(read_text write_text_atomic validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping update_expert_log_settings expert_configs_equal);
+use SmartMeterVZLoggerExpert qw(read_text write_text_atomic validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping update_expert_log_settings expert_configs_equal expert_mqtt_capabilities);
 use SmartMeterVZLoggerRuntime qw(acquire_config_lock release_config_lock_for_background_child promote_files_atomic);
 use SmartMeterVZLoggerConfig qw(protocol_for_meter normalized_meter_mode clean_qos vzlogger_enabled set_vzlogger_enabled read_webserver_settings);
 use SmartMeterWebSecurity qw(csrf_token validate_csrf_token);
 use SmartMeterVZLoggerObisStatus qw(read_obis_status write_obis_status resolved_obis_status watchdog_running watchdog_pid_running);
-use SmartMeterVZLoggerStatus qw(build_service_snapshot);
+use SmartMeterVZLoggerStatus qw(build_service_snapshot encode_service_snapshot);
 use SmartMeterVZLoggerMeterInput qw(set_optional_text set_optional_integer set_optional_enum set_optional_boolean parse_meter_jsonc meter_jsonc_error_text safe_filename);
 use SmartMeterVZLoggerDiscovery ();
 use SmartMeterVZLoggerRecoveryConfig ();
@@ -87,7 +88,7 @@ my $q = $cgi->Vars;
 
 my $version = LoxBerry::System::pluginversion();
 my $asset_mtime = 0;
-for my $asset (qw(smartmeter-v4.css smartmeter-vzlogger.css smartmeter-ui.js smartmeter-vzlogger.js smartmeter-settings.css smartmeter-channel-model.js smartmeter-settings-services.js smartmeter-settings-discovery.js smartmeter-settings-channels.js smartmeter-settings.js)) {
+for my $asset (qw(smartmeter-v4.css smartmeter-vzlogger.css smartmeter-ui.js smartmeter-vzlogger.js smartmeter-settings.css smartmeter-channel-model.js smartmeter-settings-services.js smartmeter-settings-discovery.js smartmeter-settings-channels.js smartmeter-settings-config.js smartmeter-settings.js)) {
 	my $mtime = (stat("$FindBin::Bin/$asset"))[9] || 0;
 	$asset_mtime = $mtime if $mtime > $asset_mtime;
 }
@@ -217,7 +218,11 @@ if( $q->{ajax} ) {
 		$response = { ok => JSON::PP::false, state => "failed", message => $error || $L{'VZLOGGER.UI_AJAX_FAILED'} };
 	}
 	ajax_header($ajax_status);
-	print JSON::PP->new->utf8->canonical->encode(normalize_json_utf8($response));
+	my $normalized_response = normalize_json_utf8($response);
+	my $encoded_response = (($q->{ajaxaction} || "") eq "service-action"
+		? encode_service_snapshot($normalized_response)
+		: JSON::PP->new->utf8->canonical->encode($normalized_response));
+	print $encoded_response;
 	exit;
 
 ##########################################################################
@@ -1056,14 +1061,7 @@ sub expert_config_file
 
 sub expert_draft_status
 {
-	my $text = read_text(expert_config_file());
-	my $result = validate_expert_text($text);
-	return {
-		present => defined($text) ? 1 : 0,
-		valid => $result->{valid} ? 1 : 0,
-		message => format_expert_validation(localize_expert_validation($result, \%L)),
-		result => $result,
-	};
+	return SmartMeterVZLoggerExpert::expert_draft_status(expert_config_file(), \%L);
 }
 
 sub set_expert_mode_ajax
@@ -1081,18 +1079,14 @@ sub set_expert_mode_ajax
 	$plugin_cfg->param("VZLOGGER.EXPERTMODE", $enabled);
 	$plugin_cfg->save;
 	my $status = expert_draft_status();
-	my $expert_config = $status->{result}->{config};
-	my $mqtt_enabled = ref($expert_config) eq "HASH" &&
-		ref($expert_config->{mqtt}) eq "HASH" && $expert_config->{mqtt}->{enabled};
-	my $mqtt_timestamp = ref($expert_config) eq "HASH" &&
-		ref($expert_config->{mqtt}) eq "HASH" && $expert_config->{mqtt}->{timestamp};
+	my $capabilities = expert_mqtt_capabilities($status);
 	return {
 		ok => JSON::PP::true,
 		expert_mode => $enabled eq "1" ? JSON::PP::true : JSON::PP::false,
 		expert_valid => $status->{valid} ? JSON::PP::true : JSON::PP::false,
 		expert_applied => expert_configuration_applied() ? JSON::PP::true : JSON::PP::false,
-		mqtt_enabled => $mqtt_enabled ? JSON::PP::true : JSON::PP::false,
-		mqtt_timestamp => $mqtt_timestamp ? JSON::PP::true : JSON::PP::false,
+		mqtt_enabled => $capabilities->{enabled} ? JSON::PP::true : JSON::PP::false,
+		mqtt_timestamp => $capabilities->{timestamp} ? JSON::PP::true : JSON::PP::false,
 		validation_message => $status->{message},
 		message => $enabled eq "1" ? $L{'VZLOGGER.UI_EXPERT_ENABLED'} : $L{'VZLOGGER.UI_EXPERT_DISABLED'},
 	};
@@ -1107,18 +1101,14 @@ sub reset_expert_configuration_ajax
 	die $L{'VZLOGGER.UI_EXPERT_TOO_LARGE'} if (length($runtime) > 1024 * 1024);
 	die $L{'VZLOGGER.UI_EXPERT_RESET_FAILED'} if (!write_text_atomic(expert_config_file(), $runtime));
 	my $status = expert_draft_status();
-	my $expert_config = $status->{result}->{config};
-	my $mqtt_enabled = ref($expert_config) eq "HASH" &&
-		ref($expert_config->{mqtt}) eq "HASH" && $expert_config->{mqtt}->{enabled};
-	my $mqtt_timestamp = ref($expert_config) eq "HASH" &&
-		ref($expert_config->{mqtt}) eq "HASH" && $expert_config->{mqtt}->{timestamp};
+	my $capabilities = expert_mqtt_capabilities($status);
 	return {
 		ok => JSON::PP::true,
 		expert_mode => JSON::PP::true,
 		expert_valid => $status->{valid} ? JSON::PP::true : JSON::PP::false,
 		expert_applied => expert_configuration_applied() ? JSON::PP::true : JSON::PP::false,
-		mqtt_enabled => $mqtt_enabled ? JSON::PP::true : JSON::PP::false,
-		mqtt_timestamp => $mqtt_timestamp ? JSON::PP::true : JSON::PP::false,
+		mqtt_enabled => $capabilities->{enabled} ? JSON::PP::true : JSON::PP::false,
+		mqtt_timestamp => $capabilities->{timestamp} ? JSON::PP::true : JSON::PP::false,
 		validation_message => $status->{message},
 		message => $L{'VZLOGGER.UI_EXPERT_RESET_DONE'},
 	};
@@ -2557,41 +2547,22 @@ sub obis_discovery_cache_exists
 
 sub pending_obis_channels_file
 {
-	my ($serial) = @_;
-	$serial =~ s/[^A-Za-z0-9_.:-]/_/g;
-	return "$lbpconfigdir/obis_channels_$serial.pending";
+	return SmartMeterVZLoggerDiscovery::pending_channels_file($lbpconfigdir, $_[0]);
 }
 
 sub pending_meter_draft_file
 {
-	my ($serial) = @_;
-	$serial = safe_filename($serial || "");
-	return "$lbpconfigdir/meter_draft_$serial.json";
+	return SmartMeterVZLoggerDiscovery::pending_meter_draft_file($lbpconfigdir, $_[0]);
 }
 
 sub read_pending_meter_draft
 {
-	my ($serial) = @_;
-	my $file = pending_meter_draft_file($serial);
-	return {} if (!-e $file || !open(my $fh, "<", $file));
-	local $/;
-	my $json = <$fh>;
-	close($fh);
-	my $draft = eval { JSON::PP->new->utf8->decode($json || "") };
-	return {} if ($@ || ref($draft) ne "HASH");
-	return $draft;
+	return SmartMeterVZLoggerDiscovery::read_pending_meter_draft($lbpconfigdir, $_[0]);
 }
 
 sub write_pending_meter_draft
 {
-	my ($serial, $draft) = @_;
-	return 0 if (!defined($serial) || $serial !~ /\A[A-Za-z0-9_.:-]+\z/ || ref($draft) ne "HASH");
-	my $file = pending_meter_draft_file($serial);
-	my $tmp = "$file.$$";
-	open(my $fh, ">", $tmp) or return 0;
-	print $fh JSON::PP->new->utf8->canonical->encode($draft);
-	close($fh) or do { unlink($tmp); return 0; };
-	return rename($tmp, $file) ? 1 : do { unlink($tmp); 0 };
+	return SmartMeterVZLoggerDiscovery::write_pending_meter_draft($lbpconfigdir, @_);
 }
 
 sub mark_pending_meter_new
@@ -2616,37 +2587,12 @@ sub cache_pending_meter_protocol
 
 sub read_pending_obis_channels
 {
-	my ($serial) = @_;
-	my $file = pending_obis_channels_file($serial);
-	return () if (!-e $file || !open(my $fh, "<", $file));
-	my %seen;
-	my @identifiers;
-	while (my $line = <$fh>) {
-		chomp($line);
-		my $identifier = normalize_obis_identifier($line);
-		next if (!$identifier || $seen{$identifier});
-		push @identifiers, $identifier;
-		$seen{$identifier} = 1;
-	}
-	close($fh);
-	return @identifiers;
+	return SmartMeterVZLoggerDiscovery::read_pending_channels($lbpconfigdir, $_[0]);
 }
 
 sub write_pending_obis_channels
 {
-	my ($serial, @identifiers) = @_;
-	my $file = pending_obis_channels_file($serial);
-	my %seen;
-	@identifiers = grep { $_ && !$seen{$_}++ } map { normalize_obis_identifier($_) } @identifiers;
-	if (!@identifiers) {
-		unlink($file) if (-e $file);
-		return 1;
-	}
-	my $tmp = "$file.$$";
-	open(my $fh, ">", $tmp) or return 0;
-	print $fh "$_\n" foreach sort_obis_identifiers(@identifiers);
-	close($fh) or do { unlink($tmp); return 0; };
-	return rename($tmp, $file) ? 1 : do { unlink($tmp); 0 };
+	return SmartMeterVZLoggerDiscovery::write_pending_channels($lbpconfigdir, @_);
 }
 
 sub read_obis_discovery_cache

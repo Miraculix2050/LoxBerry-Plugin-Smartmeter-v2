@@ -15,7 +15,7 @@ my $bin_dir = "$install_folder/bin/plugins/$plugin_folder";
 {
 	local @INC = ($bin_dir, @INC);
 	require "$bin_dir/SmartMeterVZLoggerStatus.pm";
-	SmartMeterVZLoggerStatus->import(qw(read_service_runtime build_service_snapshot));
+	SmartMeterVZLoggerStatus->import(qw(read_service_runtime build_service_snapshot encode_service_snapshot));
 }
 my $details = ($ENV{QUERY_STRING} || "") =~ /(?:\A|&)details=1(?:&|\z)/ ? 1 : 0;
 my $config = read_ini("$config_dir/smartmeter.cfg");
@@ -46,7 +46,7 @@ my $response = build_service_snapshot(
 print "Content-Type: application/json; charset=utf-8\r\n";
 print "Cache-Control: no-store, no-cache, must-revalidate\r\n";
 print "X-Content-Type-Options: nosniff\r\n\r\n";
-print JSON::PP->new->utf8->canonical->encode($response);
+print encode_service_snapshot($response);
 
 sub read_ini
 {

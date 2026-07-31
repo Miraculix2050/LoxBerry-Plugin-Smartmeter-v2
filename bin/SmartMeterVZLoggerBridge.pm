@@ -7,7 +7,7 @@ use Exporter qw(import);
 use JSON::PP;
 use POSIX qw(isfinite);
 use Time::Local qw(timegm);
-use SmartMeterVZLoggerChannels qw(ordered_output_names);
+use SmartMeterVZLoggerChannelDocument qw(ordered_output_names);
 
 our @EXPORT_OK = qw(parse_mosquitto_envelope parse_reading channel_mapping identifier_mapping instantaneous_power_directions clean_scalar_payload normalize_mapping_keys effective_channel_topics validate_channel_announcement send_udp_cycle timestamp_epoch local_utc_offset loxone_timestamp bridge_timestamp_values bridge_topic throttle_log_event recover_log_event);
 

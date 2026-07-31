@@ -8,8 +8,15 @@ use SmartMeterVZLoggerExpert qw(read_text validate_expert_text expert_configs_eq
 
 our @EXPORT_OK = qw(
 	read_service_runtime generated_config_status expert_status
-	service_status_class service_status_data build_service_snapshot
+	service_status_class service_status_data build_service_snapshot encode_service_snapshot
 );
+
+sub encode_service_snapshot
+{
+	my ($snapshot) = @_;
+	die "service snapshot must be a JSON object" if (ref($snapshot) ne "HASH");
+	return JSON::PP->new->utf8->canonical->encode($snapshot);
+}
 
 sub read_service_runtime
 {

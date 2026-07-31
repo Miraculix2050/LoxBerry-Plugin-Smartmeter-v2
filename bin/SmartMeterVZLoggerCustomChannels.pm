@@ -5,7 +5,8 @@ use warnings;
 use Digest::SHA qw(sha256_hex);
 use Exporter qw(import);
 use JSON::PP;
-use SmartMeterVZLoggerChannels qw(read_json stable_uuid write_json_atomic);
+use SmartMeterVZLoggerChannelDocument qw(read_json write_json_atomic);
+use SmartMeterVZLoggerChannelSemantics qw(stable_uuid);
 
 our @EXPORT_OK = qw(assign_custom_channel_uuids registry_file channel_fingerprint);
 

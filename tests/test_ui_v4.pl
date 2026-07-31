@@ -27,6 +27,7 @@ my %sources = map { $_ => read_file($_) } qw(
 	webfrontend/htmlauth/smartmeter-settings-services.js
 	webfrontend/htmlauth/smartmeter-settings-discovery.js
 	webfrontend/htmlauth/smartmeter-settings-channels.js
+	webfrontend/htmlauth/smartmeter-settings-config.js
 	webfrontend/htmlauth/smartmeter-channel-model.js
 	webfrontend/htmlauth/smartmeter-settings.css
 	webfrontend/htmlauth/vzlogger_live.cgi
@@ -55,6 +56,7 @@ my $vzlogger = $sources{'templates/settings.html'} . join("", @sources{qw(
 	webfrontend/htmlauth/smartmeter-settings-services.js
 	webfrontend/htmlauth/smartmeter-settings-discovery.js
 	webfrontend/htmlauth/smartmeter-settings-channels.js
+	webfrontend/htmlauth/smartmeter-settings-config.js
 	webfrontend/htmlauth/smartmeter-channel-model.js
 )});
 like($vzlogger, qr/<details\b[^>]*\blb-collapsible\b/, "vzLogger uses native details collapsibles");

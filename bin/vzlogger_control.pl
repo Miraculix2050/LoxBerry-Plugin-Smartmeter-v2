@@ -17,7 +17,7 @@ use SmartMeterVZLoggerExpert qw(read_text write_text_atomic update_expert_log_se
 use SmartMeterVZLoggerRuntime qw(acquire_config_lock release_config_lock_for_background_child promote_files_atomic);
 use SmartMeterVZLoggerConfig qw(clean_number clean_qos sanitize_topic vzlogger_enabled);
 use SmartMeterVZLoggerServicePolicy qw(manual_start_decision recovery_decision bridge_expected);
-use SmartMeterVZLoggerSystem qw(run_command privileged_command);
+use SmartMeterVZLoggerSystem qw(run_command run_command_capture privileged_command);
 use SmartMeterVZLoggerDiagnostics ();
 
 my $home = $lbhomedir;
@@ -1001,7 +1001,8 @@ sub service_state
 {
 	my ($service) = @_;
 	return "unknown" if (!command_exists("systemctl"));
-	my $state = `systemctl is-active $service 2>/dev/null`;
+	my $result = run_command_capture(command => [systemctl_command(), "is-active", $service]);
+	my $state = $result->{output};
 	chomp($state);
 	return $state || "inactive";
 }
@@ -1031,7 +1032,8 @@ sub service_pid
 {
 	my ($service) = @_;
 	return "" if (!command_exists("systemctl"));
-	my $pid = `systemctl show -p MainPID --value $service 2>/dev/null`;
+	my $result = run_command_capture(command => [systemctl_command(), "show", "-p", "MainPID", "--value", $service]);
+	my $pid = $result->{output};
 	chomp($pid);
 	return ($pid && $pid ne "0") ? $pid : "";
 }
@@ -1183,15 +1185,8 @@ sub print_mqtt_capture
 	print $fh "Subscribe topic: $topic\n";
 	print $fh "Broker: $mqtt->{host}:$mqtt->{port}\n";
 	print $fh "Capture duration: 10 seconds\n";
-	my @command = ("timeout", "10", "mosquitto_sub", "-h", $mqtt->{host}, "-p", $mqtt->{port}, "-t", $topic, "-F", "%t %p", "-q", $mqtt->{qos});
-	push @command, ("-k", $mqtt->{keepalive}) if ($mqtt->{keepalive} > 0);
-	push @command, ("--cafile", $mqtt->{cafile}) if ($mqtt->{cafile});
-	push @command, ("--capath", $mqtt->{capath}) if ($mqtt->{capath});
-	push @command, ("--cert", $mqtt->{certfile}) if ($mqtt->{certfile});
-	push @command, ("--key", $mqtt->{keyfile}) if ($mqtt->{keyfile});
-	push @command, ("-u", $mqtt->{user}) if ($mqtt->{user});
-	push @command, ("-P", $mqtt->{pass}) if ($mqtt->{pass});
-	my $capture = SmartMeterVZLoggerDiagnostics::capture_stream($fh, 512 * 1024, @command);
+	my $command = SmartMeterVZLoggerDiagnostics::build_mqtt_capture_command(topic => $topic, mqtt => $mqtt);
+	my $capture = SmartMeterVZLoggerDiagnostics::capture_stream($fh, 512 * 1024, @$command);
 	if (!$capture->{ok}) {
 		print $fh "Could not start MQTT capture: $capture->{error}\n";
 		return;

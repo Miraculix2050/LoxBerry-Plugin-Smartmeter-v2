@@ -4,7 +4,31 @@ use strict;
 use warnings;
 use Exporter qw(import);
 
-our @EXPORT_OK = qw(print_section print_command print_file redact_sensitive print_runtime_cache print_log_tails capture_stream);
+our @EXPORT_OK = qw(
+	print_section print_command print_file redact_sensitive print_runtime_cache
+	print_log_tails capture_stream build_mqtt_capture_command
+);
+
+sub build_mqtt_capture_command
+{
+	my (%options) = @_;
+	my $mqtt = ref($options{mqtt}) eq "HASH" ? $options{mqtt} : {};
+	my @command = (
+		"timeout", "10", "mosquitto_sub",
+		"-h", $mqtt->{host} || "localhost",
+		"-p", $mqtt->{port} || 1883,
+		"-t", $options{topic} || "smartmeter/vzlogger/#",
+		"-F", "%t %p", "-q", $mqtt->{qos} || 0,
+	);
+	push @command, ("-k", $mqtt->{keepalive}) if (($mqtt->{keepalive} || 0) > 0);
+	push @command, ("--cafile", $mqtt->{cafile}) if ($mqtt->{cafile});
+	push @command, ("--capath", $mqtt->{capath}) if ($mqtt->{capath});
+	push @command, ("--cert", $mqtt->{certfile}) if ($mqtt->{certfile});
+	push @command, ("--key", $mqtt->{keyfile}) if ($mqtt->{keyfile});
+	push @command, ("-u", $mqtt->{user}) if ($mqtt->{user});
+	push @command, ("-P", $mqtt->{pass}) if ($mqtt->{pass});
+	return \@command;
+}
 
 sub print_section
 {

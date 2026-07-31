@@ -6,7 +6,7 @@ use Digest::SHA qw(sha256_hex);
 use Exporter qw(import);
 use JSON::PP ();
 use Socket qw(AF_INET AF_INET6 inet_pton);
-use SmartMeterVZLoggerChannels qw(read_json write_json_atomic);
+use SmartMeterVZLoggerChannelDocument qw(read_json write_json_atomic);
 
 our @EXPORT_OK = qw(read_recovery_settings validate_recovery_submission save_recovery_settings generate_recovery_token valid_ip_address);
 

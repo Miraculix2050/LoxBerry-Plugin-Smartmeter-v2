@@ -6,7 +6,7 @@ use FindBin;
 use File::Temp qw(tempdir);
 use Test::More;
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerDiagnostics qw(redact_sensitive print_file capture_stream);
+use SmartMeterVZLoggerDiagnostics qw(redact_sensitive print_file capture_stream build_mqtt_capture_command);
 
 my $secret = '"password":"secret" MQTTKEYPASS=hunter2 mosquitto_sub -P broker-secret';
 redact_sensitive($secret);
@@ -31,5 +31,12 @@ my $result = capture_stream($capture_fh, 3, $^X, "$FindBin::Bin/fixtures/diagnos
 close($capture_fh);
 ok($result->{truncated}, "bounded capture reports truncation");
 cmp_ok($result->{bytes}, "<=", 3, "bounded capture never exceeds its byte limit");
+
+my $command = build_mqtt_capture_command(
+	topic => "smartmeter/vzlogger/#",
+	mqtt => { host => "broker", port => 8883, qos => 1, keepalive => 30, user => "user", pass => "secret", cafile => "/ca.pem" },
+);
+is_deeply($command, [qw(timeout 10 mosquitto_sub -h broker -p 8883 -t), "smartmeter/vzlogger/#", "-F", "%t %p", qw(-q 1 -k 30 --cafile /ca.pem -u user -P secret)],
+	"MQTT capture command assembly is deterministic and argument-safe");
 
 done_testing();

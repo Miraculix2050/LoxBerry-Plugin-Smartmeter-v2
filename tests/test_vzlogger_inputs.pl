@@ -7,7 +7,7 @@ use File::Temp qw(tempdir);
 use Test::More;
 use lib "$FindBin::Bin/../bin";
 use SmartMeterVZLoggerMeterInput qw(config_scalar config_list first_config_value set_optional_text set_optional_integer set_optional_enum set_optional_boolean parse_meter_jsonc);
-use SmartMeterVZLoggerDiscovery qw(default_obis_channels normalize_obis_identifier obis_cache_name discovery_cache_file read_discovery_cache write_discovery_cache sort_obis_identifiers excluded_identifier);
+use SmartMeterVZLoggerDiscovery qw(default_obis_channels normalize_obis_identifier obis_cache_name discovery_cache_file read_discovery_cache write_discovery_cache sort_obis_identifiers excluded_identifier pending_channels_file pending_meter_draft_file read_pending_meter_draft write_pending_meter_draft read_pending_channels write_pending_channels);
 use SmartMeterVZLoggerRecoveryConfig qw(read_recovery_settings validate_recovery_submission save_recovery_settings);
 
 {
@@ -60,6 +60,16 @@ ok(write_discovery_cache($root, "reader/one",
 like(discovery_cache_file($root, "reader/one"), qr/reader_one\.cache\z/, "cache filename is sanitized");
 is_deeply([map { $_->{identifier} } read_discovery_cache($root, "reader/one")],
 	["1-0:1.8.0", "1-0:2.8.0"], "cache read retains canonical ordering");
+ok(write_pending_meter_draft($root, "reader-one", { new_reader => 1, protocol => "sml" }),
+	"pending meter draft is written atomically");
+is_deeply(read_pending_meter_draft($root, "reader-one"), { new_reader => 1, protocol => "sml" },
+	"pending meter draft round-trips through the discovery module");
+like(pending_meter_draft_file($root, "reader/one"), qr/reader_one\.json\z/, "pending draft filename is sanitized");
+ok(write_pending_channels($root, "reader-one", "1-0:2.8.0", "1-0:1.8.0", "1-0:1.8.0"),
+	"pending channel selection is written atomically");
+is_deeply([read_pending_channels($root, "reader-one")], ["1-0:1.8.0", "1-0:2.8.0"],
+	"pending channel selection is normalized, deduplicated, and ordered");
+like(pending_channels_file($root, "reader/one"), qr/reader_one\.pending\z/, "pending channel filename is sanitized");
 
 my $recovery_file = "$root/recovery.json";
 my $defaults = read_recovery_settings($recovery_file);

@@ -51,7 +51,8 @@ like($index, qr/RECOVERY_COMMAND_VZLOGGER.*?\/plugins\/\$lbpplugindir\/recovery\
 like($template, qr/RECOVERY_OUTPUT_HTTP_ADDRESS.*?RECOVERY_COMMAND_ON.*?RECOVERY_HEADER_ON.*?RECOVERY_BODY_ON.*?RECOVERY_METHOD_ON/s, "copy-and-paste UI follows Loxone virtual output fields");
 unlike($template, qr/http:\/\/loxberry:.*?@/, "copy-and-paste UI never embeds LoxBerry credentials");
 like($index, qr/use Encode qw\(decode FB_CROAK\)/, "AJAX responses can decode native language-resource bytes");
-like($index, qr/encode\(normalize_json_utf8\(\$response\)\)/, "AJAX payloads are normalized before UTF-8 JSON encoding");
+like($index, qr/my \$normalized_response = normalize_json_utf8\(\$response\).*?encode_service_snapshot\(\$normalized_response\).*?encode\(\$normalized_response\)/s,
+	"AJAX payloads are normalized before shared or generic UTF-8 JSON encoding");
 like($index, qr/sub normalize_json_utf8.*?utf8::is_utf8.*?\[\\x80-\\xff\].*?decode\("UTF-8", \$value, FB_CROAK\)/s, "already decoded and ASCII scalars are preserved while UTF-8 byte strings are decoded strictly");
 like($template, qr/X-Smartmeter-Recovery-Token: &lt;token&gt;/, "UI documents the header without embedding the secret");
 unlike($template, qr/RECOVERY_PLAIN_TOKEN|TOKEN_SHA256/, "rendered template has no stored token or hash variable");

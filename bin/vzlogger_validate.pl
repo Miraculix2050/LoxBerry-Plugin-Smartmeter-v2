@@ -9,7 +9,8 @@ use FindBin;
 use JSON::PP;
 use LoxBerry::System;
 use lib $FindBin::Bin;
-use SmartMeterVZLoggerChannels qw(compose_obis parse_obis validate_document valid_output_key output_key_format);
+use SmartMeterVZLoggerChannelDocument qw(validate_document);
+use SmartMeterVZLoggerChannelSemantics qw(compose_obis parse_obis valid_output_key output_key_format);
 use SmartMeterVZLoggerBridge qw(effective_channel_topics);
 use SmartMeterVZLoggerExpert qw(read_text validate_expert_text format_expert_validation);
 

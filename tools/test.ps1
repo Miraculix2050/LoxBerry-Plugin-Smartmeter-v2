@@ -21,11 +21,19 @@ if ($map.Version -ne 1) {
 
 $testCatalog = [ordered]@{
 	"vzlogger-channels" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_vzlogger_channels.pl"); Path = "tests/test_vzlogger_channels.pl" }
+	"channel-model" = @{ Tool = "node"; Args = @("tests/test_channel_model.js"); Path = "tests/test_channel_model.js" }
+	"channel-model-parity" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_channel_model_parity.pl"); Path = "tests/test_channel_model_parity.pl" }
 	"vzlogger-generator" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_vzlogger_generator.pl"); Path = "tests/test_vzlogger_generator.pl" }
 	"vzlogger-validator" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_vzlogger_validator.pl"); Path = "tests/test_vzlogger_validator.pl" }
 	"vzlogger-expert" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_vzlogger_expert.pl"); Path = "tests/test_vzlogger_expert.pl" }
 	"language-resources" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_language_resources.pl"); Path = "tests/test_language_resources.pl" }
 	"vzlogger-runtime" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_vzlogger_runtime.pl"); Path = "tests/test_vzlogger_runtime.pl" }
+	"vzlogger-status" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_vzlogger_status.pl"); Path = "tests/test_vzlogger_status.pl" }
+	"service-policy" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_service_policy.pl"); Path = "tests/test_service_policy.pl" }
+	"system-runner" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_system_runner.pl"); Path = "tests/test_system_runner.pl" }
+	"diagnostics" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_diagnostics.pl"); Path = "tests/test_diagnostics.pl" }
+	"discovery-job" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_discovery_job.pl"); Path = "tests/test_discovery_job.pl" }
+	"vzlogger-inputs" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_vzlogger_inputs.pl"); Path = "tests/test_vzlogger_inputs.pl" }
 	"vzlogger-custom-channels" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_vzlogger_custom_channels.pl"); Path = "tests/test_vzlogger_custom_channels.pl" }
 	"vzlogger-config-validation" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_vzlogger_config_validation.pl"); Path = "tests/test_vzlogger_config_validation.pl" }
 	"vzlogger-bridge" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_vzlogger_bridge.pl"); Path = "tests/test_vzlogger_bridge.pl" }
@@ -35,11 +43,12 @@ $testCatalog = [ordered]@{
 	"loxberry-native-integration" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_loxberry_native_integration.pl"); Path = "tests/test_loxberry_native_integration.pl" }
 	"lifecycle-v4" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_lifecycle_v4.pl"); Path = "tests/test_lifecycle_v4.pl" }
 	"ui-v4" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_ui_v4.pl"); Path = "tests/test_ui_v4.pl" }
+	"settings-modules" = @{ Tool = "node"; Args = @("tests/test_settings_modules.js"); Path = "tests/test_settings_modules.js" }
 	"bridge-service-lifecycle" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_bridge_service_lifecycle.pl"); Path = "tests/test_bridge_service_lifecycle.pl" }
 	"recovery" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_recovery.pl"); Path = "tests/test_recovery.pl" }
 	"release-metadata" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_release_metadata.pl"); Path = "tests/test_release_metadata.pl" }
 	"documentation-links" = @{ Tool = "perl"; Args = @("-I", ".github/ci/perl-lib", "-I", "bin", "tests/test_documentation_links.pl"); Path = "tests/test_documentation_links.pl" }
-	"upgrade-2-1" = @{ Tool = "sh"; Args = @("tests/test_upgrade_2_1.sh"); Path = "tests/test_upgrade_2_1.sh" }
+	"upgrade-2-1" = @{ Tool = "sh"; Args = @("-lc", "tests/test_upgrade_2_1.sh"); Path = "tests/test_upgrade_2_1.sh" }
 	"deploy-line-endings" = @{ Tool = "pwsh"; Args = @("-NoProfile", "-File", "tests/test_deploy_line_endings.ps1"); Path = "tests/test_deploy_line_endings.ps1" }
 	"vzlogger-live" = @{ Tool = "node"; Args = @("tests/test_vzlogger_live.js"); Path = "tests/test_vzlogger_live.js" }
 	"validate-development-metadata" = @{ Tool = "perl"; Args = @("tools/validate-release-metadata.pl", "--channel", "development"); Path = "tools/validate-release-metadata.pl" }

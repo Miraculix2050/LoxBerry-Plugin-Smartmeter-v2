@@ -7,6 +7,13 @@ use JSON::PP;
 use Test::More;
 use lib "$FindBin::Bin/../bin";
 use SmartMeterVZLoggerChannels qw(parse_obis compose_obis normalize_obis default_output_key valid_output_key stable_uuid load_catalog lookup_obis new_document initialize_channel_definitions validate_document localize_validation_errors native_channel output_order_mapping ordered_output_names);
+use SmartMeterVZLoggerChannelSemantics ();
+use SmartMeterVZLoggerChannelDocument ();
+
+is(SmartMeterVZLoggerChannelSemantics::normalize_obis("1-0:1.8.0*255"), normalize_obis("1-0:1.8.0*255"),
+	"compatibility facade and semantics module normalize OBIS identically");
+is_deeply(SmartMeterVZLoggerChannelDocument::new_document(), new_document(),
+	"compatibility facade and document module expose the same document contract");
 
 my $catalog = load_catalog("$FindBin::Bin/../templates/obis_catalog.json");
 is($catalog->{version}, 1, "catalog schema version");

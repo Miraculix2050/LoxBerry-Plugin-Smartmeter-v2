@@ -3,12 +3,15 @@ package SmartMeterVZLoggerDiscovery;
 use strict;
 use warnings;
 use Exporter qw(import);
-use SmartMeterVZLoggerChannels qw(normalize_obis);
+use JSON::PP ();
+use SmartMeterVZLoggerChannelSemantics qw(normalize_obis);
 use SmartMeterVZLoggerMeterInput qw(safe_filename);
 
 our @EXPORT_OK = qw(
 	default_obis_channels normalize_obis_identifier obis_cache_name
 	discovery_cache_file discovery_cache_exists read_discovery_cache write_discovery_cache
+	pending_channels_file pending_meter_draft_file read_pending_meter_draft
+	write_pending_meter_draft read_pending_channels write_pending_channels
 	sort_obis_channels sort_obis_identifiers compare_obis_identifier excluded_identifier
 );
 
@@ -52,6 +55,70 @@ sub discovery_cache_file
 }
 
 sub discovery_cache_exists { return -e discovery_cache_file(@_) ? 1 : 0; }
+
+sub pending_channels_file
+{
+	my ($config_dir, $serial) = @_;
+	return "$config_dir/obis_channels_" . safe_filename($serial) . ".pending";
+}
+
+sub pending_meter_draft_file
+{
+	my ($config_dir, $serial) = @_;
+	return "$config_dir/meter_draft_" . safe_filename($serial) . ".json";
+}
+
+sub read_pending_meter_draft
+{
+	my ($config_dir, $serial) = @_;
+	my $file = pending_meter_draft_file($config_dir, $serial);
+	return {} if (!-e $file || !open(my $fh, "<", $file));
+	local $/;
+	my $draft = eval { JSON::PP->new->utf8->decode(<$fh> || "") };
+	close($fh);
+	return $@ || ref($draft) ne "HASH" ? {} : $draft;
+}
+
+sub write_pending_meter_draft
+{
+	my ($config_dir, $serial, $draft) = @_;
+	return 0 if (!defined($serial) || $serial !~ /\A[A-Za-z0-9_.:-]+\z/ || ref($draft) ne "HASH");
+	my $file = pending_meter_draft_file($config_dir, $serial);
+	my $tmp = "$file.$$";
+	open(my $fh, ">", $tmp) or return 0;
+	print {$fh} JSON::PP->new->utf8->canonical->encode($draft);
+	close($fh) or do { unlink($tmp); return 0; };
+	return rename($tmp, $file) ? 1 : do { unlink($tmp); 0 };
+}
+
+sub read_pending_channels
+{
+	my ($config_dir, $serial) = @_;
+	my $file = pending_channels_file($config_dir, $serial);
+	return () if (!-e $file || !open(my $fh, "<", $file));
+	my (%seen, @identifiers);
+	while (my $line = <$fh>) {
+		chomp($line);
+		my $identifier = normalize_obis_identifier($line);
+		push @identifiers, $identifier if ($identifier && !$seen{$identifier}++);
+	}
+	close($fh);
+	return @identifiers;
+}
+
+sub write_pending_channels
+{
+	my ($config_dir, $serial, @identifiers) = @_;
+	my $file = pending_channels_file($config_dir, $serial);
+	my %seen;
+	@identifiers = grep { $_ && !$seen{$_}++ } map { normalize_obis_identifier($_) } @identifiers;
+	if (!@identifiers) { unlink($file) if (-e $file); return 1; }
+	my $tmp = "$file.$$";
+	open(my $fh, ">", $tmp) or return 0;
+	print {$fh} "$_\n" foreach sort_obis_identifiers(@identifiers);
+	close($fh) or do { unlink($tmp); return 0; };
+	return rename($tmp, $file) ? 1 : do { unlink($tmp); 0 };
+}
 
 sub read_discovery_cache
 {
