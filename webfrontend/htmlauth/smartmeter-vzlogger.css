@@ -51,7 +51,8 @@
 .obis-channel-toolbar { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:6px; }
 .obis-channel-toolbar-title { margin-right:auto; font-weight:bold; }
 .meter-obis-settings>td { width:auto !important; }
-@media(max-width:800px){.obis-channel-summary,.obis-channel-grid,.obis-api-fields{grid-template-columns:1fr}.obis-channel-details>summary{min-height:48px;background:#f4f6f7}.obis-channel-details[open]>summary{border-color:#eadfa6;border-radius:4px 4px 0 0}.obis-channel-details[open]>.obis-channel-grid{margin-top:0;border-top:0;border-radius:0 0 4px 4px}.config-key-spacer{display:none}}
+@media(max-width:1200px){.obis-channel-summary,.obis-channel-grid,.obis-api-fields{grid-template-columns:1fr}.obis-channel-summary,.obis-channel-grid,.obis-api-fields,.obis-channel-field{min-width:0;max-width:100%}}
+@media(max-width:800px){.obis-channel-details>summary{min-height:48px;background:#f4f6f7}.obis-channel-details[open]>summary{border-color:#eadfa6;border-radius:4px 4px 0 0}.obis-channel-details[open]>.obis-channel-grid{margin-top:0;border-top:0;border-radius:0 0 4px 4px}.config-key-spacer{display:none}}
 .recovery-token-output { display: flex; flex-wrap: wrap; gap: .4em; margin-top: .45em; }
 .recovery-token-output[hidden] { display: none; }
 .recovery-token-output input { flex: 1 1 24em; min-width: 0; font-family: monospace; }
