@@ -1,4 +1,4 @@
-name: Syntax check
+name: Automated regression suite
 
 on:
   pull_request:
@@ -43,86 +43,7 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Check Perl syntax
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          found=0
-          while IFS= read -r -d '' file; do
-            found=1
-            perl -I .github/ci/perl-lib -I bin -c "$file"
-          done < <(find . -type f \( -name '*.pl' -o -name '*.pm' -o -name '*.cgi' \) -print0)
-
-          if [ "$found" -eq 0 ]; then
-            echo "No Perl files found."
-          fi
-
-      - name: Check PHP syntax
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          found=0
-          while IFS= read -r -d '' file; do
-            found=1
-            php -l "$file"
-          done < <(find . -type f -name '*.php' -print0)
-
-          if [ "$found" -eq 0 ]; then
-            echo "No PHP files found."
-          fi
-
-      - name: Check lifecycle shell syntax
-        shell: bash
-        run: |
-          set -euo pipefail
-          for file in \
-            preinstall.sh preroot.sh postinstall.sh postroot.sh preupgrade.sh postupgrade.sh \
-            uninstall/uninstall sbin/*.sh bin/*.sh
-          do
-            [ ! -f "$file" ] || sh -n "$file"
-          done
-
-      - name: Test 2.1 upgrade migration
-        shell: bash
-        run: sh tests/test_upgrade_2_1.sh
-
-      - name: Run vzLogger configuration tests
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_channels.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_generator.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_validator.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_expert.pl
-          perl tests/test_language_resources.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_runtime.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_custom_channels.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_config_validation.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_bridge.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_vzlogger_http.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_obis_status.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_web_security.pl
-          perl -I .github/ci/perl-lib -I bin tests/test_loxberry_native_integration.pl
-          perl tests/test_lifecycle_v4.pl
-          perl tests/test_ui_v4.pl
-          perl tests/test_bridge_service_lifecycle.pl
-          perl tests/test_recovery.pl
-          perl tests/test_release_metadata.pl
-          perl tests/test_documentation_links.pl
-
-      - name: Validate development release metadata
-        shell: bash
-        run: perl tools/validate-release-metadata.pl --channel development
-
-      - name: Test test-device file normalization
+      # Keep the job name stable because branch protection may require it.
+      - name: Run complete syntax and regression suite
         shell: pwsh
-        run: ./tests/test_deploy_line_endings.ps1
-
-      - name: Test vzLogger live chart model
-        run: node tests/test_vzlogger_live.js
-
-      - name: Verify vendored Chart.js
-        run: sha256sum --check webfrontend/htmlauth/vendor/chart.js/chart.umd.min.js.sha256
+        run: ./tools/test.ps1 -Profile Full

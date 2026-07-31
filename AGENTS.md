@@ -23,18 +23,19 @@ The normative product and engineering contracts are consolidated in `docs/develo
 
 ## Responsive UI Verification
 
-- Follow requirements `SM-UI-001` through `SM-UI-012` in `docs/development/developer-requirements.md` and the viewport acceptance matrix in `docs/development/test-device-workflow.md`.
+- Select browser checks from `docs/development/test-strategy.md`, then follow requirements `SM-UI-001` through `SM-UI-012` in `docs/development/developer-requirements.md` and the applicable viewport acceptance checks in `docs/development/test-device-workflow.md`.
 
 ## Verification
 
 - After Perl script changes on Windows, run `tools/check-perl-syntax.ps1 <file>` so the checked-in LoxBerry stubs in `.github/ci/perl-lib` are on `@INC`. Use `perl -c` directly only on a LoxBerry system with the real LoxBerry Perl modules available. For PHP files, run `php -l`.
 - For install or upgrade behavior, validate against the relevant install log rather than relying only on static review.
-- For implementation tasks that affect installed plugin behavior, deploy only the changed runtime files to the configured disposable LoxBerry test target after local checks, then verify syntax, configuration, and relevant service state on the target. Follow `docs/development/test-device-workflow.md`.
+- Use `tools/test.ps1 -Profile Changed` during development and rely on `-Profile Full` in pull-request and `master` CI. Tests are change-driven; do not add periodic test runs.
+- Deploy to the disposable LoxBerry only when the change crosses a target-specific boundary identified by `docs/development/test-strategy.md`. Deploy only changed runtime files after local checks, then verify the affected syntax, configuration, and service state according to `docs/development/test-device-workflow.md`.
 - Do not write to the test target for analysis-only or review-only tasks unless the user explicitly requests it.
 - Never store or print test-device passwords or private keys. Use a local SSH configuration or PuTTY saved-session name.
 - Resolve the test target through `tools/TestDeviceSettings.ps1`; developers configure it outside the repository with `tools/configure-test-device.ps1`.
 - Preserve remote user configuration and runtime data. Back up affected remote files, preserve their modes, and restore the initial configuration and service state after destructive tests.
-- After UI, template, CSS, navigation, or user-facing text changes, test the vzLogger page in an authenticated desktop browser and with mobile viewport emulation on the disposable LoxBerry. Use the viewport matrix and checks in `docs/development/test-device-workflow.md`.
+- After browser-visible changes, test only the affected workflow and the risk-based browser/viewport set selected by `docs/development/test-strategy.md`. Use the acceptance checks in `docs/development/test-device-workflow.md` and avoid repeated screenshots or log reads unless the change or a failure requires them.
 - Before committing, check `git status --short` and avoid reverting unrelated local changes.
 
 ## Release Work

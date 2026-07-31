@@ -4,7 +4,10 @@
 - **Status:** Current verification procedure
 - **Authority:** Mandatory when referenced by `AGENTS.md` or `SM-VER-*` requirements
 
-This workflow applies to implementation tasks that change installed SmartMeter v2 behavior. It does not authorize remote writes for analysis-only or review-only tasks.
+This workflow applies only when the change crosses a target-specific boundary
+selected by [the change-driven test strategy](test-strategy.md). It does not
+authorize remote writes for analysis-only, review-only, or deterministically
+covered changes.
 
 ## Local connection setup
 
@@ -97,7 +100,9 @@ After deployment:
 4. Test service restart behavior when runtime loading is part of the change.
 5. Restore the initial Expert Mode, configuration, and service states after tests that deliberately changed them.
 
-For CGI or navigation changes, also test the installed page through an authenticated browser session, preferably the developer's existing Chrome session:
+When the risk selection requires a CGI or navigation browser smoke, test the
+installed page through an authenticated browser session, preferably the
+developer's existing Chrome session:
 
 1. Open the normal plugin entry page instead of invoking the CGI only from SSH.
 2. Use the visible native LoxBerry V4 navigation or AJAX action that reaches the changed CGI so the installed browser workflow is included.
@@ -108,7 +113,8 @@ The browser check complements target-side syntax checks; it is required when exe
 
 ### Desktop and mobile UI acceptance
 
-For UI, template, CSS, navigation, or user-facing text changes, test the installed vzLogger page at these CSS viewport sizes:
+Use only the viewport profiles selected by `test-strategy.md` for the actual
+change. The available CSS viewport profiles are:
 
 | Profile | Viewport | Required use |
 | --- | --- | --- |
@@ -117,9 +123,10 @@ For UI, template, CSS, navigation, or user-facing text changes, test the install
 | Mobile compact | `360x800` | Layout, navigation, forms, and long labels |
 | Mobile minimum | `320x568` | Graceful layout only; no clipped or unreachable plugin functions |
 
-Use an authenticated browser session and reach the page through the normal plugin navigation so native LoxBerry V4 navigation and AJAX actions are exercised. At Desktop and Mobile primary sizes, check the initial render and every changed interaction, including relevant collapsibles, dialogs, validation, and action buttons. Use the compact and minimum sizes whenever layout, controls, navigation, or text lengths changed.
+Use an authenticated browser session and reach the page through the normal plugin navigation so native LoxBerry V4 navigation and AJAX actions are exercised. Check the changed interaction, including only relevant collapsibles, dialogs, validation, and action buttons. Reuse the authenticated tab and batch DOM, overflow, changed-state, and console checks. Capture screenshots for visual changes or failures; inspect server logs only when the result or console indicates a failure.
 
-The minimum browser matrix is:
+The full responsive browser matrix, required only for shared layout, responsive,
+navigation, dialog, control, or browser-sensitive changes, is:
 
 - Chrome and Firefox: full Desktop (`1280x800`) and Mobile primary (`390x844`) checks;
 - Chrome: additional Mobile compact (`360x800`) and Mobile minimum (`320x568`) smoke checks; and
@@ -134,6 +141,11 @@ Acceptance requires:
 - safe wrapping or stacking of tables and multi-column form rows; and
 - successful rendering without HTTP 500 or browser-console errors introduced by the plugin.
 
-Test the longer German labels when only one language can be exercised. If translated UI text changed, verify both German and English views.
+For a translation-only change, verify German and English at `390x844`; add other
+sizes only when the changed text creates a wrapping or layout risk. When only one
+language is relevant to a layout change, exercise the longer German labels.
 
-For installation or upgrade changes, install the built plugin archive through the normal LoxBerry plugin manager and validate the complete install log. Direct file deployment is not a substitute for lifecycle testing.
+When installation or upgrade behavior changed, install the built plugin archive
+through the normal LoxBerry plugin manager and validate the complete install log.
+Direct file deployment is not a substitute for that affected lifecycle test. A
+merge or release alone does not require a complete lifecycle acceptance.
