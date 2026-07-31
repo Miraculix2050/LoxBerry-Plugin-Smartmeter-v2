@@ -80,20 +80,24 @@ function Invoke-GitLines {
 
 function Get-ChangedFiles {
 	$found = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-	$effectiveBase = $BaseRef
-	if (!$effectiveBase) {
-		$effectiveBase = if (@(Invoke-GitLines @("rev-parse", "--verify", "origin/master") -AllowFailure).Count) { "origin/master" } else { "HEAD" }
+	$fallbackReason = $null
+	$effectiveBase = if ($BaseRef) { $BaseRef } else { "origin/master" }
+	$baseExists = @(Invoke-GitLines @("rev-parse", "--verify", $effectiveBase) -AllowFailure).Count -gt 0
+	$mergeBase = @()
+	if ($baseExists) { $mergeBase = @(Invoke-GitLines @("merge-base", $effectiveBase, "HEAD") -AllowFailure) }
+	if ($BaseRef -and !@($mergeBase).Count) {
+		throw "Cannot determine a merge base for explicit -BaseRef '$BaseRef'. Verify that the reference exists and shares history with HEAD."
 	}
-	if ($effectiveBase -ne "HEAD" -or $BaseRef) {
-		$mergeBase = @(Invoke-GitLines @("merge-base", $effectiveBase, "HEAD") -AllowFailure)
-		if (@($mergeBase).Count) {
-			Invoke-GitLines @("diff", "--name-only", "--diff-filter=ACMRD", $mergeBase[0], "HEAD") | ForEach-Object { [void]$found.Add((Normalize-RepoPath $_)) }
-		}
+	if (!$BaseRef -and !@($mergeBase).Count) {
+		$fallbackReason = "Automatic base origin/master is unavailable or does not share history with HEAD."
+	}
+	if (@($mergeBase).Count) {
+		Invoke-GitLines @("diff", "--name-only", "--diff-filter=ACMRD", $mergeBase[0], "HEAD") | ForEach-Object { [void]$found.Add((Normalize-RepoPath $_)) }
 	}
 	Invoke-GitLines @("diff", "--name-only", "--diff-filter=ACMRD") | ForEach-Object { [void]$found.Add((Normalize-RepoPath $_)) }
 	Invoke-GitLines @("diff", "--cached", "--name-only", "--diff-filter=ACMRD") | ForEach-Object { [void]$found.Add((Normalize-RepoPath $_)) }
 	Invoke-GitLines @("ls-files", "--others", "--exclude-standard") | ForEach-Object { [void]$found.Add((Normalize-RepoPath $_)) }
-	return @($found | Sort-Object)
+	return [pscustomobject]@{ Files = @($found | Sort-Object); FallbackReason = $fallbackReason }
 }
 
 function Get-AllSyntaxFiles {
@@ -109,12 +113,14 @@ function Get-AllSyntaxFiles {
 	return @{ Perl = @($perl); Php = @($php); Shell = @($shell | Sort-Object -Unique) }
 }
 
-$selectedFiles = if ($Files) { @($Files | ForEach-Object { Normalize-RepoPath $_ } | Sort-Object -Unique) } elseif ($Profile -eq "Changed") { Get-ChangedFiles } else { @() }
+$changeSelection = if (!$Files -and $Profile -eq "Changed") { Get-ChangedFiles } else { $null }
+$selectedFiles = if ($Files) { @($Files | ForEach-Object { Normalize-RepoPath $_ } | Sort-Object -Unique) } elseif ($changeSelection) { @($changeSelection.Files) } else { @() }
 $selectedTests = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 $deviceAdvice = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 $browserAdvice = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 $syntax = @{ Perl = [System.Collections.Generic.HashSet[string]]::new(); Php = [System.Collections.Generic.HashSet[string]]::new(); Shell = [System.Collections.Generic.HashSet[string]]::new() }
-$fallbackToFull = $Profile -eq "Full"
+$fallbackReason = if ($changeSelection) { $changeSelection.FallbackReason } else { $null }
+$fallbackToFull = $Profile -eq "Full" -or $null -ne $fallbackReason
 
 if ($Profile -eq "Changed") {
 	foreach ($file in $selectedFiles) {
@@ -155,6 +161,7 @@ if ($fallbackToFull) {
 
 function Write-Selection {
 	Write-Output "Profile: $Profile$(if ($fallbackToFull -and $Profile -eq 'Changed') { ' (full fallback)' })"
+	if ($fallbackReason) { Write-Output "Fallback: $fallbackReason" }
 	Write-Output "Files: $(@($selectedFiles).Count)"
 	Write-Output "Tests: $($selectedTests.Count)"
 	foreach ($id in @($selectedTests | Sort-Object)) { Write-Output "  TEST $id" }
@@ -211,10 +218,11 @@ try {
 $passed = @($results | Where-Object State -eq "PASS")
 $failed = @($results | Where-Object State -eq "FAIL")
 $incomplete = @($results | Where-Object State -eq "INCOMPLETE")
-$duration = [math]::Round((($results | Measure-Object Milliseconds -Sum).Sum / 1000), 1)
+$duration = if ($results.Count) { [math]::Round((($results | Measure-Object Milliseconds -Sum).Sum / 1000), 1) } else { 0 }
 $overallState = if ($failed.Count) { "FAIL" } elseif ($incomplete.Count) { "INCOMPLETE" } else { "PASS" }
 $summaryLine = "$overallState $($passed.Count)/$($results.Count) | ${duration}s"
 Write-Output $summaryLine
+if ($fallbackReason) { Write-Output "Fallback: $fallbackReason" }
 foreach ($result in @($results | Sort-Object Milliseconds -Descending | Select-Object -First 3)) {
 	if ($result.Milliseconds -gt 0) { Write-Output ("  SLOW {0} {1:N1}s" -f $result.Id, ($result.Milliseconds / 1000)) }
 }

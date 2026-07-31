@@ -36,7 +36,10 @@ belongs primarily in pull-request and `master` CI.
 The runner reports a test-device or browser recommendation but never accesses
 either system automatically. A missing required local runtime makes the result
 incomplete rather than reporting a false pass; CI remains the authoritative full
-cross-platform execution.
+cross-platform execution. A valid selection without applicable checks succeeds as
+`PASS 0/0`. An invalid explicit `-BaseRef` fails with an error. If the automatic
+`origin/master` comparison base is unavailable or unrelated, `Changed` reports
+the reason and safely falls back to `Full`.
 
 ## Change and risk matrix
 

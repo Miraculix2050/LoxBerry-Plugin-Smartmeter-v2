@@ -29,6 +29,12 @@ function Assert-NotMatch {
 	if ($Actual -match $Pattern) { throw "$Message`nUnexpected pattern: $Pattern`nOutput:`n$Actual" }
 }
 
+function Assert-Equal {
+	param($Actual, $Expected, [string]$Message)
+	$script:checks++
+	if ($Actual -ne $Expected) { throw "$Message`nExpected: $Expected`nActual: $Actual" }
+}
+
 Push-Location $repoRoot
 try {
 	$docs = Invoke-Plan -Files @("docs/development/test-strategy.md")
@@ -56,6 +62,17 @@ try {
 
 	$base = Invoke-Plan -BaseRef "HEAD"
 	Assert-Match $base "Profile: Changed" "An explicit base reference is accepted."
+
+	$emptyOutput = & pwsh -NoProfile -File $runner -Profile Changed -Files LICENSE 2>&1 | Out-String
+	$emptyExit = $LASTEXITCODE
+	Assert-Equal $emptyExit 0 "A valid empty selection exits successfully."
+	Assert-Match $emptyOutput "PASS 0/0" "A valid empty selection reports an explicit pass."
+
+	$missingBase = "0000000000000000000000000000000000000000"
+	$invalidBaseOutput = & pwsh -NoProfile -File $runner -Profile Changed -Plan -BaseRef $missingBase 2>&1 | Out-String
+	$invalidBaseExit = $LASTEXITCODE
+	Assert-Equal $invalidBaseExit 1 "An invalid explicit base reference fails."
+	Assert-Match $invalidBaseOutput "Cannot determine a merge base for explicit -BaseRef" "An invalid explicit base reference reports the cause."
 
 	$environment = Get-Content -Raw (Join-Path $repoRoot ".codex/environments/environment.toml")
 	Assert-Match $environment '(?ms)^\[setup\]\r?\nscript = ""$' "The shared environment keeps setup empty."
