@@ -6,6 +6,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ### Fixed
 
+- Allow disabled OMS meters to omit `meters[].key` while continuing to require exactly 32 hexadecimal characters for active OMS meters.
 - Show the lightweight runtime service status first, load configuration details immediately afterwards, and cache-bust settings assets independently so a CSS-only change does not force every script to reload.
 - Make the existing OBIS channel configuration toggle clearly recognizable and touch-friendly with a compact neutral chevron that points down when closed and up when open, join an open mobile header directly to its content as one frame, remove redundant table-cell and outer collapsible borders, retain green headers, and limit the stronger green border to the open inner frame.
 - Stack channel summaries and controls at compact desktop widths before the fixed LoxBerry sidebar can clip their local frame, and extend responsive acceptance checks with local frame containment at `900x768`.

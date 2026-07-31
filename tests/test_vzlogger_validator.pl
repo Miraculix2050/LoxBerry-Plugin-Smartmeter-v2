@@ -196,9 +196,19 @@ $config->{meters}->[0]->{protocol} = "oms";
 delete @{$config->{meters}->[0]}{qw(interval parity)};
 ($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
 like($output, qr/key is required and must contain exactly 32 hexadecimal/, "OMS requires an AES key");
+$config->{meters}->[0]->{key} = "0123456789abcdef";
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
+like($output, qr/key is required and must contain exactly 32 hexadecimal/, "OMS rejects a short AES key");
+$config->{meters}->[0]->{key} = "0123456789abcdef0123456789abcdeg";
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
+like($output, qr/key is required and must contain exactly 32 hexadecimal/, "OMS rejects a non-hexadecimal AES key");
 $config->{meters}->[0]->{key} = "0123456789abcdef0123456789abcdef";
 ($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
 is($exit, 0, "OMS accepts an exact 32-character hexadecimal AES key");
+$config->{meters}->[0]->{enabled} = JSON::PP::false;
+delete $config->{meters}->[0]->{key};
+($exit, $output) = run_validator(config=>$config, mapping=>$mapping, definitions=>$definitions);
+is($exit, 0, "disabled OMS meter may omit the AES key");
 
 for my $type (qw(device sensor invalid)) {
 	($config, $mapping, $definitions) = base_case();

@@ -268,7 +268,7 @@ sub validate_meter
 		validate_integer_range($meter->{baudrate_change_delay}, "$prefix.baudrate_change_delay", 0, undef) if (exists($meter->{baudrate_change_delay}));
 		validate_output_path($meter->{dump_file}, "$prefix.dump_file") if (is_nonempty_scalar($meter->{dump_file}) && $meter->{enabled});
 	}
-	if ($protocol eq "oms") {
+	if ($protocol eq "oms" && $meter->{enabled}) {
 		push @errors, "$prefix.key is required and must contain exactly 32 hexadecimal characters."
 			if (!exists($meter->{key}) || scalar_text($meter->{key}) !~ /\A[0-9a-f]{32}\z/i);
 	}
