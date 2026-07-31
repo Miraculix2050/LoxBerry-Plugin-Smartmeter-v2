@@ -3,10 +3,11 @@
 use strict;
 use warnings;
 use FindBin;
+use File::Temp qw(tempdir);
 use JSON::PP;
 use Test::More;
 use lib "$FindBin::Bin/../bin";
-use SmartMeterVZLoggerExpert qw(validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping update_expert_log_settings expert_configs_equal);
+use SmartMeterVZLoggerExpert qw(validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping update_expert_log_settings expert_configs_equal expert_draft_status expert_mqtt_capabilities write_text_atomic);
 
 my $uuid = "11111111-2222-3333-4444-555555555555";
 my $config = {
@@ -38,6 +39,13 @@ ok(expert_configs_equal($text, JSON::PP->new->utf8->canonical->encode($config)),
 my $changed_text = JSON::PP->new->utf8->canonical->encode({ %$config, retry => 31 });
 ok(!expert_configs_equal($text, $changed_text), "semantic comparison detects changed configuration values");
 ok(!expert_configs_equal($text, '{'), "semantic comparison rejects invalid JSON");
+my $expert_root = tempdir(CLEANUP => 1);
+my $expert_file = "$expert_root/vzlogger_expert.conf";
+ok(write_text_atomic($expert_file, $text), "expert draft fixture is written atomically");
+my $draft_status = expert_draft_status($expert_file, {});
+ok($draft_status->{present} && $draft_status->{valid}, "expert draft status centralizes presence and validation");
+is_deeply(expert_mqtt_capabilities($draft_status), { enabled => 1, timestamp => 0 },
+	"expert MQTT capabilities are derived from the validated draft");
 
 my ($updated, $updated_status) = update_expert_log_settings($text, 15, "/tmp/vzlogger.log");
 ok($updated_status->{valid}, "log update remains valid");

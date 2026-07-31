@@ -6,7 +6,10 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ### Fixed
 
+- Compare Expert Mode draft and runtime contents during the initial service-status poll so an applied draft keeps Start and Restart available.
+- Keep MQTT credentials out of the on-demand diagnostic process arguments by loading them from a temporary owner-only Mosquitto client configuration.
 - Make development verification change-driven and reproducible through a shared test runner with safe base-reference and empty-selection handling, while limiting LoxBerry and browser acceptance to affected target-specific behavior.
+- Preserve Expert Mode MQTT timestamp capability and unsaved Bridge-MQTT selections across service actions, and use one shared detailed service-status contract for polling and action responses.
 - Correct and synchronize the German and English user documentation, including OMS discovery, Legacy upgrade guidance, UI labels, prerequisites, MQTT setup, backups, navigation, and tested-support boundaries.
 - Prevent independent OBIS-discovery and bridge-fallback background processes from retaining the completed parent action's configuration lock.
 - Use the full available width for the Loxone copy-and-paste instructions and clarify how to transfer the displayed recovery settings into Loxone Config.

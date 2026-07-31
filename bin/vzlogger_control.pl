@@ -16,6 +16,9 @@ use lib $FindBin::Bin;
 use SmartMeterVZLoggerExpert qw(read_text write_text_atomic update_expert_log_settings format_expert_validation);
 use SmartMeterVZLoggerRuntime qw(acquire_config_lock release_config_lock_for_background_child promote_files_atomic);
 use SmartMeterVZLoggerConfig qw(clean_number clean_qos sanitize_topic vzlogger_enabled);
+use SmartMeterVZLoggerServicePolicy qw(manual_start_decision recovery_decision bridge_expected);
+use SmartMeterVZLoggerSystem qw(run_command run_command_capture privileged_command);
+use SmartMeterVZLoggerDiagnostics ();
 
 my $home = $lbhomedir;
 my $psubfolder = $lbpplugindir;
@@ -71,28 +74,16 @@ if ($action eq "apply") {
 if ($action eq "restart-vzlogger") {
 	my $rc = update_vzlogger_log_config();
 	exit $rc if ($rc != 0);
-	if (!vzlogger_service_enabled()) {
-		print "vzLogger is disabled. Did not restart vzLogger.\n";
-		exit 0;
-	}
-	if (generated_active_meter_count() <= 0) {
-		print "No active meter is configured. Did not restart vzLogger.\n";
-		exit 1;
-	}
+	my $decision = manual_start_decision(service => "vzlogger", desired => vzlogger_service_enabled(), active_meters => generated_active_meter_count());
+	exit print_start_decision($decision, "restart") if (!$decision->{allowed});
 	exit restart_vzlogger();
 }
 
 if ($action eq "start-vzlogger") {
 	my $rc = update_vzlogger_log_config();
 	exit $rc if ($rc != 0);
-	if (!vzlogger_service_enabled()) {
-		print "vzLogger is disabled. Did not start vzLogger.\n";
-		exit 0;
-	}
-	if (generated_active_meter_count() <= 0) {
-		print "No active meter is configured. Did not start vzLogger.\n";
-		exit 1;
-	}
+	my $decision = manual_start_decision(service => "vzlogger", desired => vzlogger_service_enabled(), active_meters => generated_active_meter_count());
+	exit print_start_decision($decision, "start") if (!$decision->{allowed});
 	exit start_vzlogger();
 }
 
@@ -103,20 +94,10 @@ if ($action eq "stop-vzlogger") {
 }
 
 if ($action eq "restart-bridge") {
-	if (!bridge_enabled()) {
-		print "MQTT bridge is disabled. Did not restart the MQTT bridge.\n";
-		exit 0;
-	}
+	my $decision = manual_start_decision(service => "bridge", desired => bridge_enabled(), generated_mqtt => generated_mqtt_enabled(), bridge_mqtt => bridge_mqtt_output_enabled(), generated_timestamp => generated_mqtt_timestamp_enabled());
+	exit print_start_decision($decision, "restart") if (!$decision->{allowed});
 	my $rc = run_perl("$bindir/vzlogger_validate.pl");
 	exit $rc if ($rc != 0);
-	if (!generated_mqtt_enabled()) {
-		print "MQTT is disabled in the generated vzLogger configuration. Use Save and apply first.\n";
-		exit 1;
-	}
-	if (bridge_mqtt_output_enabled() && !generated_mqtt_timestamp_enabled()) {
-		print "Bridge MQTT output requires timestamps in the generated vzLogger configuration. Use Save and apply first.\n";
-		exit 1;
-	}
 	exit restart_bridge();
 }
 
@@ -131,20 +112,10 @@ if ($action eq "apply-expert") {
 }
 
 if ($action eq "start-bridge") {
-	if (!bridge_enabled()) {
-		print "MQTT bridge is disabled. Did not start the MQTT bridge.\n";
-		exit 0;
-	}
+	my $decision = manual_start_decision(service => "bridge", desired => bridge_enabled(), generated_mqtt => generated_mqtt_enabled(), bridge_mqtt => bridge_mqtt_output_enabled(), generated_timestamp => generated_mqtt_timestamp_enabled());
+	exit print_start_decision($decision, "start") if (!$decision->{allowed});
 	my $rc = run_perl("$bindir/vzlogger_validate.pl");
 	exit $rc if ($rc != 0);
-	if (!generated_mqtt_enabled()) {
-		print "MQTT is disabled in the generated vzLogger configuration. Use Save and apply first.\n";
-		exit 1;
-	}
-	if (bridge_mqtt_output_enabled() && !generated_mqtt_timestamp_enabled()) {
-		print "Bridge MQTT output requires timestamps in the generated vzLogger configuration. Use Save and apply first.\n";
-		exit 1;
-	}
 	exit start_bridge();
 }
 
@@ -185,6 +156,20 @@ sub run_perl
 	my $exit = $? >> 8;
 	log_control("exit=$exit: $^X " . join(" ", @args), $exit ? "error" : "info");
 	return $exit;
+}
+
+sub print_start_decision
+{
+	my ($decision, $verb) = @_;
+	my %message = (
+		vzlogger_disabled => "vzLogger is disabled. Did not $verb vzLogger.",
+		bridge_disabled => "MQTT bridge is disabled. Did not $verb the MQTT bridge.",
+		no_active_meter => "No active meter is configured. Did not $verb vzLogger.",
+		mqtt_disabled => "MQTT is disabled in the generated vzLogger configuration. Use Save and apply first.",
+		timestamp_required => "Bridge MQTT output requires timestamps in the generated vzLogger configuration. Use Save and apply first.",
+	);
+	print(($message{$decision->{reason}} || "Service policy rejected the requested action.") . "\n");
+	return $decision->{exit_code} || 0;
 }
 
 sub generate_and_validate
@@ -747,17 +732,18 @@ sub vzlogger_service_enabled
 
 sub bridge_enabled
 {
-	return 0 if (!vzlogger_service_enabled() || !bridge_activation_enabled());
 	my $cfg = Config::Simple->new($plugin_config_file);
 	return 0 if (!$cfg);
 	my $mqtt_output = ($cfg->param("VZLOGGER.BRIDGEMQTTENABLED") || "0") eq "1";
 	my $cache_setting = $cfg->param("VZLOGGER.HTTPCACHEENABLED");
 	my $http_cache = !defined($cache_setting) || $cache_setting eq "1";
 	my $udp_output = ($cfg->param("MAIN.SENDUDP") || "0") eq "1";
-	return 0 if (!$mqtt_output && !$http_cache && !$udp_output);
-	return generated_mqtt_enabled() if (($cfg->param("VZLOGGER.EXPERTMODE") || "0") eq "1");
-	my $mqtt_enabled = $cfg->param("VZLOGGER.MQTTENABLED");
-	return !defined($mqtt_enabled) || $mqtt_enabled eq "1";
+	my $mqtt_enabled = (($cfg->param("VZLOGGER.EXPERTMODE") || "0") eq "1") ? generated_mqtt_enabled()
+		: !defined($cfg->param("VZLOGGER.MQTTENABLED")) || $cfg->param("VZLOGGER.MQTTENABLED") eq "1";
+	return bridge_expected(
+		vzlogger_enabled => vzlogger_service_enabled(), bridge_enabled => bridge_activation_enabled(),
+		mqtt_output => $mqtt_output, http_cache => $http_cache, udp_output => $udp_output, mqtt_enabled => $mqtt_enabled,
+	);
 }
 
 sub bridge_mqtt_output_enabled
@@ -821,53 +807,31 @@ sub recover_services
 		$results{$name} = $result;
 
 		my $expected = $name eq "bridge" ? bridge_enabled() : vzlogger_service_enabled();
-		if (!$expected) {
-			$result->{reason} = "not_configured";
-			next;
-		}
-		if (($entry->{LoadState} || "") ne "loaded") {
-			$result->{reason} = "not_installed";
-			next;
-		}
-		if ($unit_state ne "enabled" && $unit_state ne "enabled-runtime") {
-			$result->{reason} = "unit_disabled";
-			next;
-		}
-		if ($active_state eq "inactive") {
-			$result->{reason} = "manual_stop";
-			next;
-		}
-		if ($active_state =~ /\A(?:activating|deactivating|reloading)\z/) {
-			$result->{reason} = "busy";
-			next;
-		}
-		if ($active_state ne "active" && $active_state ne "failed") {
-			$result->{reason} = "unsupported_state";
-			next;
-		}
-
 		my $last = $state->{services}->{$name} || 0;
-		if ($last =~ /\A\d+\z/ && $now - $last < $cooldown) {
-			$result->{reason} = "cooldown";
-			$result->{retry_after} = $cooldown - ($now - $last);
+		my %policy_state = (
+			service => $name, expected => $expected, load_state => $entry->{LoadState}, unit_state => $unit_state,
+			active_state => $active_state, last_recovery => $last, now => $now, cooldown => $cooldown,
+			configuration_valid => 1, generated_mqtt => 1,
+		);
+		my $decision = recovery_decision(%policy_state);
+		if ($decision->{action} eq "start" || $decision->{action} eq "restart") {
+			$decision = recovery_decision(%policy_state,
+				configuration_valid => generated_configuration_valid(), generated_mqtt => generated_mqtt_enabled());
+		}
+		if ($decision->{action} eq "skip") {
+			$result->{reason} = $decision->{reason};
+			$result->{retry_after} = $decision->{retry_after} if (defined($decision->{retry_after}));
 			next;
 		}
-
-		if (!generated_configuration_valid()) {
+		if ($decision->{action} eq "fail") {
 			$result->{action} = "failed";
-			$result->{reason} = "invalid_configuration";
-			$failed = 1;
-			next;
-		}
-		if ($name eq "bridge" && !generated_mqtt_enabled()) {
-			$result->{action} = "failed";
-			$result->{reason} = "mqtt_disabled";
+			$result->{reason} = $decision->{reason};
 			$failed = 1;
 			next;
 		}
 
 		my $rc;
-		if ($active_state eq "failed") {
+		if ($decision->{action} eq "start") {
 			$rc = run_systemctl_quiet("reset-failed", $service);
 			$rc = run_systemctl_quiet("start", $service) if ($rc == 0);
 			$result->{action} = $rc == 0 ? "started" : "failed";
@@ -965,16 +929,14 @@ sub write_json_file
 sub run_systemctl_quiet
 {
 	my ($verb, $service) = @_;
-	my @command = ($> == 0)
-		? (systemctl_command(), $verb, $service)
-		: ("sudo", "-n", systemctl_command(), $verb, $service);
+	my $prepared = privileged_command(euid => $>, sudo_available => command_exists("sudo"), command => [systemctl_command(), $verb, $service]);
+	return 2 if (!$prepared->{ok});
 	open(my $null, ">", "/dev/null") or return 1;
 	my $rc;
 	{
 		local *STDOUT = $null;
 		local *STDERR = $null;
-		system(@command);
-		$rc = $? >> 8;
+		$rc = run_command(command => $prepared->{command});
 	}
 	close($null);
 	log_control("recovery systemctl $verb $service exit=$rc", $rc ? "error" : "info");
@@ -1009,18 +971,11 @@ sub run_service_helper
 	my ($script, $action) = @_;
 	return message_exit("Privileged service helper not found: $script", 1) if (!-e $script);
 
-	if ($> == 0) {
-		system($script, $psubfolder, $action);
-		my $exit = $? >> 8;
-		log_control("exit=$exit: $script $psubfolder $action", $exit ? "error" : "info");
-		return $exit;
-	}
-
-	if (command_exists("sudo")) {
-		system("sudo", "-n", $script, $psubfolder, $action);
-		my $exit = $? >> 8;
-		log_control("exit=$exit: sudo -n $script $psubfolder $action", $exit ? "error" : "info");
-		return $exit if ($exit == 0);
+	my $prepared = privileged_command(euid => $>, sudo_available => command_exists("sudo"), command => [$script, $psubfolder, $action]);
+	if ($prepared->{ok}) {
+		my $exit = run_command(command => $prepared->{command});
+		log_control("exit=$exit: " . join(" ", @{$prepared->{command}}), $exit ? "error" : "info");
+		return $exit if ($exit == 0 || $> == 0);
 		print "Could not run sudo non-interactively. Run as root: $script $psubfolder $action\n";
 		return $exit || 1;
 	}
@@ -1046,7 +1001,8 @@ sub service_state
 {
 	my ($service) = @_;
 	return "unknown" if (!command_exists("systemctl"));
-	my $state = `systemctl is-active $service 2>/dev/null`;
+	my $result = run_command_capture(command => [systemctl_command(), "is-active", $service]);
+	my $state = $result->{output};
 	chomp($state);
 	return $state || "inactive";
 }
@@ -1076,7 +1032,8 @@ sub service_pid
 {
 	my ($service) = @_;
 	return "" if (!command_exists("systemctl"));
-	my $pid = `systemctl show -p MainPID --value $service 2>/dev/null`;
+	my $result = run_command_capture(command => [systemctl_command(), "show", "-p", "MainPID", "--value", $service]);
+	my $pid = $result->{output};
 	chomp($pid);
 	return ($pid && $pid ne "0") ? $pid : "";
 }
@@ -1173,102 +1130,40 @@ sub create_debug_log
 
 sub print_section
 {
-	my ($fh, $title) = @_;
-	print $fh "\n=== $title ===\n";
+	return SmartMeterVZLoggerDiagnostics::print_section(@_);
 }
 
 sub print_command
 {
 	my ($fh, $label, @command) = @_;
-	print_section($fh, $label);
-	if (!command_exists($command[0])) {
-		print $fh "Command not available: $command[0]\n";
-		return;
-	}
-	my $pid = open(my $cmd_fh, "-|", @command);
-	if (!$pid) {
-		print $fh "Could not run command: $!\n";
-		return;
-	}
-	while (my $line = <$cmd_fh>) {
-		redact_sensitive($line);
-		print $fh $line;
-	}
-	close($cmd_fh);
-	print $fh "Exit code: " . ($? >> 8) . "\n";
+	return SmartMeterVZLoggerDiagnostics::print_command($fh, $label, \&command_exists, @command);
 }
 
 sub print_file
 {
-	my ($fh, $label, $file, $redact, $tail_lines) = @_;
-	print_section($fh, $label);
-	if (!-e $file) {
-		print $fh "Missing: $file\n";
-		return;
-	}
-	open(my $in, "<", $file) or do {
-		print $fh "Could not read $file: $!\n";
-		return;
-	};
-	my @lines = <$in>;
-	close($in);
-	@lines = @lines > $tail_lines ? @lines[-$tail_lines .. -1] : @lines if ($tail_lines);
-	foreach my $line (@lines) {
-		redact_sensitive($line) if ($redact);
-		print $fh $line;
-	}
+	return SmartMeterVZLoggerDiagnostics::print_file(@_);
 }
 
 sub redact_sensitive
 {
-	$_[0] =~ s/("(?:key)?pass(?:word)?"\s*:\s*")[^"]*/$1***REDACTED***/ig;
-	$_[0] =~ s/("(?:token|secretKey)"\s*:\s*")[^"]*/$1***REDACTED***/ig;
-	$_[0] =~ s/(\bMQTT(?:KEY)?PASS\s*=\s*).*/$1***REDACTED***/ig;
-	$_[0] =~ s/(\bpass(?:word)?\s*=\s*).*/$1***REDACTED***/ig;
-	$_[0] =~ s/(\s-P\s+)(?:"[^"]*"|'[^']*'|\S+)/$1***REDACTED***/g;
+	return SmartMeterVZLoggerDiagnostics::redact_sensitive(@_);
 }
 
 sub print_runtime_cache
 {
-	my ($fh) = @_;
-	print_section($fh, "Runtime cache files");
-	opendir(my $dir, $runtime_dir) or do {
-		print $fh "Could not open $runtime_dir: $!\n";
-		return;
-	};
-	my @files = sort grep { /\.data\z/ } readdir($dir);
-	closedir($dir);
-	if (!@files) {
-		print $fh "No .data cache files found.\n";
-		return;
-	}
-	foreach my $file (@files) {
-		print_file($fh, "Cache file $file", "$runtime_dir/$file", 0);
-	}
+	return SmartMeterVZLoggerDiagnostics::print_runtime_cache($_[0], $runtime_dir);
 }
 
 sub print_loxberry_logs
 {
 	my ($fh, $exclude_file) = @_;
-	print_section($fh, "LoxBerry install and plugin logs");
 	my @candidates = (
 		"$plugin_log_dir/*.log",
 		"$lbslogdir/plugininstall*.log",
 		"$lbstmpfslogdir/plugininstall*.log",
 		"$lbstmpfslogdir/*.log",
 	);
-	my %seen;
-	my @files;
-	foreach my $pattern (@candidates) {
-		push @files, grep { $_ ne $exclude_file && !$seen{$_}++ && -f $_ } glob($pattern);
-	}
-	if (!@files) {
-		print $fh "No matching LoxBerry install or plugin log files found.\n";
-		return;
-	}
-	foreach my $file (sort @files) {
-		print_file($fh, "Log tail $file", $file, 1, 120);
-	}
+	return SmartMeterVZLoggerDiagnostics::print_log_tails($fh, $exclude_file, @candidates);
 }
 
 sub print_mqtt_capture
@@ -1290,34 +1185,25 @@ sub print_mqtt_capture
 	print $fh "Subscribe topic: $topic\n";
 	print $fh "Broker: $mqtt->{host}:$mqtt->{port}\n";
 	print $fh "Capture duration: 10 seconds\n";
-	my @command = ("timeout", "10", "mosquitto_sub", "-h", $mqtt->{host}, "-p", $mqtt->{port}, "-t", $topic, "-F", "%t %p", "-q", $mqtt->{qos});
-	push @command, ("-k", $mqtt->{keepalive}) if ($mqtt->{keepalive} > 0);
-	push @command, ("--cafile", $mqtt->{cafile}) if ($mqtt->{cafile});
-	push @command, ("--capath", $mqtt->{capath}) if ($mqtt->{capath});
-	push @command, ("--cert", $mqtt->{certfile}) if ($mqtt->{certfile});
-	push @command, ("--key", $mqtt->{keyfile}) if ($mqtt->{keyfile});
-	push @command, ("-u", $mqtt->{user}) if ($mqtt->{user});
-	push @command, ("-P", $mqtt->{pass}) if ($mqtt->{pass});
-	my $pid = open(my $mqtt_fh, "-|", @command);
-	if (!$pid) {
-		print $fh "Could not start MQTT capture: $!\n";
+	my $client_config_dir = tempdir(".smartmeter-mqtt-diagnostic-XXXXXX", DIR => $runtime_dir, CLEANUP => 1);
+	my $auth_config = SmartMeterVZLoggerDiagnostics::write_mqtt_auth_config($client_config_dir, $mqtt);
+	if (!$auth_config->{ok}) {
+		print $fh "Could not prepare protected MQTT authentication: $auth_config->{error}\n";
 		return;
 	}
-	my $count = 0;
-	my $bytes = 0;
-	my $max_bytes = 512 * 1024;
-	while (my $line = <$mqtt_fh>) {
-		if ($bytes + length($line) > $max_bytes) {
-			print $fh "MQTT capture truncated at $max_bytes bytes.\n";
-			last;
-		}
-		print $fh $line;
-		$bytes += length($line);
-		$count++;
+	my $command = SmartMeterVZLoggerDiagnostics::build_mqtt_capture_command(topic => $topic, mqtt => $mqtt);
+	my $capture;
+	{
+		local $ENV{XDG_CONFIG_HOME} = $client_config_dir;
+		$capture = SmartMeterVZLoggerDiagnostics::capture_stream($fh, 512 * 1024, @$command);
 	}
-	close($mqtt_fh);
-	print $fh "Captured MQTT messages: $count\n";
-	print $fh "Exit code: " . ($? >> 8) . "\n";
+	if (!$capture->{ok}) {
+		print $fh "Could not start MQTT capture: $capture->{error}\n";
+		return;
+	}
+	print $fh "MQTT capture truncated at 524288 bytes.\n" if ($capture->{truncated});
+	print $fh "Captured MQTT messages: $capture->{count}\n";
+	print $fh "Exit code: $capture->{exit_code}\n";
 }
 
 sub read_mqtt_settings
@@ -1350,17 +1236,11 @@ sub run_privileged
 {
 	my ($label, @command) = @_;
 	log_control("privileged: $label");
-	if ($> == 0) {
-		system(@command);
-		my $exit = $? >> 8;
-		log_control("exit=$exit: " . join(" ", @command), $exit ? "error" : "info");
-		return $exit;
-	}
-	if (command_exists("sudo")) {
-		system("sudo", "-n", @command);
-		my $exit = $? >> 8;
+	my $prepared = privileged_command(euid => $>, sudo_available => command_exists("sudo"), command => \@command);
+	if ($prepared->{ok}) {
+		my $exit = run_command(command => $prepared->{command});
 		print "Could not $label via sudo non-interactively.\n" if ($exit != 0);
-		log_control("exit=$exit: sudo -n " . join(" ", @command), $exit ? "error" : "info");
+		log_control("exit=$exit: " . join(" ", @{$prepared->{command}}), $exit ? "error" : "info");
 		return $exit;
 	}
 	print "Root privileges are required to $label.\n";

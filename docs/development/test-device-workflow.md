@@ -128,9 +128,14 @@ Use an authenticated browser session and reach the page through the normal plugi
 The full responsive browser matrix, required only for shared layout, responsive,
 navigation, dialog, control, or browser-sensitive changes, is:
 
-- Chrome and Firefox: full Desktop (`1280x800`) and Mobile primary (`390x844`) checks;
+- Chrome: full Desktop (`1280x800`) and Mobile primary (`390x844`) checks;
 - Chrome: additional Mobile compact (`360x800`) and Mobile minimum (`320x568`) smoke checks; and
-- both full browser checks: basic keyboard reachability and inspection for relevant console errors.
+- both full viewport checks: basic keyboard reachability and inspection for relevant console errors.
+
+Before accepting a viewport result, verify the effective CSS dimensions in the
+page (`window.innerWidth`, `window.innerHeight`, and
+`document.documentElement.clientWidth`). A browser window resize or device
+profile that leaves these values unchanged is not valid viewport emulation.
 
 Acceptance requires:
 

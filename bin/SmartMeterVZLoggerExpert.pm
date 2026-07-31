@@ -10,7 +10,29 @@ use JSON::PP;
 our @EXPORT_OK = qw(
 	read_text write_text_atomic validate_expert_text format_expert_validation
 	localize_expert_validation build_expert_mapping update_expert_log_settings expert_configs_equal
+	expert_draft_status expert_mqtt_capabilities
 );
+
+sub expert_draft_status
+{
+	my ($file, $phrases) = @_;
+	my $text = read_text($file);
+	my $result = validate_expert_text($text);
+	return {
+		present => defined($text) ? 1 : 0,
+		valid => $result->{valid} ? 1 : 0,
+		message => format_expert_validation(localize_expert_validation($result, $phrases)),
+		result => $result,
+	};
+}
+
+sub expert_mqtt_capabilities
+{
+	my ($status) = @_;
+	my $config = ref($status) eq "HASH" && ref($status->{result}) eq "HASH" ? $status->{result}->{config} : undef;
+	my $mqtt = ref($config) eq "HASH" && ref($config->{mqtt}) eq "HASH" ? $config->{mqtt} : {};
+	return { enabled => $mqtt->{enabled} ? 1 : 0, timestamp => $mqtt->{timestamp} ? 1 : 0 };
+}
 
 sub read_text
 {

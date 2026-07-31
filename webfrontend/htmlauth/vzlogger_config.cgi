@@ -9,7 +9,7 @@ use JSON::PP;
 use LoxBerry::System;
 use lib $lbpbindir;
 use lib "$FindBin::Bin/../../bin";
-use SmartMeterVZLoggerChannels qw(read_json write_json_atomic);
+use SmartMeterVZLoggerChannelDocument qw(read_json write_json_atomic);
 use SmartMeterVZLoggerExpert qw(read_text write_text_atomic validate_expert_text format_expert_validation localize_expert_validation build_expert_mapping);
 use SmartMeterVZLoggerRuntime qw(acquire_config_lock promote_files_atomic);
 use SmartMeterWebSecurity qw(csrf_token validate_csrf_token);

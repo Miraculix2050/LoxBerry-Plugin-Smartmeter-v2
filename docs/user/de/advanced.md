@@ -43,6 +43,7 @@ Die Seite zeigt getrennte Panels für `vzlogger` und `smartmeter-v2-vzlogger-bri
 - **Start** und **Neustart** prüfen und verwenden die gespeicherte gültige Konfiguration. Sie speichern keine anderen offenen Formwerte.
 - **Stop** bleibt für einen laufenden Dienst auch bei Konfigurationsfehlern verfügbar.
 - Der Status wird bei sichtbarer Seite alle zehn Sekunden aktualisiert.
+- Dienstaktionen und Statusaktualisierungen verändern keine ungespeicherten Bridge-Einstellungen. Im Expert Mode bleibt insbesondere die Bridge-MQTT-Auswahl erhalten, solange die angewendete vzLogger-Konfiguration Quellzeitstempel unterstützt.
 - Eine manuelle Stop-Aktion gilt bis zum nächsten Neustart. Für eine dauerhafte Deaktivierung schalte den zugehörigen Aktiv-Schalter in der Pluginoberfläche aus und verwende **Speichern und anwenden**.
 
 ## Loxone-Dienst-Recovery

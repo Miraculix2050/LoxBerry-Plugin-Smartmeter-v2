@@ -43,6 +43,7 @@ The page has separate panels for `vzlogger` and `smartmeter-v2-vzlogger-bridge`.
 - **Start** and **Restart** validate and use the saved valid configuration. They do not save other open form values.
 - **Stop** remains available for a running service even when configuration is invalid.
 - Status refreshes every ten seconds while the page is visible.
+- Service actions and status refreshes do not alter unsaved bridge settings. In Expert Mode, the Bridge-MQTT selection in particular remains intact while the applied vzLogger configuration supports source timestamps.
 - A manual Stop lasts until the next reboot. To disable a service persistently, switch off its activation in the plugin UI and use **Save and apply**.
 
 ## Loxone service recovery

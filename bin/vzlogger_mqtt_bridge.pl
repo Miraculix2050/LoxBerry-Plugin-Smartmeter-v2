@@ -13,7 +13,7 @@ use JSON::PP;
 use LoxBerry::Log;
 use LoxBerry::System;
 use lib $FindBin::Bin;
-use SmartMeterVZLoggerChannels qw(output_order_mapping ordered_output_names read_json);
+use SmartMeterVZLoggerChannelDocument qw(output_order_mapping ordered_output_names read_json);
 use SmartMeterVZLoggerBridge qw(parse_mosquitto_envelope parse_reading channel_mapping instantaneous_power_directions normalize_mapping_keys effective_channel_topics send_udp_cycle timestamp_epoch loxone_timestamp bridge_timestamp_values bridge_topic throttle_log_event recover_log_event);
 use SmartMeterVZLoggerConfig qw(clean_boolean clean_number clean_qos sanitize_topic);
 

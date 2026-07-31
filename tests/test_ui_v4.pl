@@ -24,6 +24,11 @@ my %sources = map { $_ => read_file($_) } qw(
 	webfrontend/htmlauth/smartmeter-vzlogger.css
 	webfrontend/htmlauth/smartmeter-vzlogger.js
 	webfrontend/htmlauth/smartmeter-settings.js
+	webfrontend/htmlauth/smartmeter-settings-services.js
+	webfrontend/htmlauth/smartmeter-settings-discovery.js
+	webfrontend/htmlauth/smartmeter-settings-channels.js
+	webfrontend/htmlauth/smartmeter-settings-config.js
+	webfrontend/htmlauth/smartmeter-channel-model.js
 	webfrontend/htmlauth/smartmeter-settings.css
 	webfrontend/htmlauth/vzlogger_live.cgi
 	webfrontend/htmlauth/vzlogger_live.js
@@ -46,7 +51,14 @@ foreach my $cgi (qw(webfrontend/htmlauth/index.cgi)) {
 like($sources{'webfrontend/htmlauth/index.cgi'}, qr/my \$asset_version = "\$version-\$asset_mtime"/, "settings assets combine the plugin version with their newest modification time");
 like($sources{'webfrontend/htmlauth/vzlogger_live.cgi'}, qr/pluginversion\(\) \. "-\$asset_mtime"/, "live assets combine the plugin version with their newest modification time");
 
-my $vzlogger = $sources{'templates/settings.html'} . $sources{'webfrontend/htmlauth/smartmeter-settings.js'};
+my $vzlogger = $sources{'templates/settings.html'} . join("", @sources{qw(
+	webfrontend/htmlauth/smartmeter-settings.js
+	webfrontend/htmlauth/smartmeter-settings-services.js
+	webfrontend/htmlauth/smartmeter-settings-discovery.js
+	webfrontend/htmlauth/smartmeter-settings-channels.js
+	webfrontend/htmlauth/smartmeter-settings-config.js
+	webfrontend/htmlauth/smartmeter-channel-model.js
+)});
 like($vzlogger, qr/<details\b[^>]*\blb-collapsible\b/, "vzLogger uses native details collapsibles");
 like($vzlogger, qr/<details\b(?=[^>]*\bid="recovery_settings_panel")(?=[^>]*\blb-collapsible\b)(?=[^>]*\bopen\b)[^>]*>/, "recovery settings use an initially open persistent native collapsible");
 like($vzlogger, qr/<dialog\b(?=[^>]*\bid="ir_scan_overlay")(?=[^>]*\baction-overlay-standard\b)[^>]*>/, "I/R scan uses the single standard-width native action dialog");

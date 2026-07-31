@@ -75,10 +75,12 @@ try {
 	Assert-Match $invalidBaseOutput "Cannot determine a merge base for explicit -BaseRef" "An invalid explicit base reference reports the cause."
 
 	$environment = Get-Content -Raw (Join-Path $repoRoot ".codex/environments/environment.toml")
-	Assert-Match $environment '(?ms)^\[setup\]\r?\nscript = ""$' "The shared environment keeps setup empty."
-	Assert-Match $environment '(?m)^name = "Changed tests"$' "The shared environment exposes the Changed tests action."
-	Assert-Match $environment '(?m)^icon = "test"$' "The Changed tests action uses the test icon."
-	Assert-Match $environment '(?m)^command = "pwsh -NoProfile -File tools/test\.ps1 -Profile Changed"$' "The Changed tests action invokes the repository runner."
+	Assert-Match $environment '(?ms)^\[setup\]\r?\nscript = ""\r?$' "The shared environment keeps setup empty."
+	Assert-Match $environment '(?m)^name = "Changed tests"\r?$' "The shared environment exposes the Changed tests action."
+	Assert-Match $environment '(?m)^icon = "test"\r?$' "The Changed tests action uses the test icon."
+	Assert-Match $environment '(?m)^command = "pwsh -NoProfile -File tools/test\.ps1 -Profile Changed"\r?$' "The Changed tests action invokes the repository runner."
+	$runnerSource = Get-Content -Raw $runner
+	Assert-Match $runnerSource '"upgrade-2-1".*?Args = @\("-lc", "sh tests/test_upgrade_2_1\.sh"\)' "Shell integration tests use a login shell so Git for Windows exposes its POSIX tools and invoke the non-executable script explicitly through sh."
 } finally {
 	Pop-Location
 }

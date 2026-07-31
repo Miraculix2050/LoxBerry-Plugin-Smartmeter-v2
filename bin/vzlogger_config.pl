@@ -9,9 +9,12 @@ use FindBin;
 use JSON::PP;
 use LoxBerry::System;
 use lib $FindBin::Bin;
-use SmartMeterVZLoggerChannels qw(read_json write_json_atomic load_catalog lookup_obis new_document initialize_channel_definitions validate_document native_channel normalize_obis);
+use SmartMeterVZLoggerChannelDocument qw(read_json write_json_atomic new_document initialize_channel_definitions validate_document native_channel);
+use SmartMeterVZLoggerChannelSemantics qw(load_catalog lookup_obis normalize_obis);
 use SmartMeterVZLoggerCustomChannels qw(assign_custom_channel_uuids);
 use SmartMeterVZLoggerConfig qw(read_mqtt_settings clean_number clean_qos sanitize_topic protocol_for_meter normalized_meter_mode vzlogger_enabled);
+use SmartMeterVZLoggerMeterInput qw(set_optional_text set_optional_integer set_optional_enum set_optional_boolean parse_meter_jsonc meter_jsonc_error_text safe_filename);
+use SmartMeterVZLoggerDiscovery ();
 
 my $home = $lbhomedir;
 my $psubfolder = $lbpplugindir;
@@ -239,48 +242,13 @@ sub standard_meter_config
 
 sub config_scalar_value
 {
-	my ($key) = @_;
-	my @values = $plugin_cfg->param($key);
-	return "" if (!@values);
-	return "" if (!defined($values[0]) || ref($values[0]));
-	return "$values[0]";
-}
-
-sub set_optional_text
-{
-	my ($target, $key, $value) = @_;
-	return if (!defined($value) || ref($value) || $value eq "");
-	$value =~ s/[\r\n]//g;
-	$target->{$key} = $value if ($value ne "");
-}
-
-sub set_optional_integer
-{
-	my ($target, $key, $value, $allow_negative) = @_;
-	return if (!defined($value) || ref($value) || $value eq "");
-	my $pattern = $allow_negative ? qr/\A-?\d+\z/ : qr/\A\d+\z/;
-	$target->{$key} = int($value) if ($value =~ $pattern);
-}
-
-sub set_optional_enum
-{
-	my ($target, $key, $value, $pattern) = @_;
-	return if (!defined($value) || ref($value) || $value eq "");
-	$target->{$key} = lc($value) if ($value =~ $pattern);
-}
-
-sub set_optional_boolean
-{
-	my ($target, $key, $value) = @_;
-	return if (!defined($value) || ref($value) || $value !~ /\A[01]\z/);
-	$target->{$key} = $value eq "1" ? JSON::PP::true : JSON::PP::false;
+	return SmartMeterVZLoggerMeterInput::config_scalar($plugin_cfg, $_[0]);
 }
 
 sub user_meter_file
 {
 	my ($serial) = @_;
-	$serial =~ s/[^A-Za-z0-9_.:-]/_/g;
-	return "$plugin_config_dir/vzlogger_meter_" . ($serial || "unknown") . ".jsonc";
+	return "$plugin_config_dir/vzlogger_meter_" . safe_filename($serial) . ".jsonc";
 }
 
 sub read_user_meter_json
@@ -293,22 +261,9 @@ sub read_user_meter_json
 	local $/;
 	my $source = <$fh>;
 	close($fh);
-	my $meter = eval { JSON::PP->new->utf8->relaxed(1)->decode($source) };
-	if ($@) {
-		my $error = $@;
-		$error =~ s/\s+at\s+\S+\s+line\s+\d+\.?\s*\z//;
-		return (undef, $error || "Invalid JSONC");
-	}
-	return (undef, "The JSONC source must contain one meter object") if (ref($meter) ne "HASH");
-	return (undef, "Root sections such as meters, mqtt, local, push or retry are not allowed") if (grep { exists($meter->{$_}) } qw(meters mqtt local push retry verbosity log));
-	return (undef, "The meter object requires a non-empty protocol string") if (!defined($meter->{protocol}) || ref($meter->{protocol}) || $meter->{protocol} eq "");
-	if (exists($meter->{channels})) {
-		return (undef, "channels must be an array") if (ref($meter->{channels}) ne "ARRAY");
-		foreach my $channel (@{$meter->{channels}}) {
-			return (undef, "Every channels entry must be an object") if (ref($channel) ne "HASH");
-		}
-	}
-	return ($meter, "");
+	my $result = parse_meter_jsonc($source);
+	return (undef, meter_jsonc_error_text($result)) if (!$result->{valid});
+	return ($result->{meter}, "");
 }
 
 sub enrich_user_channels
@@ -359,11 +314,7 @@ sub user_channel_name
 sub first_config_value
 {
 	my ($section, @keys) = @_;
-	foreach my $key (@keys) {
-		my $value = config_scalar_value("$section.$key");
-		return $value if (defined($value) && $value ne "");
-	}
-	return undef;
+	return SmartMeterVZLoggerMeterInput::first_config_value($plugin_cfg, $section, @keys);
 }
 
 sub configured_parity_optional
@@ -376,23 +327,7 @@ sub configured_parity_optional
 
 sub default_channels
 {
-	return (
-		{ identifier => "1-0:1.8.0", name => "Consumption_Total_OBIS_1.8.0" },
-		{ identifier => "1-0:1.8.1", name => "Consumption_Tarif1_OBIS_1.8.1" },
-		{ identifier => "1-0:1.8.2", name => "Consumption_Tarif2_OBIS_1.8.2" },
-		{ identifier => "1-0:1.7.0", name => "Consumption_Power_OBIS_1.7.0" },
-		{ identifier => "1-0:21.7.0", name => "Consumption_Power_L1_OBIS_21.7.0" },
-		{ identifier => "1-0:41.7.0", name => "Consumption_Power_L2_OBIS_41.7.0" },
-		{ identifier => "1-0:61.7.0", name => "Consumption_Power_L3_OBIS_61.7.0" },
-		{ identifier => "1-0:2.8.0", name => "Delivery_Total_OBIS_2.8.0" },
-		{ identifier => "1-0:2.8.1", name => "Delivery_Tarif1_OBIS_2.8.1" },
-		{ identifier => "1-0:2.8.2", name => "Delivery_Tarif2_OBIS_2.8.2" },
-		{ identifier => "1-0:2.7.0", name => "Delivery_Power_OBIS_2.7.0" },
-		{ identifier => "1-0:15.7.0", name => "Total_Power_OBIS_15.7.0" },
-		{ identifier => "1-0:16.7.0", name => "Total_Power_OBIS_16.7.0" },
-		{ identifier => "1-0:96.50.1", name => "Manufacturer_ID_OBIS_96.50.1" },
-		{ identifier => "1-0:96.1.0", name => "Server_ID_OBIS_96.1.0" },
-	);
+	return SmartMeterVZLoggerDiscovery::default_obis_channels();
 }
 
 sub write_ordered_vzlogger_json
@@ -517,11 +452,7 @@ sub available_channels
 
 sub config_list_values
 {
-	my ($key) = @_;
-	my $value = $plugin_cfg->param($key);
-	return () if (!defined($value));
-	return grep { defined($_) && $_ ne "" } @{$value} if (ref($value) eq "ARRAY");
-	return grep { $_ ne "" } split(/\s*,\s*/, $value);
+	return SmartMeterVZLoggerMeterInput::config_list($plugin_cfg, $_[0]);
 }
 
 sub custom_channels
@@ -538,91 +469,30 @@ sub custom_channels
 
 sub normalize_obis_identifier
 {
-	my ($value) = @_;
-	return normalize_obis($value);
+	return SmartMeterVZLoggerDiscovery::normalize_obis_identifier($_[0]);
 }
 
 sub obis_cache_name
 {
-	my ($identifier) = @_;
-	my %known = map { $_->{identifier} => $_->{name} } default_channels();
-	return $known{$identifier} if ($known{$identifier});
-
-	my $name = $identifier;
-	$name =~ s/\A\d+-\d+://;
-	$name =~ s/[^0-9A-Za-z]+/_/g;
-	$name =~ s/^_+|_+$//g;
-	return "Custom_OBIS_$name";
+	return SmartMeterVZLoggerDiscovery::obis_cache_name($_[0]);
 }
 
 sub read_obis_discovery_cache
 {
-	my ($serial) = @_;
-	my $file = obis_discovery_cache_file($serial);
-	return () if (!-e $file);
-
-	my @channels;
-	my %seen;
-	if (open(my $fh, "<", $file)) {
-		while (my $line = <$fh>) {
-			chomp($line);
-			my ($identifier, $name) = split(/\t/, $line, 2);
-			$identifier = normalize_obis_identifier($identifier);
-			next if (!$identifier || $seen{$identifier});
-			push @channels, {
-				identifier => $identifier,
-				name => $name || obis_cache_name($identifier),
-			};
-			$seen{$identifier} = 1;
-		}
-		close($fh);
-	}
-	return @channels;
+	return SmartMeterVZLoggerDiscovery::read_discovery_cache($plugin_config_dir, $_[0]);
 }
 
 sub obis_discovery_cache_file
 {
-	my ($serial) = @_;
-	$serial =~ s/[^A-Za-z0-9_.:-]/_/g;
-	return "$plugin_config_dir/obis_channels_$serial.cache";
+	return SmartMeterVZLoggerDiscovery::discovery_cache_file($plugin_config_dir, $_[0]);
 }
 
 sub obis_discovery_cache_exists
 {
-	my ($serial) = @_;
-	return -e obis_discovery_cache_file($serial);
+	return SmartMeterVZLoggerDiscovery::discovery_cache_exists($plugin_config_dir, $_[0]);
 }
 
 sub sort_obis_channels
 {
-	return sort { compare_obis_identifier($a->{identifier}, $b->{identifier}) } @_;
-}
-
-sub compare_obis_identifier
-{
-	my ($left, $right) = @_;
-	my @left_parts = obis_sort_parts($left);
-	my @right_parts = obis_sort_parts($right);
-	for (my $i = 0; $i < @left_parts && $i < @right_parts; $i++) {
-		my $cmp = $left_parts[$i] <=> $right_parts[$i];
-		return $cmp if ($cmp);
-	}
-	return ($left || "") cmp ($right || "");
-}
-
-sub obis_sort_parts
-{
-	my ($identifier) = @_;
-	return (999, 999, 999, 999, 999, 999) if (!defined($identifier));
-	if ($identifier =~ /\A(\d+)-(\d+):([A-Za-z0-9]+)\.(\d+)\.(\d+)(?:\*(\d+))?\z/) {
-		my ($a, $b, $c_part, $d, $e, $f) = ($1, $2, $3, $4, $5, $6);
-		my $c = ($c_part =~ /\A\d+\z/) ? int($c_part) : 900 + ord(uc(substr($c_part, 0, 1)));
-		return (int($a), int($b), $c, int($d), int($e), defined($f) ? int($f) : 255);
-	}
-	if ($identifier =~ /\A([A-Za-z0-9]+)\.(\d+)\.(\d+)(?:\*(\d+))?\z/) {
-		my ($a_part, $b, $c, $f) = ($1, $2, $3, $4);
-		my $a = ($a_part =~ /\A\d+\z/) ? int($a_part) : 900 + ord(uc(substr($a_part, 0, 1)));
-		return (0, 0, $a, int($b), int($c), defined($f) ? int($f) : 255);
-	}
-	return (999, 999, 999, 999, 999, 999);
+	return SmartMeterVZLoggerDiscovery::sort_obis_channels(@_);
 }

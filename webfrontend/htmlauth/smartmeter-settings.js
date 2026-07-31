@@ -120,18 +120,15 @@
 
 		function render_service_snapshot(response) {
 			if (!response || !response.services) return;
-			if (!last_service_snapshot) last_service_snapshot = {};
-			last_service_snapshot.ok = response.ok;
-			last_service_snapshot.services = response.services;
-			if (response.applied) last_service_snapshot.applied = response.applied;
-			if (response.config) last_service_snapshot.config = response.config;
-			if (response.config) {
-				expert_runtime_applied = !!response.config.expert_applied;
-				if (expert_mode_active) {
-					expert_mqtt_enabled = !!response.config.mqtt_enabled;
-					expert_mqtt_timestamp = !!response.config.mqtt_timestamp;
-				}
-			}
+			var merged = SmartMeterSettingsServices.mergeSnapshot(last_service_snapshot, response, expert_mode_active, {
+				expert_runtime_applied: expert_runtime_applied,
+				expert_mqtt_enabled: expert_mqtt_enabled,
+				expert_mqtt_timestamp: expert_mqtt_timestamp
+			});
+			last_service_snapshot = merged.snapshot;
+			expert_runtime_applied = merged.expert.expert_runtime_applied;
+			expert_mqtt_enabled = merged.expert.expert_mqtt_enabled;
+			expert_mqtt_timestamp = merged.expert.expert_mqtt_timestamp;
 			render_service_status("vzlogger", response.services.vzlogger);
 			render_service_status("bridge", response.services.bridge);
 			update_all_control_states();
@@ -140,16 +137,16 @@
 		function schedule_service_poll() {
 			if (service_poll_timer) window.clearTimeout(service_poll_timer);
 			service_poll_timer = null;
-			if (!document.hidden && !service_action_running && !configuration_action_running) service_poll_timer = window.setTimeout(poll_service_status, 10000);
+			if (SmartMeterSettingsServices.pollAllowed({ hidden: document.hidden, serviceActionRunning: service_action_running, configurationActionRunning: configuration_action_running })) service_poll_timer = window.setTimeout(poll_service_status, 10000);
 		}
 
 		function poll_service_status() {
-			if (document.hidden || service_action_running || configuration_action_running || service_poll_in_flight) {
+			if (!SmartMeterSettingsServices.pollAllowed({ hidden: document.hidden, serviceActionRunning: service_action_running, configurationActionRunning: configuration_action_running, inFlight: service_poll_in_flight })) {
 				schedule_service_poll();
 				return;
 			}
 			service_poll_in_flight = true;
-			var status_url = "./service_status.cgi?details=" + (!last_service_snapshot ? "1" : "0") + "&lang=" + encodeURIComponent(ui_language) + "&_=" + Date.now();
+			var status_url = SmartMeterSettingsServices.statusUrl(!last_service_snapshot, ui_language);
 			fetch(status_url, { credentials: "same-origin", cache: "no-store" })
 				.then(function (response) {
 					if (!response.ok) throw new Error("HTTP " + response.status);
@@ -175,7 +172,7 @@
 			document.getElementById("service_action_hide").hidden = false;
 			document.getElementById("service_action_close").hidden = true;
 			if (!overlay.open) overlay.showModal();
-			document.getElementById("vzlogger_form").setAttribute("aria-busy", "true");
+			SmartMeterSettingsConfig.setBusy(document.getElementById("vzlogger_form"), true);
 			overlay.focus();
 			service_action_timeout_timer = window.setTimeout(function () {
 				if (service_action_running) document.getElementById("service_action_overlay_message").textContent = obis_text("service_action_slow_text");
@@ -206,7 +203,7 @@
 			details.hidden = !message;
 			document.getElementById("service_action_hide").hidden = true;
 			document.getElementById("service_action_close").hidden = false;
-			document.getElementById("vzlogger_form").removeAttribute("aria-busy");
+			SmartMeterSettingsConfig.setBusy(document.getElementById("vzlogger_form"), false);
 			if (result == "success") {
 				hide_service_action_overlay();
 				show_action_success(obis_text("service_action_success_text"));
@@ -226,7 +223,6 @@
 			update_all_control_states();
 			clear_service_success();
 			show_service_action_overlay(action);
-			var action_ok = false;
 			var action_result = "failed";
 			var action_message = "";
 			var needs_status_refresh = false;
@@ -250,16 +246,17 @@
 					return response.json();
 				})
 				.then(function (response) {
-					action_ok = !!response.ok;
-					action_result = !action_ok ? "failed" : (response.warning ? "warning" : "success");
-					action_message = response.message || (response.ok ? "OK" : obis_text("service_action_failed_text"));
+					var outcome = SmartMeterSettingsServices.actionOutcome(response, null, obis_text("service_action_failed_text"));
+					action_result = outcome.result;
+					action_message = outcome.message;
 					render_service_snapshot(response);
-					needs_status_refresh = !response.services;
+					needs_status_refresh = outcome.needsStatusRefresh;
 				})
 				.catch(function (error) {
-					action_message = obis_text("service_action_failed_text") + ": " + error.message;
-					action_result = "failed";
-					needs_status_refresh = true;
+					var outcome = SmartMeterSettingsServices.actionOutcome(null, error, obis_text("service_action_failed_text"));
+					action_message = outcome.message;
+					action_result = outcome.result;
+					needs_status_refresh = outcome.needsStatusRefresh;
 				})
 				.then(function () {
 					service_action_running = false;
@@ -314,7 +311,7 @@
 			configuration_action_elapsed_timer = window.setInterval(render_elapsed, 1000);
 			document.getElementById("configuration_action_close").hidden = true;
 			if (!overlay.open) overlay.showModal();
-			document.getElementById("vzlogger_form").setAttribute("aria-busy", "true");
+			SmartMeterSettingsConfig.setBusy(document.getElementById("vzlogger_form"), true);
 			overlay.focus();
 		}
 
@@ -333,7 +330,7 @@
 			details.textContent = message || "";
 			details.hidden = !message;
 			document.getElementById("configuration_action_close").hidden = false;
-			document.getElementById("vzlogger_form").removeAttribute("aria-busy");
+			SmartMeterSettingsConfig.setBusy(document.getElementById("vzlogger_form"), false);
 			if (action == "apply" && ok) {
 				close_configuration_action_overlay();
 				show_action_success(obis_text("configuration_action_apply_success_text"));
@@ -426,8 +423,9 @@
 					return result.json();
 				})
 				.then(function (response) {
-					ok = !!response.ok;
-					message = response.message || (ok ? obis_text("configuration_action_success_text") : obis_text("configuration_action_failed_text"));
+					var outcome = SmartMeterSettingsConfig.actionOutcome(action, response, null, obis_text("configuration_action_failed_text"));
+					ok = outcome.ok;
+					message = outcome.message;
 					if (response.timed_out) message = obis_text("configuration_action_timeout_text") + (response.message ? "\n\n" + response.message : "");
 					if (action == "apply" && response.ok) {
 						mark_configuration_form_saved(response);
@@ -442,7 +440,8 @@
 					render_service_snapshot(response);
 				})
 				.catch(function (error) {
-					message = error.name === "AbortError" ? obis_text("configuration_action_timeout_text") : obis_text("configuration_action_failed_text") + ": " + error.message;
+					var outcome = SmartMeterSettingsConfig.actionOutcome(action, null, error, obis_text("configuration_action_failed_text"));
+					message = error.name === "AbortError" ? obis_text("configuration_action_timeout_text") : outcome.message;
 				})
 				.then(function () {
 					window.clearTimeout(request_timeout);
@@ -469,7 +468,7 @@
 			document.getElementById("ir_scan_countdown").hidden = true;
 			document.getElementById("ir_scan_close").hidden = true;
 			if (!overlay.open) overlay.showModal();
-			document.getElementById("vzlogger_form").setAttribute("aria-busy", "true");
+			SmartMeterSettingsConfig.setBusy(document.getElementById("vzlogger_form"), true);
 			overlay.focus();
 		}
 
@@ -489,7 +488,7 @@
 			render_ir_head_list("ir_scan_staged_results", staged);
 			restore_staged_meter_panels(staged);
 			document.getElementById("ir_scan_close").hidden = false;
-			document.getElementById("vzlogger_form").removeAttribute("aria-busy");
+			SmartMeterSettingsConfig.setBusy(document.getElementById("vzlogger_form"), false);
 			if (status.result == "no_new") start_ir_scan_countdown(3);
 		}
 
@@ -559,7 +558,7 @@
 			document.getElementById("ir_scan_staged_results").hidden = true;
 			document.getElementById("ir_scan_countdown").hidden = true;
 			document.getElementById("ir_scan_close").hidden = false;
-			document.getElementById("vzlogger_form").removeAttribute("aria-busy");
+			SmartMeterSettingsConfig.setBusy(document.getElementById("vzlogger_form"), false);
 		}
 
 		function start_ir_scan_countdown(seconds) {
@@ -629,7 +628,7 @@
 			document.getElementById("obis_search_message").textContent = obis_text("obis_search_wait_text");
 			document.getElementById("obis_search_cancel").disabled = false;
 			if (!overlay.open) overlay.showModal();
-			document.getElementById("vzlogger_form").setAttribute("aria-busy", "true");
+			SmartMeterSettingsConfig.setBusy(document.getElementById("vzlogger_form"), true);
 			overlay.focus();
 		}
 
@@ -641,21 +640,19 @@
 				if (overlay.open) overlay.close();
 			}
 			var form = document.getElementById("vzlogger_form");
-			if (form) form.removeAttribute("aria-busy");
+			SmartMeterSettingsConfig.setBusy(form, false);
 			obis_job_id = "";
 			obis_job_serial = "";
 			obis_poll_failures = 0;
 		}
 
 		function obis_ajax_url(action) {
-			if (action == "obis-status") return "./obis_status.cgi?lang=" + encodeURIComponent(ui_language) + "&_=" + Date.now();
-			return "./index.cgi?ajax=1&ajaxaction=" + encodeURIComponent(action) + "&lang=" + encodeURIComponent(ui_language) + "&_=" + Date.now();
+			return SmartMeterSettingsDiscovery.ajaxUrl(action, ui_language);
 		}
 
-		var channel_definitions = (function () {
-			try { return JSON.parse(document.getElementById("channel_definitions_json").value || "{}"); }
-			catch (error) { return { version: 1, meters: {} }; }
-		})();
+		var channel_definitions = SmartMeterSettingsChannels.normalizeDocument(
+			SmartMeterSettingsChannels.readDocument(document.getElementById("channel_definitions_json").value, { version: 1, meters: {} })
+		);
 		var runtime_channel_indices = (function () {
 			try { return JSON.parse(document.getElementById("channel_indices_json").value || "{}"); }
 			catch (error) { return {}; }
@@ -678,37 +675,23 @@
 			return "xxxxxxxx-xxxx-4xxx-axxx-xxxxxxxxxxxx".replace(/x/g, function () { return Math.floor(Math.random() * 16).toString(16); });
 		}
 		function parse_obis_ui(value) {
-			var match = String(value || "").trim().match(/^(?:(\d+)-(\d+):)?([A-Za-z0-9]+)\.(\d+)\.(\d+)(?:\*(\d+))?$/);
-			if (!match) return null;
-			var f = match[6] == null || match[6] == "255" ? null : Number(match[6]);
-			if (f != null && (f < 0 || f > 254)) return null;
-			return { a: match[1] == null ? null : Number(match[1]), b: match[2] == null ? null : Number(match[2]), c: /^\d+$/.test(match[3]) ? Number(match[3]) : match[3], d:Number(match[4]), e:Number(match[5]), f:f, base:(match[1] == null ? "" : match[1]+"-"+match[2]+":")+match[3]+"."+match[4]+"."+match[5] };
+			return SmartMeterChannelModel.parseObis(value);
 		}
-		function full_obis(channel) { return channel.obis + (channel.storage == null || channel.storage === "" || String(channel.storage) === "255" ? "" : "*" + channel.storage); }
+		function full_obis(channel) { return SmartMeterChannelModel.fullObis(channel); }
 		function catalog_info(identifier) {
-			var parsed = parse_obis_ui(identifier);
-			if (!parsed) return { short: channel_labels.unknown, long: channel_labels.unknown, unit:"", recommended_aggmode:"none", output_name:"Unknown" };
-			var full = parsed.base + (parsed.f == null ? "" : "*" + parsed.f);
-			var entry = (obis_catalog.entries || []).find(function (item) { return item.code === full; }) || (obis_catalog.entries || []).find(function (item) { return item.code === parsed.base; });
-			if (!entry) entry = (obis_catalog.rules || []).slice().sort(function(a,b){return (a.priority||9999)-(b.priority||9999);}).find(function (item) { return Object.keys(item.match || {}).every(function(group){ var wanted=item.match[group], actual=parsed[group]; return Array.isArray(wanted) ? wanted.map(String).indexOf(String(actual))>=0 : String(wanted)===String(actual); }); });
 			var lang = (document.documentElement.lang && document.documentElement.lang.toLowerCase().indexOf("de") === 0) || channel_labels.active === "Aktiv" ? "de" : "en";
-			var groups=(lang==='de'?' Gruppen A (Medium)=':' Groups A (medium)=')+(parsed.a==null?(lang==='de'?'nicht angegeben':'not specified'):parsed.a)+', B ('+(lang==='de'?'Kanal':'channel')+')='+(parsed.b==null?(lang==='de'?'nicht angegeben':'not specified'):parsed.b)+', C ('+(lang==='de'?'Messgröße':'quantity')+')='+parsed.c+', D ('+(lang==='de'?'Verarbeitung':'processing')+')='+parsed.d+', E ('+(lang==='de'?'Tarif/Ausprägung':'tariff/variant')+')='+parsed.e+', F ('+(lang==='de'?'Speicher':'storage')+')='+(parsed.f==null?(lang==='de'?'nicht angegeben':'not specified'):parsed.f)+'.';
-			if (!entry) return { short:channel_labels.unknown, long:channel_labels.unknown+groups, unit:"", recommended_aggmode:"none", output_name:"Unknown" };
-			return { short:(entry.short||{})[lang] || (entry.short||{}).en || parsed.base, long:((entry.long||{})[lang] || (entry.long||{}).en || "")+groups, unit:entry.unit||"", recommended_aggmode:entry.recommended_aggmode||"none", warning:((entry.limitations||{})[lang]||""), output_name:entry.output_name||((entry.short||{}).en||"") };
+			return SmartMeterChannelModel.catalogInfo(identifier, obis_catalog, lang, channel_labels.unknown);
 		}
 		function default_output_key_ui(parsed, info) {
-			var name=String((info||{}).output_name||(info||{}).short||"Unknown").replace(/\s+/g,"_").replace(/[^A-Za-z0-9_]+/g,"_").replace(/^_+|_+$/g,"")||"Value";
-			var shortObis=parsed.c+"."+parsed.d+"."+parsed.e+(parsed.f==null?"":"*"+parsed.f), suffix="_OBIS_"+shortObis, available=64-suffix.length; if(available<1)return ("Value"+suffix).substring(0,64);
-			if(name.length>available) name=name.substring(0,available).replace(/_+$/g,"");
-			return name+suffix;
+			return SmartMeterChannelModel.defaultOutputKey(parsed, info);
 		}
 		function unique_output_key_ui(serial, key) {
-			var used={}; (channel_definitions.meters[serial]||[]).forEach(function(ch){var existing=((ch.plugin_output||{}).key||"").toLowerCase();if(existing)used[existing]=true;});
-			var candidate=key, number=2; while(used[candidate.toLowerCase()]){var suffix="_"+number++;candidate=key.substring(0,64-suffix.length)+suffix;} return candidate;
+			var used = SmartMeterSettingsChannels.existingOutputKeys(channel_definitions, serial);
+			return SmartMeterChannelModel.uniqueOutputKey(key, used);
 		}
 		function validate_output_key_input(input) {
 			if(!input||input.disabled||input.value===""){if(input)input.setCustomValidity("");return;}
-			input.setCustomValidity(/^[A-Za-z0-9 _#|()\[\]\/\'%$!.*-]{1,64}$/.test(input.value)?"":channel_labels.outputKeyFormat);
+			input.setCustomValidity(SmartMeterChannelModel.validOutputKey(input.value)?"":channel_labels.outputKeyFormat);
 		}
 		function channel_details_storage_key(serial, uuid) {
 			return SmartMeterVZLoggerUi.storageKey("channel-details", serial + ":" + uuid);
@@ -725,7 +708,7 @@
 		function sync_channel_definitions() {
 			if (channel_definitions_sync_timer) window.clearTimeout(channel_definitions_sync_timer);
 			channel_definitions_sync_timer = null;
-			document.getElementById("channel_definitions_json").value = JSON.stringify(channel_definitions);
+			SmartMeterSettingsChannels.writeDocumentValue(document.getElementById("channel_definitions_json"), channel_definitions);
 		}
 		function schedule_channel_definitions_sync() {
 			if (channel_definitions_sync_timer) window.clearTimeout(channel_definitions_sync_timer);
@@ -789,7 +772,7 @@
 			var message=channel_labels.removeConfirm.replace('{channel}',channel_number).replace('{obis}',full_obis(channel)).replace('{uuid}',channel.uuid||'–');
 			if(!window.confirm(message)) return;
 			try { window.localStorage.removeItem(channel_details_storage_key(serial, channel.uuid)); } catch (error) {}
-			channels.splice(index,1); render_channel_editor(serial); update_meter_enabled(serial);
+			SmartMeterSettingsChannels.removeManual(channel_definitions, serial, index); render_channel_editor(serial); update_meter_enabled(serial);
 		}
 		function add_manual_obis_channel(serial) {
 			var value=window.prompt(channel_labels.manualPrompt,'1-0:1.8.0'); var parsed=parse_obis_ui(value); if(!parsed){ if(value!=null) window.alert(channel_labels.unknown); return; }
@@ -825,21 +808,22 @@
 				.then(function (response) { return response.json(); })
 				.then(function (status) {
 					obis_poll_failures = 0;
-					if (status.state == "completed") {
+					var transition = SmartMeterSettingsDiscovery.statusTransition(status);
+					if (transition.result == "completed") {
 						var serial = status.serial || obis_job_serial;
-						if (status.restore_failed || status.warning) {
-							window.alert($("#obis_search_restore_warning_text").text() || status.warning);
+						if (transition.restoreFailed || transition.warning) {
+							window.alert($("#obis_search_restore_warning_text").text() || transition.warning);
 						}
-						render_discovered_obis_channels(serial, status.channels || []);
+						render_discovered_obis_channels(serial, transition.channels);
 						reset_obis_search_overlay();
 						return;
 					}
-					if (status.state == "cancelled") {
+					if (transition.result == "cancelled") {
 						reset_obis_search_overlay();
 						return;
 					}
-					if (status.state == "failed") {
-						obis_discovery_failed(new Error(status.message || obis_text("obis_search_failed_text")));
+					if (transition.result == "failed") {
+						obis_discovery_failed(new Error(transition.message || obis_text("obis_search_failed_text")));
 						return;
 					}
 					if (status.state == "cancelling") {
@@ -848,7 +832,7 @@
 					}
 					obis_job_id = status.job_id || obis_job_id;
 					obis_job_serial = status.serial || obis_job_serial;
-					obis_poll_timer = window.setTimeout(poll_obis_discovery, 1000);
+					obis_poll_timer = window.setTimeout(poll_obis_discovery, transition.delay);
 				})
 				.catch(function (error) {
 					obis_poll_failures++;
@@ -861,14 +845,11 @@
 		}
 
 		function render_discovered_obis_channels(serial, channels) {
-			var existing = {};
-			(channel_definitions.meters[serial] || []).forEach(function(ch){ existing[full_obis(ch)]=true; });
-			channels.forEach(function (channel) {
-				var identifier = channel.identifier || "";
-				var parsed=parse_obis_ui(identifier); if(!parsed || existing[identifier]) return;
+			SmartMeterSettingsChannels.mergeDiscovered(channel_definitions, serial, channels, function (identifier) {
+				var parsed=parse_obis_ui(identifier); if(!parsed) return null;
 				var info=catalog_info(identifier), aggtime=Number((document.getElementById(serial+'_aggtime')||{}).value||0);
-				(channel_definitions.meters[serial]||(channel_definitions.meters[serial]=[])).push({uuid:channel_uuid(),enabled:true,origin:'discovered',obis:parsed.base,storage:parsed.f,display_name:'',api:'null',aggmode:aggtime>0?info.recommended_aggmode:'none',duplicates:0,api_options:{volkszaehler:{},influxdb:{},mysmartgrid:{}},plugin_output:{enabled:true,key:unique_output_key_ui(serial,default_output_key_ui(parsed,info))}}); existing[identifier]=true;
-			});
+				return {uuid:channel_uuid(),enabled:true,origin:'discovered',obis:parsed.base,storage:parsed.f,display_name:'',api:'null',aggmode:aggtime>0?info.recommended_aggmode:'none',duplicates:0,api_options:{volkszaehler:{},influxdb:{},mysmartgrid:{}},plugin_output:{enabled:true,key:unique_output_key_ui(serial,default_output_key_ui(parsed,info))}};
+			}, full_obis);
 			render_channel_editor(serial);
 		}
 

@@ -1,0 +1,15 @@
+{
+  "parse": [
+    { "input": "1-0:1.8.0", "normalized": "1-0:1.8.0", "storage": null },
+    { "input": "1-0:1.8.0*255", "normalized": "1-0:1.8.0", "storage": null },
+    { "input": "1-0:1.8.0*5", "normalized": "1-0:1.8.0*5", "storage": 5 },
+    { "input": "C.1.0", "normalized": "C.1.0", "storage": null },
+    { "input": "1-0:1.8.0*256", "normalized": null, "storage": null }
+  ],
+  "keys": [
+    { "identifier": "1-0:1.8.0", "name": "Consumption Total", "expected": "Consumption_Total_OBIS_1.8.0" },
+    { "identifier": "1-0:2.8.0*5", "name": "Delivery", "expected": "Delivery_OBIS_2.8.0*5" }
+  ],
+  "valid_keys": ["Energy total_OBIS_1.8.0", "A#B|C(D)[E]/F'G%H$I!J.K*L-M"],
+  "invalid_keys": ["", "bad:key", "bad;key"]
+}

@@ -8,7 +8,7 @@ use HTML::Template;
 use JSON::PP;
 use LoxBerry::System;
 use lib $lbpbindir;
-use SmartMeterVZLoggerChannels qw(load_catalog lookup_obis);
+use SmartMeterVZLoggerChannelSemantics qw(load_catalog lookup_obis);
 use SmartMeterVZLoggerHttp qw(fetch_local_json);
 
 my $cgi = CGI->new;

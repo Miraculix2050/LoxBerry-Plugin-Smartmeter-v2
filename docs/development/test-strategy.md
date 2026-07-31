@@ -61,15 +61,14 @@ They still do not imply an automatic full device or browser acceptance.
 For executable CGI or navigation changes without a layout change, use one
 authenticated Chrome desktop smoke through the normal LoxBerry navigation. For
 UI behavior without layout impact, exercise only the changed workflow at the two
-primary Chrome sizes. Reserve Chrome plus Firefox at the complete viewport matrix
-for shared layout, responsive, navigation, dialog, control, or browser-sensitive
-changes.
+primary Chrome sizes. Reserve the complete Chrome viewport matrix for shared
+layout, responsive, navigation, dialog, control, or browser-sensitive changes.
 
-Reuse the authenticated tab and page state. Batch DOM visibility, horizontal
-overflow, relevant keyboard reachability, changed-state, and console-error checks
-where possible. Capture screenshots for visual changes or failures, not after
-every interaction. Open server logs only when the result or browser console
-indicates a failure.
+Reuse the authenticated Chrome tab and page state. Batch effective viewport,
+DOM visibility, horizontal overflow, relevant keyboard reachability,
+changed-state, and console-error checks where possible. Capture screenshots for
+visual changes or failures, not after every interaction. Open server logs only
+when the result or browser console indicates a failure.
 
 ## Test-device and lifecycle scope
 
