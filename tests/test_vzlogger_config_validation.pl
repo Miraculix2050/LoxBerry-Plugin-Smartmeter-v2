@@ -52,6 +52,7 @@ my $status = read_file("webfrontend/htmlauth/service_status.cgi");
 my $template = read_file("templates/settings.html");
 my $script = read_file("webfrontend/htmlauth/smartmeter-settings.js");
 my $control = read_file("bin/vzlogger_control.pl");
+my $service_policy = read_file("bin/SmartMeterVZLoggerServicePolicy.pm");
 my $default_config = read_file("config/smartmeter.cfg");
 my $english_language = read_file("templates/lang/language_en.ini");
 my $german_language = read_file("templates/lang/language_de.ini");
@@ -71,7 +72,7 @@ like($template, qr/name="vzlogger_enabled".*?data-on-value="1"/s, "vzLogger acti
 like($template, qr/name="bridge_enabled".*?data-on-value="1"/s, "bridge activation is a boolean form field");
 like($script, qr/runtime_action_disabled = saved_vzlogger_enabled != "1"/, "OBIS actions wait for saved activation");
 like($script, qr/setTimeout\(poll_service_status, 10000\)/, "service polling uses the ten-second interval");
-like($control, qr/No active meter is configured\. Did not (?:start|restart) vzLogger/, "manual starts require an active generated meter");
+like($service_policy, qr/service\} eq "vzlogger".*?active_meters.*?reason => "no_active_meter"/s, "manual starts require an active generated meter");
 like($control, qr/sub start_bridge.*?if \(\$pid == 0\).*?release_config_lock_for_background_child\(\$config_lock\).*?exec\(\$\^X, "\$bindir\/vzlogger_mqtt_bridge\.pl"\)/s, "bridge fallback releases the configuration lock before exec");
 unlike($default_config, qr/^(?:IMPLEMENTATION|READ|CRON|SENDMQTT|LEGACY_[^=]*)=/m, "default configuration contains no obsolete mode or Legacy values");
 unlike($english_language . $german_language, qr/^\[LEGACY\]/m, "active language resources contain no Legacy namespace");

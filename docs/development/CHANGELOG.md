@@ -5,6 +5,7 @@ This file records implementation detail that is intentionally omitted from user-
 ## Unreleased
 
 - Make repository testing change-driven with risk-based device and browser selection, a shared local/CI runner and Codex **Changed tests** project action, safe base-reference and empty-selection handling, compact failure-focused output, and no periodic test schedule.
+- Centralize status, meter/JSONC input, discovery cache/job state, recovery settings, service policy, command execution, diagnostics, and browser channel/state helpers behind testable modules while preserving all CGI, CLI, configuration, and storage contracts.
 - Align the user-documentation contracts and regression assertions with current UI labels, dependencies, supported intervals, conditional OMS discovery, and the maintained 2.0.1.x Legacy upgrade path.
 - Release the inherited configuration-lock descriptor and metadata before independent OBIS-discovery and bridge-fallback child processes continue, while preserving verified inheritance for synchronous nested helpers.
 

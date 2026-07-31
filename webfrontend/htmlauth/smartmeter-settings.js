@@ -120,18 +120,15 @@
 
 		function render_service_snapshot(response) {
 			if (!response || !response.services) return;
-			if (!last_service_snapshot) last_service_snapshot = {};
-			last_service_snapshot.ok = response.ok;
-			last_service_snapshot.services = response.services;
-			if (response.applied) last_service_snapshot.applied = response.applied;
-			if (response.config) last_service_snapshot.config = response.config;
-			if (response.config) {
-				expert_runtime_applied = !!response.config.expert_applied;
-				if (expert_mode_active) {
-					expert_mqtt_enabled = !!response.config.mqtt_enabled;
-					expert_mqtt_timestamp = !!response.config.mqtt_timestamp;
-				}
-			}
+			var merged = SmartMeterSettingsServices.mergeSnapshot(last_service_snapshot, response, expert_mode_active, {
+				expert_runtime_applied: expert_runtime_applied,
+				expert_mqtt_enabled: expert_mqtt_enabled,
+				expert_mqtt_timestamp: expert_mqtt_timestamp
+			});
+			last_service_snapshot = merged.snapshot;
+			expert_runtime_applied = merged.expert.expert_runtime_applied;
+			expert_mqtt_enabled = merged.expert.expert_mqtt_enabled;
+			expert_mqtt_timestamp = merged.expert.expert_mqtt_timestamp;
 			render_service_status("vzlogger", response.services.vzlogger);
 			render_service_status("bridge", response.services.bridge);
 			update_all_control_states();
@@ -149,7 +146,7 @@
 				return;
 			}
 			service_poll_in_flight = true;
-			var status_url = "./service_status.cgi?details=" + (!last_service_snapshot ? "1" : "0") + "&lang=" + encodeURIComponent(ui_language) + "&_=" + Date.now();
+			var status_url = SmartMeterSettingsServices.statusUrl(!last_service_snapshot, ui_language);
 			fetch(status_url, { credentials: "same-origin", cache: "no-store" })
 				.then(function (response) {
 					if (!response.ok) throw new Error("HTTP " + response.status);
@@ -648,14 +645,12 @@
 		}
 
 		function obis_ajax_url(action) {
-			if (action == "obis-status") return "./obis_status.cgi?lang=" + encodeURIComponent(ui_language) + "&_=" + Date.now();
-			return "./index.cgi?ajax=1&ajaxaction=" + encodeURIComponent(action) + "&lang=" + encodeURIComponent(ui_language) + "&_=" + Date.now();
+			return SmartMeterSettingsDiscovery.ajaxUrl(action, ui_language);
 		}
 
-		var channel_definitions = (function () {
-			try { return JSON.parse(document.getElementById("channel_definitions_json").value || "{}"); }
-			catch (error) { return { version: 1, meters: {} }; }
-		})();
+		var channel_definitions = SmartMeterSettingsChannels.normalizeDocument(
+			SmartMeterSettingsChannels.readDocument(document.getElementById("channel_definitions_json").value, { version: 1, meters: {} })
+		);
 		var runtime_channel_indices = (function () {
 			try { return JSON.parse(document.getElementById("channel_indices_json").value || "{}"); }
 			catch (error) { return {}; }
@@ -678,37 +673,23 @@
 			return "xxxxxxxx-xxxx-4xxx-axxx-xxxxxxxxxxxx".replace(/x/g, function () { return Math.floor(Math.random() * 16).toString(16); });
 		}
 		function parse_obis_ui(value) {
-			var match = String(value || "").trim().match(/^(?:(\d+)-(\d+):)?([A-Za-z0-9]+)\.(\d+)\.(\d+)(?:\*(\d+))?$/);
-			if (!match) return null;
-			var f = match[6] == null || match[6] == "255" ? null : Number(match[6]);
-			if (f != null && (f < 0 || f > 254)) return null;
-			return { a: match[1] == null ? null : Number(match[1]), b: match[2] == null ? null : Number(match[2]), c: /^\d+$/.test(match[3]) ? Number(match[3]) : match[3], d:Number(match[4]), e:Number(match[5]), f:f, base:(match[1] == null ? "" : match[1]+"-"+match[2]+":")+match[3]+"."+match[4]+"."+match[5] };
+			return SmartMeterChannelModel.parseObis(value);
 		}
-		function full_obis(channel) { return channel.obis + (channel.storage == null || channel.storage === "" || String(channel.storage) === "255" ? "" : "*" + channel.storage); }
+		function full_obis(channel) { return SmartMeterChannelModel.fullObis(channel); }
 		function catalog_info(identifier) {
-			var parsed = parse_obis_ui(identifier);
-			if (!parsed) return { short: channel_labels.unknown, long: channel_labels.unknown, unit:"", recommended_aggmode:"none", output_name:"Unknown" };
-			var full = parsed.base + (parsed.f == null ? "" : "*" + parsed.f);
-			var entry = (obis_catalog.entries || []).find(function (item) { return item.code === full; }) || (obis_catalog.entries || []).find(function (item) { return item.code === parsed.base; });
-			if (!entry) entry = (obis_catalog.rules || []).slice().sort(function(a,b){return (a.priority||9999)-(b.priority||9999);}).find(function (item) { return Object.keys(item.match || {}).every(function(group){ var wanted=item.match[group], actual=parsed[group]; return Array.isArray(wanted) ? wanted.map(String).indexOf(String(actual))>=0 : String(wanted)===String(actual); }); });
 			var lang = (document.documentElement.lang && document.documentElement.lang.toLowerCase().indexOf("de") === 0) || channel_labels.active === "Aktiv" ? "de" : "en";
-			var groups=(lang==='de'?' Gruppen A (Medium)=':' Groups A (medium)=')+(parsed.a==null?(lang==='de'?'nicht angegeben':'not specified'):parsed.a)+', B ('+(lang==='de'?'Kanal':'channel')+')='+(parsed.b==null?(lang==='de'?'nicht angegeben':'not specified'):parsed.b)+', C ('+(lang==='de'?'Messgröße':'quantity')+')='+parsed.c+', D ('+(lang==='de'?'Verarbeitung':'processing')+')='+parsed.d+', E ('+(lang==='de'?'Tarif/Ausprägung':'tariff/variant')+')='+parsed.e+', F ('+(lang==='de'?'Speicher':'storage')+')='+(parsed.f==null?(lang==='de'?'nicht angegeben':'not specified'):parsed.f)+'.';
-			if (!entry) return { short:channel_labels.unknown, long:channel_labels.unknown+groups, unit:"", recommended_aggmode:"none", output_name:"Unknown" };
-			return { short:(entry.short||{})[lang] || (entry.short||{}).en || parsed.base, long:((entry.long||{})[lang] || (entry.long||{}).en || "")+groups, unit:entry.unit||"", recommended_aggmode:entry.recommended_aggmode||"none", warning:((entry.limitations||{})[lang]||""), output_name:entry.output_name||((entry.short||{}).en||"") };
+			return SmartMeterChannelModel.catalogInfo(identifier, obis_catalog, lang, channel_labels.unknown);
 		}
 		function default_output_key_ui(parsed, info) {
-			var name=String((info||{}).output_name||(info||{}).short||"Unknown").replace(/\s+/g,"_").replace(/[^A-Za-z0-9_]+/g,"_").replace(/^_+|_+$/g,"")||"Value";
-			var shortObis=parsed.c+"."+parsed.d+"."+parsed.e+(parsed.f==null?"":"*"+parsed.f), suffix="_OBIS_"+shortObis, available=64-suffix.length; if(available<1)return ("Value"+suffix).substring(0,64);
-			if(name.length>available) name=name.substring(0,available).replace(/_+$/g,"");
-			return name+suffix;
+			return SmartMeterChannelModel.defaultOutputKey(parsed, info);
 		}
 		function unique_output_key_ui(serial, key) {
-			var used={}; (channel_definitions.meters[serial]||[]).forEach(function(ch){var existing=((ch.plugin_output||{}).key||"").toLowerCase();if(existing)used[existing]=true;});
-			var candidate=key, number=2; while(used[candidate.toLowerCase()]){var suffix="_"+number++;candidate=key.substring(0,64-suffix.length)+suffix;} return candidate;
+			var used = SmartMeterSettingsChannels.existingOutputKeys(channel_definitions, serial);
+			return SmartMeterChannelModel.uniqueOutputKey(key, used);
 		}
 		function validate_output_key_input(input) {
 			if(!input||input.disabled||input.value===""){if(input)input.setCustomValidity("");return;}
-			input.setCustomValidity(/^[A-Za-z0-9 _#|()\[\]\/\'%$!.*-]{1,64}$/.test(input.value)?"":channel_labels.outputKeyFormat);
+			input.setCustomValidity(SmartMeterChannelModel.validOutputKey(input.value)?"":channel_labels.outputKeyFormat);
 		}
 		function channel_details_storage_key(serial, uuid) {
 			return SmartMeterVZLoggerUi.storageKey("channel-details", serial + ":" + uuid);

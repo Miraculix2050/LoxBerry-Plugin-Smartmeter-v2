@@ -32,6 +32,7 @@ Changes to a normative contract require review, a recorded rationale, and matchi
 
 ## Related evidence and user contracts
 
+- [Architecture overview](architecture.md) — maintained component, artifact, and data-flow map
 - [German user guide](../User-Guide.de.md)
 - [English user guide](../User-Guide.en.md)
 - [Known issues and compatibility limitations](../known-limitations.md)

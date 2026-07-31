@@ -39,7 +39,6 @@ BEGIN {
 # use CGI::Carp qw(fatalsToBrowser);
 use CGI;
 use Config::Simple;
-use Digest::SHA qw(sha256_hex);
 use Encode qw(decode FB_CROAK);
 use File::Copy qw(copy);
 use File::Path qw(make_path);
@@ -50,7 +49,6 @@ use LoxBerry::Log;
 use LoxBerry::System;
 #use LoxBerry::Web;
 use POSIX qw(:sys_wait_h setsid);
-use Socket qw(AF_INET AF_INET6 inet_pton);
 use warnings;
 use strict;
 umask(0027);
@@ -63,6 +61,11 @@ use SmartMeterVZLoggerRuntime qw(acquire_config_lock release_config_lock_for_bac
 use SmartMeterVZLoggerConfig qw(protocol_for_meter normalized_meter_mode clean_qos vzlogger_enabled set_vzlogger_enabled read_webserver_settings);
 use SmartMeterWebSecurity qw(csrf_token validate_csrf_token);
 use SmartMeterVZLoggerObisStatus qw(read_obis_status write_obis_status resolved_obis_status watchdog_running watchdog_pid_running);
+use SmartMeterVZLoggerStatus qw(build_service_snapshot);
+use SmartMeterVZLoggerMeterInput qw(set_optional_text set_optional_integer set_optional_enum set_optional_boolean parse_meter_jsonc meter_jsonc_error_text safe_filename);
+use SmartMeterVZLoggerDiscovery ();
+use SmartMeterVZLoggerRecoveryConfig ();
+use SmartMeterVZLoggerDiscoveryJob ();
 
 ##########################################################################
 # Variables
@@ -84,7 +87,7 @@ my $q = $cgi->Vars;
 
 my $version = LoxBerry::System::pluginversion();
 my $asset_mtime = 0;
-for my $asset (qw(smartmeter-v4.css smartmeter-vzlogger.css smartmeter-ui.js smartmeter-vzlogger.js smartmeter-settings.css smartmeter-settings.js)) {
+for my $asset (qw(smartmeter-v4.css smartmeter-vzlogger.css smartmeter-ui.js smartmeter-vzlogger.js smartmeter-settings.css smartmeter-channel-model.js smartmeter-settings-services.js smartmeter-settings-discovery.js smartmeter-settings-channels.js smartmeter-settings.js)) {
 	my $mtime = (stat("$FindBin::Bin/$asset"))[9] || 0;
 	$asset_mtime = $mtime if $mtime > $asset_mtime;
 }
@@ -469,50 +472,34 @@ sub recovery_config_file
 
 sub read_recovery_settings
 {
-	my $stored = read_json(recovery_config_file());
-	$stored = {} if (ref($stored) ne "HASH");
-	my $cooldown = $stored->{cooldown_seconds};
-	$cooldown = 300 if (!defined($cooldown) || $cooldown !~ /\A\d+\z/ || $cooldown < 30 || $cooldown > 3600);
-	my @ips = ref($stored->{allowed_ips}) eq "ARRAY" ? grep { valid_ip_address($_) } @{$stored->{allowed_ips}} : ();
-	my $hash = $stored->{token_sha256} || "";
-	$hash = "" if ($hash !~ /\A[a-f0-9]{64}\z/);
-	return {
-		enabled => $stored->{enabled} ? JSON::PP::true : JSON::PP::false,
-		ip_check_enabled => $stored->{ip_check_enabled} ? JSON::PP::true : JSON::PP::false,
-		allowed_ips => \@ips,
-		cooldown_seconds => 0 + $cooldown,
-		token_sha256 => $hash,
-	};
+	return SmartMeterVZLoggerRecoveryConfig::read_recovery_settings(recovery_config_file());
 }
 
 sub run_recovery_settings_ajax
 {
 	my $operation = $q->{recovery_operation} || "save";
-	die $L{'VZLOGGER.RECOVERY_INVALID_OPERATION'} if ($operation !~ /\A(?:save|rotate)\z/);
-	my $enabled = ($q->{recovery_enabled} || "0") eq "1" ? 1 : 0;
-	my $ip_check = ($q->{recovery_ip_check_enabled} || "0") eq "1" ? 1 : 0;
-	my $cooldown = $q->{recovery_cooldown} || "";
-	die $L{'VZLOGGER.RECOVERY_INVALID_COOLDOWN'} if ($cooldown !~ /\A\d+\z/ || $cooldown < 30 || $cooldown > 3600);
-	my @ips = grep { $_ ne "" } split(/[\s,;]+/, $q->{recovery_allowed_ips} || "");
-	foreach my $ip (@ips) {
-		die ui_text($L{'VZLOGGER.RECOVERY_INVALID_IP'}, ip => $ip) if (!valid_ip_address($ip));
+	my $result = SmartMeterVZLoggerRecoveryConfig::validate_recovery_submission(
+		operation => $operation,
+		enabled => ($q->{recovery_enabled} || "0") eq "1",
+		ip_check_enabled => ($q->{recovery_ip_check_enabled} || "0") eq "1",
+		cooldown => $q->{recovery_cooldown} || "",
+		allowed_ips => $q->{recovery_allowed_ips} || "",
+		current => read_recovery_settings(),
+	);
+	my %errors = (
+		invalid_operation => $L{'VZLOGGER.RECOVERY_INVALID_OPERATION'},
+		invalid_cooldown => $L{'VZLOGGER.RECOVERY_INVALID_COOLDOWN'},
+		invalid_ip => $L{'VZLOGGER.RECOVERY_INVALID_IP'},
+		ip_required => $L{'VZLOGGER.RECOVERY_IP_REQUIRED'},
+		token_required => $L{'VZLOGGER.RECOVERY_TOKEN_REQUIRED'},
+		token_generation_failed => $L{'VZLOGGER.RECOVERY_TOKEN_GENERATION_FAILED'},
+	);
+	if (!$result->{ok}) {
+		my $message = $errors{$result->{error_code}} || $L{'VZLOGGER.RECOVERY_INVALID_OPERATION'};
+		die ui_text($message, %{$result->{error_args} || {}});
 	}
-	my %seen;
-	@ips = grep { !$seen{$_}++ } @ips;
-	die $L{'VZLOGGER.RECOVERY_IP_REQUIRED'} if ($ip_check && !@ips);
-
-	my $settings = read_recovery_settings();
-	my $plain_token;
-	if ($operation eq "rotate") {
-		$plain_token = generate_recovery_token();
-		$settings->{token_sha256} = sha256_hex($plain_token);
-	}
-	die $L{'VZLOGGER.RECOVERY_TOKEN_REQUIRED'} if ($enabled && !$settings->{token_sha256});
-	$settings->{enabled} = $enabled ? JSON::PP::true : JSON::PP::false;
-	$settings->{ip_check_enabled} = $ip_check ? JSON::PP::true : JSON::PP::false;
-	$settings->{allowed_ips} = \@ips;
-	$settings->{cooldown_seconds} = 0 + $cooldown;
-	write_json_atomic(recovery_config_file(), $settings);
+	my $settings = $result->{settings};
+	die "Could not save recovery settings" if (!SmartMeterVZLoggerRecoveryConfig::save_recovery_settings(recovery_config_file(), $settings));
 
 	my $response = {
 		ok => JSON::PP::true,
@@ -520,25 +507,8 @@ sub run_recovery_settings_ajax
 		message => $operation eq "rotate" ? $L{'VZLOGGER.RECOVERY_TOKEN_ROTATED'} : $L{'VZLOGGER.RECOVERY_SETTINGS_SAVED'},
 		token_present => $settings->{token_sha256} ? JSON::PP::true : JSON::PP::false,
 	};
-	$response->{token} = $plain_token if (defined($plain_token));
+	$response->{token} = $result->{token} if (defined($result->{token}));
 	return $response;
-}
-
-sub valid_ip_address
-{
-	my ($address) = @_;
-	return 0 if (!defined($address) || ref($address));
-	return eval { defined(inet_pton(AF_INET, $address)) || defined(inet_pton(AF_INET6, $address)) } ? 1 : 0;
-}
-
-sub generate_recovery_token
-{
-	open(my $fh, "<:raw", "/dev/urandom") or die $L{'VZLOGGER.RECOVERY_TOKEN_GENERATION_FAILED'};
-	my $bytes = "";
-	my $read = read($fh, $bytes, 32);
-	close($fh);
-	die $L{'VZLOGGER.RECOVERY_TOKEN_GENERATION_FAILED'} if (!defined($read) || $read != 32);
-	return unpack("H*", $bytes);
 }
 
 sub add_http_cache_template_params
@@ -613,15 +583,6 @@ sub html_escape
 	my ($value) = @_;
 	$value = "" if (!defined($value));
 	return CGI::escapeHTML($value);
-}
-
-sub service_status_class
-{
-	my ($state, $expected_active) = @_;
-	return ($state eq "active") ? "service-status-ok" : "service-status-error" if ($expected_active);
-	return "service-status-idle" if ($state eq "inactive");
-	return "service-status-warning" if ($state eq "active" || $state eq "activating");
-	return "service-status-error";
 }
 
 sub log_url
@@ -705,71 +666,28 @@ sub service_status_response
 {
 	my (%options) = @_;
 	my $details = exists($options{details}) ? $options{details} : 1;
-	my $vzlogger_expected = current_vzlogger_enabled();
-	my $mqtt_enabled = effective_vzlogger_mqtt_enabled();
-	my $bridge_enabled = (($plugin_cfg->param("VZLOGGER.BRIDGEENABLED") || "0") eq "1");
-	my $bridge_expected = $vzlogger_expected && $mqtt_enabled && $bridge_enabled;
-	my $response = {
-		ok => JSON::PP::true,
-		services => {
-			vzlogger => service_status_data("vzlogger", $vzlogger_expected),
-			bridge => service_status_data("smartmeter-v2-vzlogger-bridge", $bridge_expected),
+	return build_service_snapshot(
+		details => $details,
+		config_dir => $lbpconfigdir,
+		bin_dir => $lbpbindir,
+		settings => {
+			vzlogger_enabled => current_vzlogger_enabled(),
+			mqtt_enabled => effective_vzlogger_mqtt_enabled(),
+			bridge_enabled => (($plugin_cfg->param("VZLOGGER.BRIDGEENABLED") || "0") eq "1"),
+			expert_mode => expert_mode_enabled(),
 		},
-	};
-	return $response if (!$details);
-
-	my $config = $options{config_status} || generated_config_status();
-	my $expert = $options{expert_status} || expert_draft_status();
-	my $expert_applied = expert_configuration_applied();
-	$config->{expert_mode} = expert_mode_enabled() ? JSON::PP::true : JSON::PP::false;
-	$config->{expert_present} = $expert->{present} ? JSON::PP::true : JSON::PP::false;
-	$config->{expert_valid} = $expert->{valid} ? JSON::PP::true : JSON::PP::false;
-	$config->{expert_message} = $expert->{message};
-	$config->{expert_applied} = $expert_applied ? JSON::PP::true : JSON::PP::false;
-	my $vzlogger_startable = $config->{valid};
-	$vzlogger_startable = 0 if (expert_mode_enabled() && (!$expert->{valid} || !$expert_applied));
-	my $bridge_startable = $vzlogger_startable && $mqtt_enabled && $config->{mqtt_enabled};
-	$response->{applied} = {
-		vzlogger_enabled => $vzlogger_expected ? JSON::PP::true : JSON::PP::false,
-		mqtt_enabled => $mqtt_enabled ? JSON::PP::true : JSON::PP::false,
-		bridge_enabled => $bridge_enabled ? JSON::PP::true : JSON::PP::false,
-	};
-	$response->{config} = {
-		present => $config->{present} ? JSON::PP::true : JSON::PP::false,
-		valid => $config->{valid} ? JSON::PP::true : JSON::PP::false,
-		mqtt_enabled => $config->{mqtt_enabled} ? JSON::PP::true : JSON::PP::false,
-		expert_mode => $config->{expert_mode},
-		expert_present => $config->{expert_present},
-		expert_valid => $config->{expert_valid},
-		expert_message => $config->{expert_message},
-		expert_applied => $config->{expert_applied},
-	};
-	$response->{services}->{vzlogger}->{config_valid} = $vzlogger_startable ? JSON::PP::true : JSON::PP::false;
-	$response->{services}->{vzlogger}->{can_start} = $vzlogger_startable ? JSON::PP::true : JSON::PP::false;
-	$response->{services}->{vzlogger}->{can_restart} = $vzlogger_startable ? JSON::PP::true : JSON::PP::false;
-	$response->{services}->{bridge}->{config_valid} = $bridge_startable ? JSON::PP::true : JSON::PP::false;
-	$response->{services}->{bridge}->{can_start} = $bridge_startable ? JSON::PP::true : JSON::PP::false;
-	$response->{services}->{bridge}->{can_restart} = $bridge_startable ? JSON::PP::true : JSON::PP::false;
-	return $response;
-}
-
-sub service_status_data
-{
-	my ($service, $expected_active) = @_;
-	my $runtime = service_runtime_status($service);
-	my $state = $runtime->{state};
-	my $pid = $runtime->{pid};
-	my $installed = service_installed($service);
-	my $running = $state eq "active";
-	return {
-		state => $state,
-		pid => $pid,
-		installed => $installed ? JSON::PP::true : JSON::PP::false,
-		running => $running ? JSON::PP::true : JSON::PP::false,
-		status_text => "$state | PID: " . ($pid || "-") . " | Service: $service | " . ($installed ? $L{'VZLOGGER.UI_INSTALLED'} : $L{'VZLOGGER.UI_NOT_INSTALLED'}),
-		status_class => service_status_class($state, $expected_active),
-		can_stop => $running ? JSON::PP::true : JSON::PP::false,
-	};
+		runtime => {
+			vzlogger => service_runtime_status("vzlogger"),
+			"smartmeter-v2-vzlogger-bridge" => service_runtime_status("smartmeter-v2-vzlogger-bridge"),
+		},
+		installed => {
+			vzlogger => service_installed("vzlogger"),
+			"smartmeter-v2-vzlogger-bridge" => service_installed("smartmeter-v2-vzlogger-bridge"),
+		},
+		config_status => $options{config_status},
+		expert_status => $details ? ($options{expert_status} || expert_draft_status()) : undef,
+		expert_applied => $details ? expert_configuration_applied() : undef,
+	);
 }
 
 sub run_service_ajax_action
@@ -1039,28 +957,12 @@ sub save_service_log_settings
 sub generated_config_status
 {
 	my ($assume_valid) = @_;
-	my $config_file = "$lbpconfigdir/vzlogger.conf";
-	my $mapping_file = "$lbpconfigdir/vzlogger_channels.json";
-	my $validator = "$lbpbindir/vzlogger_validate.pl";
-	my $status = { present => -e $config_file ? 1 : 0, valid => 0, mqtt_enabled => 0, mqtt_timestamp => 0 };
-	return $status if (!$status->{present});
-	open(my $fh, "<", $config_file) or return $status;
-	local $/;
-	my $json = <$fh>;
-	close($fh);
-	my $config = eval { JSON::PP->new->utf8->decode($json) };
-	return $status if ($@ || ref($config) ne "HASH");
-	$status->{mqtt_enabled} = (ref($config->{mqtt}) eq "HASH" && $config->{mqtt}->{enabled}) ? 1 : 0;
-	$status->{mqtt_timestamp} = (ref($config->{mqtt}) eq "HASH" && $config->{mqtt}->{timestamp}) ? 1 : 0;
-	return $status if (!-e $validator || ref($config->{meters}) ne "ARRAY" || !@{$config->{meters}});
-	return $status if (!expert_mode_enabled() && !-e $mapping_file);
-	if ($assume_valid) {
-		$status->{valid} = 1;
-	} else {
-		my $output = `$^X "$validator" 2>&1`;
-		$status->{valid} = (($? >> 8) == 0) ? 1 : 0;
-	}
-	return $status;
+	return SmartMeterVZLoggerStatus::generated_config_status(
+		config_dir => $lbpconfigdir,
+		bin_dir => $lbpbindir,
+		expert_mode => expert_mode_enabled(),
+		assume_valid => $assume_valid,
+	);
 }
 
 sub command_exists
@@ -1906,66 +1808,48 @@ sub obis_discovery_runtime_dir
 
 sub obis_discovery_status_file
 {
-	return obis_discovery_runtime_dir() . "/vzlogger_obis_status.json";
+	return SmartMeterVZLoggerDiscoveryJob::status_file(obis_discovery_runtime_dir());
 }
 
 sub obis_discovery_cancel_file
 {
-	return obis_discovery_runtime_dir() . "/vzlogger_obis_cancel";
+	return SmartMeterVZLoggerDiscoveryJob::cancel_file(obis_discovery_runtime_dir());
 }
 
 sub write_obis_discovery_status_file
 {
 	my ($status) = @_;
-	return write_obis_status(obis_discovery_runtime_dir(), $status);
+	return SmartMeterVZLoggerDiscoveryJob::write_status(obis_discovery_runtime_dir(), $status);
 }
 
 sub read_obis_discovery_status_file
 {
-	return read_obis_status(obis_discovery_runtime_dir());
+	return SmartMeterVZLoggerDiscoveryJob::read_status(obis_discovery_runtime_dir());
 }
 
 sub obis_discovery_watchdog_is_active
 {
-	return watchdog_running(obis_discovery_runtime_dir(), $lbpplugindir);
+	return SmartMeterVZLoggerDiscoveryJob::watchdog_active(obis_discovery_runtime_dir(), $lbpplugindir);
 }
 
 sub obis_discovery_status
 {
-	return resolved_obis_status(obis_discovery_runtime_dir(), $lbpplugindir);
+	return SmartMeterVZLoggerDiscoveryJob::resolved_status(obis_discovery_runtime_dir(), $lbpplugindir);
 }
 
 sub cancel_obis_discovery
 {
 	my ($job_id) = @_;
-	$job_id = clean_config_value($job_id, qr/\A[0-9-]+\z/, "");
-	my $status = read_obis_discovery_status_file();
-	return obis_error_status($L{'VZLOGGER.UI_OBIS_NOT_ACTIVE'}) if (!$job_id || ($status->{job_id} || "") ne $job_id);
-	return obis_error_status($L{'VZLOGGER.UI_OBIS_NO_LONGER_ACTIVE'}) if (($status->{state} || "") !~ /\A(?:starting|running|cancelling)\z/);
-
-	my $cancel_file = obis_discovery_cancel_file();
-	make_path(obis_discovery_runtime_dir()) if (!-d obis_discovery_runtime_dir());
-	my $fh;
-	if (!open($fh, ">", $cancel_file)) {
-		return obis_error_status(ui_text($L{'VZLOGGER.UI_OBIS_CANCEL_FAILED'}, error => $!));
-	}
-	print $fh $job_id;
-	close($fh);
-	$status->{state} = "cancelling";
-	$status->{ok} = JSON::PP::true;
-	write_obis_discovery_status_file($status);
-	return $status;
+	my $result = SmartMeterVZLoggerDiscoveryJob::request_cancel(obis_discovery_runtime_dir(), $job_id);
+	return $result->{status} if ($result->{ok});
+	return obis_error_status($L{'VZLOGGER.UI_OBIS_NOT_ACTIVE'}) if ($result->{error_code} eq "invalid_job" || $result->{error_code} eq "not_active");
+	return obis_error_status($L{'VZLOGGER.UI_OBIS_NO_LONGER_ACTIVE'}) if ($result->{error_code} eq "finished");
+	return obis_error_status(ui_text($L{'VZLOGGER.UI_OBIS_CANCEL_FAILED'}, error => $result->{error} || $result->{error_code}));
 }
 
 sub obis_discovery_cancel_requested
 {
-	my ($job_id) = @_;
-	my $file = obis_discovery_cancel_file();
-	return 0 if (!$job_id || !-e $file || !open(my $fh, "<", $file));
-	my $requested_job = <$fh>;
-	close($fh);
-	chomp($requested_job) if (defined($requested_job));
-	return ($requested_job || "") eq $job_id ? 1 : 0;
+	return SmartMeterVZLoggerDiscoveryJob::cancel_requested(obis_discovery_runtime_dir(), $_[0]);
 }
 
 sub apply_vzlogger
@@ -2320,20 +2204,13 @@ sub channels_from_vzlogger_log
 sub first_config_value
 {
 	my ($section, @keys) = @_;
-	foreach my $key (@keys) {
-		my $value = config_scalar_value("$section.$key");
-		return $value if (defined($value) && $value ne "");
-	}
-	return undef;
+	return SmartMeterVZLoggerMeterInput::first_config_value($plugin_cfg, $section, @keys);
 }
 
 sub config_scalar_value
 {
 	my ($key) = @_;
-	my @values = $plugin_cfg->param($key);
-	return "" if (!@values);
-	return "" if (!defined($values[0]) || ref($values[0]));
-	return "$values[0]";
+	return SmartMeterVZLoggerMeterInput::config_scalar($plugin_cfg, $key);
 }
 
 sub configured_parity_optional
@@ -2342,36 +2219,6 @@ sub configured_parity_optional
 	my $mode = config_scalar_value("$section.PARITYMODE");
 	return lc($mode) if (defined($mode) && $mode =~ /\A(?:8n1|7e1|7o1|7n1)\z/i);
 	return "";
-}
-
-sub set_optional_text
-{
-	my ($target, $key, $value) = @_;
-	return if (!defined($value) || ref($value) || $value eq "");
-	$value =~ s/[\r\n]//g;
-	$target->{$key} = $value if ($value ne "");
-}
-
-sub set_optional_integer
-{
-	my ($target, $key, $value, $allow_negative) = @_;
-	return if (!defined($value) || ref($value) || $value eq "");
-	my $pattern = $allow_negative ? qr/\A-?\d+\z/ : qr/\A\d+\z/;
-	$target->{$key} = int($value) if ($value =~ $pattern);
-}
-
-sub set_optional_enum
-{
-	my ($target, $key, $value, $pattern) = @_;
-	return if (!defined($value) || ref($value) || $value eq "");
-	$target->{$key} = lc($value) if ($value =~ $pattern);
-}
-
-sub set_optional_boolean
-{
-	my ($target, $key, $value) = @_;
-	return if (!defined($value) || ref($value) || $value !~ /\A[01]\z/);
-	$target->{$key} = $value eq "1" ? JSON::PP::true : JSON::PP::false;
 }
 
 sub user_meter_source_file
@@ -2415,41 +2262,24 @@ sub validate_user_meter_source
 	return (undef, "JSONC source file does not exist", "") if (!-e $file);
 	return (undef, "JSONC source exceeds 64 KiB", "") if (-s $file > 65536);
 	my $source = read_user_meter_source($serial);
-	my $meter = eval { JSON::PP->new->utf8->relaxed(1)->decode($source) };
-	if ($@) {
-		my $error = format_json_error($source, $@);
+	my $result = parse_meter_jsonc($source);
+	if (!$result->{valid}) {
+		my %localized = (
+			object_required => $L{'VZLOGGER.UI_JSONC_OBJECT_REQUIRED'},
+			root_forbidden => $L{'VZLOGGER.UI_JSONC_ROOT_FORBIDDEN'},
+			protocol_required => $L{'VZLOGGER.UI_JSONC_PROTOCOL_REQUIRED'},
+			channels_array => $L{'VZLOGGER.UI_JSONC_CHANNELS_ARRAY'},
+			channel_object => $L{'VZLOGGER.UI_JSONC_CHANNEL_OBJECT'},
+		);
+		my $error = $localized{$result->{error_code}} || meter_jsonc_error_text($result);
 		return (undef, $error || $L{'VZLOGGER.UI_JSONC_INVALID'}, "");
 	}
-	return (undef, $L{'VZLOGGER.UI_JSONC_OBJECT_REQUIRED'}, "") if (ref($meter) ne "HASH");
-	return (undef, $L{'VZLOGGER.UI_JSONC_ROOT_FORBIDDEN'}, "") if (grep { exists($meter->{$_}) } qw(meters mqtt local push retry verbosity log));
-	return (undef, $L{'VZLOGGER.UI_JSONC_PROTOCOL_REQUIRED'}, "") if (!defined($meter->{protocol}) || ref($meter->{protocol}) || $meter->{protocol} eq "");
-	if (exists($meter->{channels})) {
-		return (undef, $L{'VZLOGGER.UI_JSONC_CHANNELS_ARRAY'}, "") if (ref($meter->{channels}) ne "ARRAY");
-		foreach my $channel (@{$meter->{channels}}) {
-			return (undef, $L{'VZLOGGER.UI_JSONC_CHANNEL_OBJECT'}, "") if (ref($channel) ne "HASH");
-		}
-	}
+	my $meter = $result->{meter};
 	my $warning = "";
 	if (defined($meter->{device}) && !ref($meter->{device}) && $meter->{device} =~ m{\A/} && !-e $meter->{device}) {
 		$warning = ui_text($L{'VZLOGGER.UI_CONFIGURED_DEVICE_MISSING'}, device => $meter->{device});
 	}
 	return ($meter, "", $warning);
-}
-
-sub format_json_error
-{
-	my ($source, $error) = @_;
-	$error ||= $L{'VZLOGGER.UI_JSONC_INVALID'};
-	$error =~ s/\s+at\s+\S+\s+line\s+\d+\.?\s*\z//;
-	if ($error =~ /character offset\s+(\d+)/i) {
-		my $offset = $1;
-		my $prefix = substr($source || "", 0, $offset);
-		my $line = 1 + ($prefix =~ tr/\n/\n/);
-		my $last_newline = rindex($prefix, "\n");
-		my $column = length($prefix) - $last_newline;
-		$error .= " (line $line, column $column)";
-	}
-	return $error;
 }
 
 sub vzlogger_supports_protocol
@@ -2488,14 +2318,6 @@ sub clean_boolean
 	my ($value, $default) = @_;
 	return int($value) if (defined($value) && $value =~ /\A[01]\z/);
 	return $default;
-}
-
-sub safe_filename
-{
-	my ($value) = @_;
-	$value ||= "";
-	$value =~ s/[^A-Za-z0-9_.:-]/_/g;
-	return $value || "unknown";
 }
 
 sub current_vzlogger_enabled
@@ -2674,10 +2496,7 @@ sub enabled_obis_channels
 sub config_list_values
 {
 	my ($key) = @_;
-	my $value = $plugin_cfg->param($key);
-	return () if (!defined($value));
-	return grep { defined($_) && $_ ne "" } @{$value} if (ref($value) eq "ARRAY");
-	return grep { $_ ne "" } split(/\s*,\s*/, $value);
+	return SmartMeterVZLoggerMeterInput::config_list($plugin_cfg, $key);
 }
 
 sub available_obis_channels
@@ -2701,23 +2520,7 @@ sub available_obis_channels
 
 sub default_obis_channels
 {
-	return (
-		{ identifier => "1-0:1.8.0", name => "Consumption_Total_OBIS_1.8.0" },
-		{ identifier => "1-0:1.8.1", name => "Consumption_Tarif1_OBIS_1.8.1" },
-		{ identifier => "1-0:1.8.2", name => "Consumption_Tarif2_OBIS_1.8.2" },
-		{ identifier => "1-0:1.7.0", name => "Consumption_Power_OBIS_1.7.0" },
-		{ identifier => "1-0:21.7.0", name => "Consumption_Power_L1_OBIS_21.7.0" },
-		{ identifier => "1-0:41.7.0", name => "Consumption_Power_L2_OBIS_41.7.0" },
-		{ identifier => "1-0:61.7.0", name => "Consumption_Power_L3_OBIS_61.7.0" },
-		{ identifier => "1-0:2.8.0", name => "Delivery_Total_OBIS_2.8.0" },
-		{ identifier => "1-0:2.8.1", name => "Delivery_Tarif1_OBIS_2.8.1" },
-		{ identifier => "1-0:2.8.2", name => "Delivery_Tarif2_OBIS_2.8.2" },
-		{ identifier => "1-0:2.7.0", name => "Delivery_Power_OBIS_2.7.0" },
-		{ identifier => "1-0:15.7.0", name => "Total_Power_OBIS_15.7.0" },
-		{ identifier => "1-0:16.7.0", name => "Total_Power_OBIS_16.7.0" },
-		{ identifier => "1-0:96.50.1", name => "Manufacturer_ID_OBIS_96.50.1" },
-		{ identifier => "1-0:96.1.0", name => "Server_ID_OBIS_96.1.0" },
-	);
+	return SmartMeterVZLoggerDiscovery::default_obis_channels();
 }
 
 sub custom_channels
@@ -2734,34 +2537,22 @@ sub custom_channels
 
 sub normalize_obis_identifier
 {
-	my ($value) = @_;
-	return normalize_obis($value);
+	return SmartMeterVZLoggerDiscovery::normalize_obis_identifier($_[0]);
 }
 
 sub obis_cache_name
 {
-	my ($identifier) = @_;
-	my %known = map { $_->{identifier} => $_->{name} } default_obis_channels();
-	return $known{$identifier} if ($known{$identifier});
-
-	my $name = $identifier;
-	$name =~ s/\A\d+-\d+://;
-	$name =~ s/[^0-9A-Za-z]+/_/g;
-	$name =~ s/^_+|_+$//g;
-	return "Custom_OBIS_$name";
+	return SmartMeterVZLoggerDiscovery::obis_cache_name($_[0]);
 }
 
 sub obis_discovery_cache_file
 {
-	my ($serial) = @_;
-	$serial =~ s/[^A-Za-z0-9_.:-]/_/g;
-	return "$lbpconfigdir/obis_channels_$serial.cache";
+	return SmartMeterVZLoggerDiscovery::discovery_cache_file($lbpconfigdir, $_[0]);
 }
 
 sub obis_discovery_cache_exists
 {
-	my ($serial) = @_;
-	return -e obis_discovery_cache_file($serial);
+	return SmartMeterVZLoggerDiscovery::discovery_cache_exists($lbpconfigdir, $_[0]);
 }
 
 sub pending_obis_channels_file
@@ -2860,27 +2651,7 @@ sub write_pending_obis_channels
 
 sub read_obis_discovery_cache
 {
-	my ($serial) = @_;
-	my $file = obis_discovery_cache_file($serial);
-	return () if (!-e $file);
-
-	my @channels;
-	my %seen;
-	if (open(my $fh, "<", $file)) {
-		while (my $line = <$fh>) {
-			chomp($line);
-			my ($identifier, $name) = split(/\t/, $line, 2);
-			$identifier = normalize_obis_identifier($identifier);
-			next if (!$identifier || $seen{$identifier});
-			push @channels, {
-				identifier => $identifier,
-				name => $name || obis_cache_name($identifier),
-			};
-			$seen{$identifier} = 1;
-		}
-		close($fh);
-	}
-	return @channels;
+	return SmartMeterVZLoggerDiscovery::read_discovery_cache($lbpconfigdir, $_[0]);
 }
 
 sub write_obis_discovery_cache
@@ -2892,60 +2663,23 @@ sub write_obis_discovery_cache
 	my %found = map { $_->{identifier} => 1 } @channels;
 	my @pending = grep { $found{$_} } keys %previous_pending;
 	push @pending, map { $_->{identifier} } grep { !$known{$_->{identifier}} } @channels;
-	my $file = obis_discovery_cache_file($serial);
-	my $tmp = "$file.$$";
-	open(my $fh, ">", $tmp) or return;
-	foreach my $channel (@channels) {
-		print $fh $channel->{identifier} . "\t" . $channel->{name} . "\n";
-	}
-	close($fh);
-	return if (!rename($tmp, $file));
+	return if (!SmartMeterVZLoggerDiscovery::write_discovery_cache($lbpconfigdir, $serial, @channels));
 	write_pending_obis_channels($serial, @pending);
 }
 
 sub is_discovery_excluded_identifier
 {
-	my ($identifier) = @_;
-	return defined($identifier) && $identifier =~ /\A1-0:(?:1|2)\.99\.0\z/;
+	return SmartMeterVZLoggerDiscovery::excluded_identifier($_[0]);
 }
 
 sub sort_obis_channels
 {
-	return sort { compare_obis_identifier($a->{identifier}, $b->{identifier}) } @_;
+	return SmartMeterVZLoggerDiscovery::sort_obis_channels(@_);
 }
 
 sub sort_obis_identifiers
 {
-	return map { $_->{identifier} } sort_obis_channels(map { { identifier => $_ } } @_);
-}
-
-sub compare_obis_identifier
-{
-	my ($left, $right) = @_;
-	my @left_parts = obis_sort_parts($left);
-	my @right_parts = obis_sort_parts($right);
-	for (my $i = 0; $i < @left_parts && $i < @right_parts; $i++) {
-		my $cmp = $left_parts[$i] <=> $right_parts[$i];
-		return $cmp if ($cmp);
-	}
-	return ($left || "") cmp ($right || "");
-}
-
-sub obis_sort_parts
-{
-	my ($identifier) = @_;
-	return (999, 999, 999, 999, 999, 999) if (!defined($identifier));
-	if ($identifier =~ /\A(\d+)-(\d+):([A-Za-z0-9]+)\.(\d+)\.(\d+)(?:\*(\d+))?\z/) {
-		my ($a, $b, $c_part, $d, $e, $f) = ($1, $2, $3, $4, $5, $6);
-		my $c = ($c_part =~ /\A\d+\z/) ? int($c_part) : 900 + ord(uc(substr($c_part, 0, 1)));
-		return (int($a), int($b), $c, int($d), int($e), defined($f) ? int($f) : 255);
-	}
-	if ($identifier =~ /\A([A-Za-z0-9]+)\.(\d+)\.(\d+)(?:\*(\d+))?\z/) {
-		my ($c_part, $d, $e, $f) = ($1, $2, $3, $4);
-		my $c = ($c_part =~ /\A\d+\z/) ? int($c_part) : 900 + ord(uc(substr($c_part, 0, 1)));
-		return (0, 0, $c, int($d), int($e), defined($f) ? int($f) : 255);
-	}
-	return (999, 999, 999, 999, 999, 999);
+	return SmartMeterVZLoggerDiscovery::sort_obis_identifiers(@_);
 }
 
 sub run_control
