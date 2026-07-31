@@ -1,0 +1,63 @@
+$ErrorActionPreference = "Stop"
+Set-StrictMode -Version Latest
+
+$repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
+$runner = Join-Path $repoRoot "tools/test.ps1"
+$checks = 0
+
+function Invoke-Plan {
+	param([string[]]$Files, [string]$BaseRef)
+	$arguments = @("-NoProfile", "-File", $runner, "-Profile", "Changed", "-Plan")
+	if ($Files) { $arguments += @("-Files") + $Files }
+	if ($BaseRef) { $arguments += @("-BaseRef", $BaseRef) }
+	$output = & pwsh @arguments 2>&1 | Out-String
+	if ($LASTEXITCODE -ne 0) {
+		throw "Runner plan failed with exit code $LASTEXITCODE`n$output"
+	}
+	return $output
+}
+
+function Assert-Match {
+	param([string]$Actual, [string]$Pattern, [string]$Message)
+	$script:checks++
+	if ($Actual -notmatch $Pattern) { throw "$Message`nPattern: $Pattern`nOutput:`n$Actual" }
+}
+
+function Assert-NotMatch {
+	param([string]$Actual, [string]$Pattern, [string]$Message)
+	$script:checks++
+	if ($Actual -match $Pattern) { throw "$Message`nUnexpected pattern: $Pattern`nOutput:`n$Actual" }
+}
+
+Push-Location $repoRoot
+try {
+	$docs = Invoke-Plan -Files @("docs/development/test-strategy.md")
+	Assert-Match $docs "TEST documentation-links" "Documentation changes select documentation checks."
+	Assert-NotMatch $docs "(?:DEVICE|BROWSER) " "Developer documentation does not request device or browser checks."
+
+	$module = Invoke-Plan -Files @("bin/SmartMeterVZLoggerChannels.pm")
+	Assert-Match $module "SYNTAX perl bin/SmartMeterVZLoggerChannels\.pm" "Perl modules receive a changed-file syntax check."
+	Assert-Match $module "TEST vzlogger-channels" "Channel modules select channel regression tests."
+	Assert-NotMatch $module "Profile: Changed \(full fallback\)" "Known modules do not fall back to the full suite."
+
+	$ui = Invoke-Plan -Files @("webfrontend/htmlauth/smartmeter-v4.css")
+	Assert-Match $ui "BROWSER .*full matrix" "Shared CSS reports the risk-based full-matrix decision."
+	$template = Invoke-Plan -Files @("templates/settings.html")
+	Assert-NotMatch $template "Profile: Changed \(full fallback\)" "Known root templates use targeted UI checks."
+	Assert-Match $template "TEST ui-v4" "Known root templates select UI regressions."
+
+	$lifecycle = Invoke-Plan -Files @("postroot.sh")
+	Assert-Match $lifecycle "SYNTAX shell postroot\.sh" "Lifecycle shell files receive syntax checks."
+	Assert-Match $lifecycle "DEVICE .*lifecycle scenarios" "Lifecycle changes report targeted device evidence."
+
+	$fallback = Invoke-Plan -Files @("bin/new_runtime.pl")
+	Assert-Match $fallback "Profile: Changed \(full fallback\)" "Unknown runtime files fall back to the full suite."
+	Assert-Match $fallback "TEST test-runner" "The full fallback includes runner self-tests."
+
+	$base = Invoke-Plan -BaseRef "HEAD"
+	Assert-Match $base "Profile: Changed" "An explicit base reference is accepted."
+} finally {
+	Pop-Location
+}
+
+Write-Output "Test-runner selection tests passed ($checks checks)."

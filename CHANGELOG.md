@@ -6,6 +6,7 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ### Fixed
 
+- Make development verification change-driven and reproducible through a shared test runner while limiting LoxBerry and browser acceptance to affected target-specific behavior.
 - Correct and synchronize the German and English user documentation, including OMS discovery, Legacy upgrade guidance, UI labels, prerequisites, MQTT setup, backups, navigation, and tested-support boundaries.
 - Prevent independent OBIS-discovery and bridge-fallback background processes from retaining the completed parent action's configuration lock.
 - Use the full available width for the Loxone copy-and-paste instructions and clarify how to transfer the displayed recovery settings into Loxone Config.

@@ -18,6 +18,7 @@ Changes to a normative contract require review, a recorded rationale, and matchi
 
 ## Procedures
 
+- [Change-driven test strategy](test-strategy.md)
 - [LoxBerry test-device workflow](test-device-workflow.md)
 - [Local development packages](local-builds.md)
 - [Release process](release-process.md)

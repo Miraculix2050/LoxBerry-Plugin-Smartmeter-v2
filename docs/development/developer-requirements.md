@@ -136,8 +136,8 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 ## 11. Verification And Documentation
 
 - **SM-VER-001** — Regression tests belong under `tests/`, must be deterministic and reusable, and should test shared modules without requiring a live MQTT broker or production filesystem where possible.
-- **SM-VER-002** — Run the repository Perl/PHP/shell checks appropriate to changed files. Installed behavior must additionally be deployed and verified on the disposable LoxBerry according to `test-device-workflow.md`.
-- **SM-VER-003** — UI changes require authenticated Chrome and Firefox checks on the vzLogger page at `1280x800` and `390x844`; Chrome additionally covers `360x800` and `320x568` smoke checks. Verify keyboard reachability, overflow, clipping, relevant interactions, and browser-console errors. Lifecycle changes require the install/upgrade/uninstall evidence in `lifecycle-test-expectations.md`.
+- **SM-VER-002** — Testing is triggered by actual development changes, never by a periodic schedule. Run changed-file checks during development and the complete deterministic suite for pull requests and `master`. Deploy to the disposable LoxBerry only when the diff crosses a target-specific boundary that deterministic tests cannot prove, as selected by `test-strategy.md` and executed through `test-device-workflow.md`.
+- **SM-VER-003** — Browser verification is risk-based. Executable CGI/navigation changes require an authenticated Chrome desktop smoke through the normal LoxBerry path. UI behavior without layout impact requires the changed workflow in Chrome at `1280x800` and `390x844`. Translation-only changes require both languages at the primary mobile size, with additional sizes only for wrapping risk. Shared layout, responsive, navigation, dialog, control, or browser-sensitive changes require Chrome and Firefox at `1280x800` and `390x844`, plus Chrome smoke checks at `360x800` and `320x568`. Limit keyboard, overflow, clipping, interaction, console, screenshot, and log checks to affected behavior. Lifecycle changes require only the affected evidence from `lifecycle-test-expectations.md`.
 - **SM-VER-004** — Preserve remote configuration and service state during tests. Verify checksums around failed, concurrent, or read-only actions.
 - **SM-VER-005** — Update both user guides and `CHANGELOG.md` when behavior, configuration, dependencies, compatibility, or upgrade steps change. Record confirmed limitations in `../known-limitations.md` rather than presenting them as supported.
 - **SM-VER-006** — Local packages and official releases follow `local-builds.md` and `release-process.md`; suffixless release archives are produced only by the GitHub release workflow.
@@ -147,6 +147,7 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 
 - User-visible behavior: `../User-Guide.de.md` and `../User-Guide.en.md`
 - Installed-device and browser verification: `test-device-workflow.md`
+- Test selection and risk model: `test-strategy.md`
 - Lifecycle acceptance: `lifecycle-test-expectations.md`
 - Compatibility evidence: `../support-matrix.md`; limitations: `../known-limitations.md`
 - Release procedure: `release-process.md`
