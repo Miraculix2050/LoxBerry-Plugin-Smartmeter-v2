@@ -39,6 +39,8 @@ Vorlagen beruhen auf Projekterfahrung. Prüfe die Werte gegen die Dokumentation 
 - **Aggregationszeit (`aggtime`):** `-1` deaktiviert Aggregation. Ein positiver Wert sammelt Messwerte für die Kanalauswertung.
 - **Feste Aggregationsintervalle:** Wirksam nur bei positiver Aggregationszeit.
 
+Bei D0 bezeichnet **Lese-Timeout** die zulässige Zeit ohne neue Eingabedaten oder Zustandsänderung; der Wert muss mindestens 1 Sekunde betragen. **Synchronisation abwarten** ist für selbstständig sendende D0-Zähler ohne `pullseq` vorgesehen und wartet einmalig auf das Zeichen `!`. OMS benötigt einen AES-Schlüssel mit genau 32 Hex-Zeichen.
+
 Leere optionale Felder werden nicht in `vzlogger.conf` geschrieben. Das Standardformular verwendet immer den erkannten lokalen Gerätepfad. Verwende für TCP-Meter den benutzerdefinierten JSONC-Modus.
 
 ## MQTT für den ersten Betrieb einrichten
@@ -48,7 +50,7 @@ MQTT veröffentlicht die normalen Kanalmesswerte und liefert der optionalen Smar
 1. Schalte **MQTT aktiv** ein.
 2. Lasse **MQTT-Broker**, **MQTT-Port** und **MQTT-Benutzer** leer, wenn der in LoxBerry konfigurierte Broker verwendet werden soll. Das Plugin übernimmt dann die LoxBerry-Systemwerte einschließlich des Systempassworts.
 3. Trage eigene Werte nur ein, wenn vzLogger einen anderen Broker oder eigene Zugangsdaten verwenden soll. Ein leeres Passwortfeld behält das bereits gespeicherte Passwort bei.
-4. Verwende ein einfaches **MQTT-Basis-Topic**, zum Beispiel `smartmeter`. vzLogger veröffentlicht darunter automatisch auf `<Basis-Topic>/vzlogger`.
+4. Verwende ein einfaches **MQTT-Basis-Topic**, zum Beispiel `smartmeter`. vzLogger veröffentlicht darunter automatisch auf `<Basis-Topic>/vzlogger`. Das Basis-Topic darf nicht leer sein, nicht mit `$` beginnen, nicht mit `/` enden und keine MQTT-Wildcards `+` oder `#` enthalten.
 5. Lasse **Zeitstempel** eingeschaltet, wenn die Bridge **Unix- und Loxone-Timestamp über MQTT veröffentlichen** soll. HTTP-Cache und UDP können auch ohne Quell-Zeitstempel arbeiten.
 6. Verwende TLS-Zertifikatsfelder nur, wenn dein Broker TLS verlangt. Prüfe dann, ob CA-, Zertifikats- und Schlüsseldateien für den Dienst lesbar sind; deaktiviere die Zertifikatsprüfung nicht ohne begründeten Bedarf.
 
@@ -86,6 +88,8 @@ Jeder Kanal besitzt eine UUID und einen OBIS-Identifier. Du kannst:
 - bei aktiver Meter-Aggregation `none`, `avg`, `max` oder `sum` wählen;
 - ein direktes vzLogger-API-Ziel konfigurieren;
 - **In SmartMeter ausgeben** aktivieren.
+
+Bei API-spezifischen Zielparametern zeigt die Oberfläche zuerst einen verständlichen lokalisierten Namen und darunter den unveränderten vzLogger-Identifier, zum Beispiel `measurement_name` oder `secretKey`. Diese Identifier und API-Werte werden nicht übersetzt. Für MySmartGrid akzeptiert `type` ausschließlich `device` oder `sensor`.
 
 **In SmartMeter ausgeben** stellt den Kanal den aktivierten Bridge-Ausgaben bereit. HTTP-Cache und UDP können unabhängig voneinander eingeschaltet werden. Der Ausgabeschlüssel ist der einzige über Cache und UDP verwendete Name und muss pro Lesekopf ohne Beachtung der Groß-/Kleinschreibung eindeutig sein.
 

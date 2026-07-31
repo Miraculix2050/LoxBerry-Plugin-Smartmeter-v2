@@ -39,6 +39,8 @@ Templates are based on project experience. Check their values against your meter
 - **Aggregation time (`aggtime`):** `-1` disables aggregation. A positive value collects readings for channel processing.
 - **Fixed aggregation intervals:** Effective only with a positive aggregation time.
 
+For D0, **Read timeout** is the allowed time without new input data or a state change; it must be at least 1 second. **Wait for synchronization** is intended for automatically sending D0 meters without `pullseq` and waits once for the `!` character. OMS requires an AES key containing exactly 32 hexadecimal characters.
+
 Empty optional fields are omitted from `vzlogger.conf`. The standard form always uses the detected local device path. Use custom JSONC for a TCP-backed meter.
 
 ## Set up MQTT for first use
@@ -48,7 +50,7 @@ MQTT publishes the normal channel readings and provides source data for the opti
 1. Switch on **MQTT enabled**.
 2. Leave **MQTT broker**, **MQTT port**, and **MQTT user** empty when vzLogger should use the broker configured in LoxBerry. The plugin then inherits the LoxBerry system values, including its system password.
 3. Enter custom values only when vzLogger should use another broker or separate credentials. An empty password field preserves the stored password.
-4. Use a simple **MQTT base topic**, for example `smartmeter`. vzLogger automatically publishes below `<base-topic>/vzlogger`.
+4. Use a simple **MQTT base topic**, for example `smartmeter`. vzLogger automatically publishes below `<base-topic>/vzlogger`. The base topic must not be empty, start with `$`, end with `/`, or contain the MQTT wildcards `+` or `#`.
 5. Keep **Timestamp** enabled when the bridge should **Publish Unix and Loxone timestamps by MQTT**. HTTP cache and UDP can operate without source timestamps.
 6. Use the TLS certificate fields only when your broker requires TLS. Confirm that the CA, certificate, and key files are readable by the service; do not disable certificate verification without a specific reason.
 
@@ -86,6 +88,8 @@ Each channel has a UUID and OBIS identifier. You can:
 - select `none`, `avg`, `max`, or `sum` when meter aggregation is active;
 - configure a direct vzLogger API target;
 - enable **Output in SmartMeter**.
+
+For API-specific target parameters, the UI shows a readable localized name first and the unchanged vzLogger identifier below it, for example `measurement_name` or `secretKey`. These identifiers and API values are not translated. For MySmartGrid, `type` accepts only `device` or `sensor`.
 
 **Output in SmartMeter** makes the channel available to enabled bridge outputs. HTTP cache and UDP can be enabled independently. The output key is the only name used through cache and UDP and must be unique per reading head without regard to case.
 

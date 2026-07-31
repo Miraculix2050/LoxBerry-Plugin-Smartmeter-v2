@@ -119,6 +119,7 @@ change. The available CSS viewport profiles are:
 | Profile | Viewport | Required use |
 | --- | --- | --- |
 | Desktop | `1280x800` | Full desktop workflow and changed interactions |
+| Desktop compact | `900x768` | Shared/responsive layout and framed multi-column content |
 | Mobile primary | `390x844` | Full mobile workflow and changed interactions |
 | Mobile compact | `360x800` | Layout, navigation, forms, and long labels |
 | Mobile minimum | `320x568` | Graceful layout only; no clipped or unreachable plugin functions |
@@ -128,9 +129,9 @@ Use an authenticated browser session and reach the page through the normal plugi
 The full responsive browser matrix, required only for shared layout, responsive,
 navigation, dialog, control, or browser-sensitive changes, is:
 
-- Chrome: full Desktop (`1280x800`) and Mobile primary (`390x844`) checks;
+- Chrome: full Desktop (`1280x800`), Desktop compact (`900x768`), and Mobile primary (`390x844`) checks;
 - Chrome: additional Mobile compact (`360x800`) and Mobile minimum (`320x568`) smoke checks; and
-- both full viewport checks: basic keyboard reachability and inspection for relevant console errors.
+- all three full viewport checks: basic keyboard reachability and inspection for relevant console errors.
 
 Before accepting a viewport result, verify the effective CSS dimensions in the
 page (`window.innerWidth`, `window.innerHeight`, and
@@ -141,6 +142,7 @@ Acceptance requires:
 
 - identical available functions and information on desktop and mobile;
 - no plugin-caused horizontal page scrolling (`document.documentElement.scrollWidth <= document.documentElement.clientWidth`), excluding closed off-canvas LoxBerry side/help panels;
+- no changed framed component extending beyond its visible ancestor, verified from bounding rectangles even when an ancestor clips overflow and the page itself reports no horizontal scrolling;
 - no clipped or overlapping labels, controls, status text, paths, identifiers, or URLs;
 - usable navigation, forms, collapsibles, dialogs, and action buttons without zooming;
 - safe wrapping or stacking of tables and multi-column form rows; and

@@ -26,6 +26,17 @@ my $valid = validate_expert_text($text);
 ok($valid->{valid}, "valid expert configuration passes");
 like(join("\n", @{$valid->{warnings}}), qr/upstream_extension/, "unknown root keys are warnings");
 
+for my $topic_case (
+	['$system/topic', qr/must not start with \$/i, "Expert Mode rejects MQTT system topics"],
+	['smartmeter/', qr/must not end with \//i, "Expert Mode rejects trailing MQTT topic separators"],
+) {
+	my $topic_config = JSON::PP->new->decode(JSON::PP->new->encode($config));
+	$topic_config->{mqtt}->{topic} = $topic_case->[0];
+	my $topic_result = validate_expert_text(JSON::PP->new->encode($topic_config));
+	ok(!$topic_result->{valid}, $topic_case->[2]);
+	like(join("\n", @{$topic_result->{errors}}), $topic_case->[1], "$topic_case->[2] with a precise error");
+}
+
 my $invalid = validate_expert_text('{"meters": [}');
 ok(!$invalid->{valid}, "invalid JSON is retained as an invalid draft");
 like($invalid->{errors}->[0], qr/not valid JSON/, "JSON error is reported without content");

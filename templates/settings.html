@@ -1,9 +1,9 @@
-<link rel="stylesheet" href="./smartmeter-v4.css?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>">
-<link rel="stylesheet" href="./smartmeter-vzlogger.css?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>">
-<script src="./smartmeter-ui.js?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>"></script>
-<script src="./smartmeter-vzlogger.js?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>"></script>
+<link rel="stylesheet" href="./smartmeter-v4.css?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_V4_CSS ESCAPE=URL>">
+<link rel="stylesheet" href="./smartmeter-vzlogger.css?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_VZLOGGER_CSS ESCAPE=URL>">
+<script src="./smartmeter-ui.js?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_UI_JS ESCAPE=URL>"></script>
+<script src="./smartmeter-vzlogger.js?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_VZLOGGER_JS ESCAPE=URL>"></script>
 <div class="lb-content smartmeter-page">
-<link rel="stylesheet" href="./smartmeter-settings.css?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>">
+<link rel="stylesheet" href="./smartmeter-settings.css?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_SETTINGS_CSS ESCAPE=URL>">
 
 
 <!-- ****************************************************************************************** -->
@@ -119,7 +119,7 @@
 			<td class="service-help"><TMPL_VAR NAME=VZLOGGER.RECOVERY_ALLOWED_IPS_HELP></td>
 		</tr>
 		<tr>
-			<td class="service-label"><TMPL_VAR NAME=VZLOGGER.RECOVERY_TOKEN></td>
+			<td class="service-label"><label for="recovery_plain_token"><TMPL_VAR NAME=VZLOGGER.RECOVERY_TOKEN></label></td>
 			<td class="service-controls">
 				<span id="recovery_token_status"><TMPL_IF RECOVERY_TOKEN_PRESENT><TMPL_VAR NAME=VZLOGGER.RECOVERY_TOKEN_CONFIGURED><TMPL_ELSE><TMPL_VAR NAME=VZLOGGER.RECOVERY_TOKEN_MISSING></TMPL_IF></span>
 				<div id="recovery_token_output" class="recovery-token-output" hidden><input id="recovery_plain_token" type="text" readonly autocomplete="off"><button type="button" onclick="copy_recovery_token();"><TMPL_VAR NAME=VZLOGGER.RECOVERY_COPY_TOKEN></button></div>
@@ -188,12 +188,13 @@
 	<div class="service-control-log"><span><TMPL_VAR NAME=VZLOGGER.SERVICE_CONTROL_LOG_LABEL></span> <a href="<TMPL_VAR CONTROL_LOG_URL ESCAPE=HTML>" target="log" class="<TMPL_VAR CONTROL_LOG_DISABLED ESCAPE=HTML>"><TMPL_VAR NAME=VZLOGGER.SHOW_CONTROL_LOG></a></div>
 
 	<div id="vzlogger_configuration_section" class="configuration-section <TMPL_IF VZLOGGER_EXPERT_MODE>configuration-disabled</TMPL_IF>">
-	<div class="configuration-heading"><h2><TMPL_VAR NAME=VZLOGGER.VZLOGGER_CONFIGURATION></h2><span class="expert-mode-control"><span><TMPL_VAR NAME=VZLOGGER.EXPERT_MODE></span><input id="expert_mode_value" type="hidden" value="<TMPL_VAR VZLOGGER_EXPERT_MODE_VALUE>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.EXPERT_MODE>"><input id="expert_mode" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" onchange="smartmeterSyncToggle(this); set_expert_mode(smartmeterToggleValue(this));"><span class="lb-toggle-slider" aria-hidden="true"></span></label></span></div>
+	<div class="configuration-heading"><h2><TMPL_VAR NAME=VZLOGGER.VZLOGGER_CONFIGURATION></h2><span class="expert-mode-control"><span><TMPL_VAR NAME=VZLOGGER.EXPERT_MODE></span><input id="expert_mode_value" type="hidden" value="<TMPL_VAR VZLOGGER_EXPERT_MODE_VALUE>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.EXPERT_MODE>"><input id="expert_mode" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1" aria-describedby="expert_mode_help expert_mode_notice" onchange="smartmeterSyncToggle(this); set_expert_mode(smartmeterToggleValue(this));"><span class="lb-toggle-slider" aria-hidden="true"></span></label></span></div>
+	<p id="expert_mode_help" class="expert-mode-help"><TMPL_VAR NAME=VZLOGGER.EXPERT_MODE_HELP></p>
 	<p id="expert_mode_notice" class="expert-mode-notice"<TMPL_IF VZLOGGER_EXPERT_MODE><TMPL_ELSE> hidden</TMPL_IF>><TMPL_VAR NAME=VZLOGGER.EXPERT_MODE_ACTIVE_HELP></p>
 	<p><TMPL_VAR NAME=VZLOGGER.VZLOGGER_CONFIGURATION_HELP></p>
 	<table border="0" class="settings-table">
 	<tr>
-		<td colspan="4">
+		<td colspan="4" class="collapsible-cell">
 			<details id="advanced_service_settings_panel" class="lb-collapsible">
 				<summary><TMPL_VAR NAME=VZLOGGER.ADVANCED_SERVICE_SETTINGS></summary>
 				<div class="lb-collapsible-content">
@@ -210,7 +211,7 @@
 		</td>
 	</tr>
 	<tr>
-		<td colspan="4">
+		<td colspan="4" class="collapsible-cell">
 			<details id="local_settings_panel" class="lb-collapsible">
 				<summary><TMPL_VAR NAME=VZLOGGER.LOCAL_SETTINGS></summary>
 				<div class="lb-collapsible-content">
@@ -253,7 +254,7 @@
 		</td>
 	</tr>
 	<tr>
-		<td colspan="4">
+		<td colspan="4" class="collapsible-cell">
 			<details id="mqtt_settings_panel" class="lb-collapsible">
 				<summary><TMPL_VAR NAME=VZLOGGER.MQTT_SETTINGS></summary>
 				<div class="lb-collapsible-content">
@@ -283,7 +284,7 @@
 				</tr>
 				<tr>
 					<td><label for="mqtttopic"><TMPL_VAR NAME=VZLOGGER.MQTT_BASE_TOPIC></label><span class="config-key"><code>mqtt.topic</code></span></td>
-					<td><input id="mqtttopic" name="mqtttopic" type="text" class="textfield" value="<TMPL_VAR MQTTTOPIC ESCAPE=HTML>" data-validation="custom" data-validation-regexp="^[^#+]+$"></td>
+					<td><input id="mqtttopic" name="mqtttopic" type="text" class="textfield" value="<TMPL_VAR MQTTTOPIC ESCAPE=HTML>" required data-validation="custom" data-validation-regexp="^(?!\$)(?!.*\/$)[^#+]+$"></td>
 					<td>&nbsp;</td><td><font size="-1"><TMPL_VAR NAME=VZLOGGER.MQTT_BASE_TOPIC_HELP></font></td>
 				</tr>
 				<tr>
@@ -366,7 +367,7 @@
 		<td>&nbsp;</td><td><a id="rescan_ir_heads" title="<TMPL_VAR NAME=VZLOGGER.RESCAN_IR_HEADS_HELP>" href="./index.cgi?rescan=1" onclick="return start_ir_head_scan(event);"><TMPL_VAR NAME=VZLOGGER.RESCAN_IR_HEADS></a></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.RESCAN_IR_HEADS_HELP></td>
 	</tr>
 	<TMPL_LOOP NAME=ROWS>
-	<tr id="meter_row_<TMPL_VAR NAME=SERIAL>" class="meter-row" data-meter-serial="<TMPL_VAR NAME=SERIAL ESCAPE=HTML>"><td colspan="4">
+	<tr id="meter_row_<TMPL_VAR NAME=SERIAL>" class="meter-row" data-meter-serial="<TMPL_VAR NAME=SERIAL ESCAPE=HTML>"><td colspan="4" class="collapsible-cell">
 		<details id="meter_<TMPL_VAR NAME=SERIAL>" class="meter-panel lb-collapsible" <TMPL_IF NAME=COLLAPSED><TMPL_ELSE>open</TMPL_IF> data-warning-kind="<TMPL_VAR NAME=WARNING_KIND>" data-oms-supported="<TMPL_VAR NAME=OMS_SUPPORTED>" data-current-mode="<TMPL_VAR NAME=METER>" data-meter-enabled="<TMPL_VAR NAME=METER_ENABLED>" data-allowskip="<TMPL_VAR NAME=ALLOWSKIP>" data-aggfixedinterval="<TMPL_VAR NAME=AGGFIXEDINTERVAL>" data-parity="<TMPL_VAR NAME=PARITYMODE>" data-local-time="<TMPL_VAR NAME=USELOCALTIME>" data-wait-sync="<TMPL_VAR NAME=WAITSYNC>" data-mbus-debug="<TMPL_VAR NAME=MBUSDEBUG>">
 			<summary>
 				<TMPL_VAR NAME=NAME ESCAPE=HTML>
@@ -397,10 +398,10 @@
 			<tr class="meter-field" data-meter-field="ackseq" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_ackseq"><TMPL_VAR NAME=VZLOGGER.METER_ACKSEQ></label><span class="config-key"><code>meters[].ackseq</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_ackseq" name="<TMPL_VAR NAME=SERIAL>_ackseq" type="text" value="<TMPL_VAR NAME=ACKSEQ ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_ACKSEQ_HELP></td></tr>
 			<tr class="meter-field" data-meter-field="baudrate_read" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_baudrateread"><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_READ></label><span class="config-key"><code>meters[].baudrate_read</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_baudrateread" name="<TMPL_VAR NAME=SERIAL>_baudrateread" type="number" min="1" value="<TMPL_VAR NAME=BAUDRATEREAD>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_READ_HELP></td></tr>
 			<tr class="meter-field" data-meter-field="wait_sync" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_waitsync"><TMPL_VAR NAME=VZLOGGER.METER_WAIT_SYNC></label><span class="config-key"><code>meters[].wait_sync</code></span></td><td><select id="<TMPL_VAR NAME=SERIAL>_waitsync" name="<TMPL_VAR NAME=SERIAL>_waitsync"><option value=""><TMPL_VAR NAME=VZLOGGER.METER_AUTO_EMPTY></option><option value="off">off</option><option value="end">end</option></select></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_WAIT_SYNC_HELP></td></tr>
-			<tr class="meter-field" data-meter-field="read_timeout" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_readtimeout"><TMPL_VAR NAME=VZLOGGER.METER_READ_TIMEOUT></label><span class="config-key"><code>meters[].read_timeout</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_readtimeout" name="<TMPL_VAR NAME=SERIAL>_readtimeout" type="number" min="0" value="<TMPL_VAR NAME=READTIMEOUT>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_READ_TIMEOUT_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="read_timeout" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_readtimeout"><TMPL_VAR NAME=VZLOGGER.METER_READ_TIMEOUT></label><span class="config-key"><code>meters[].read_timeout</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_readtimeout" name="<TMPL_VAR NAME=SERIAL>_readtimeout" type="number" min="1" value="<TMPL_VAR NAME=READTIMEOUT>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_READ_TIMEOUT_HELP></td></tr>
 			<tr class="meter-field" data-meter-field="baudrate_change_delay" data-protocols="d0"><td><label for="<TMPL_VAR NAME=SERIAL>_baudratechangedelay"><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_CHANGE_DELAY></label><span class="config-key"><code>meters[].baudrate_change_delay</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_baudratechangedelay" name="<TMPL_VAR NAME=SERIAL>_baudratechangedelay" type="number" min="0" value="<TMPL_VAR NAME=BAUDRATECHANGEDELAY>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_BAUDRATE_CHANGE_DELAY_HELP></td></tr>
 
-			<tr class="meter-field" data-meter-field="key" data-protocols="oms"><td><label for="<TMPL_VAR NAME=SERIAL>_omskey"><TMPL_VAR NAME=VZLOGGER.METER_OMS_KEY></label><span class="config-key"><code>meters[].key</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_omskey" name="<TMPL_VAR NAME=SERIAL>_omskey" type="password" autocomplete="off" maxlength="32" value="<TMPL_VAR NAME=OMSKEY ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_OMS_KEY_HELP></td></tr>
+			<tr class="meter-field" data-meter-field="key" data-protocols="oms"><td><label for="<TMPL_VAR NAME=SERIAL>_omskey"><TMPL_VAR NAME=VZLOGGER.METER_OMS_KEY></label><span class="config-key"><code>meters[].key</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_omskey" name="<TMPL_VAR NAME=SERIAL>_omskey" type="password" autocomplete="off" minlength="32" maxlength="32" pattern="[A-Fa-f0-9]{32}" data-required-protocol="oms" value="<TMPL_VAR NAME=OMSKEY ESCAPE=HTML>"></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_OMS_KEY_HELP></td></tr>
 			<tr class="meter-field" data-meter-field="mbus_debug" data-protocols="oms"><td><label for="<TMPL_VAR NAME=SERIAL>_mbusdebug"><TMPL_VAR NAME=VZLOGGER.METER_MBUS_DEBUG></label><span class="config-key"><code>meters[].mbus_debug</code></span></td><td><input id="<TMPL_VAR NAME=SERIAL>_mbusdebug_value" name="<TMPL_VAR NAME=SERIAL>_mbusdebug" type="hidden" value="<TMPL_VAR NAME=MBUSDEBUG>"><label class="lb-toggle" aria-label="<TMPL_VAR NAME=VZLOGGER.METER_MBUS_DEBUG>"><input id="<TMPL_VAR NAME=SERIAL>_mbusdebug" class="smartmeter-toggle-input" type="checkbox" data-off-value="0" data-on-value="1"><span class="lb-toggle-slider" aria-hidden="true"></span></label></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_MBUS_DEBUG_HELP></td></tr>
 
 			<tr class="meter-user-settings"><td><label for="<TMPL_VAR NAME=SERIAL>_userjson"><TMPL_VAR NAME=VZLOGGER.METER_USER_JSON></label></td><td><textarea class="meter-json-editor" id="<TMPL_VAR NAME=SERIAL>_userjson" name="<TMPL_VAR NAME=SERIAL>_userjson" maxlength="65536"><TMPL_VAR NAME=USER_JSON ESCAPE=HTML></textarea><div class="meter-doc-links"><a href="https://wiki.volkszaehler.org/software/controller/vzlogger/vzlogger_conf_parameter" target="_blank" rel="noopener"><TMPL_VAR NAME=VZLOGGER.METER_USER_JSON_DOCS></a> · <a href="https://github.com/volkszaehler/vzlogger/tree/master/etc" target="_blank" rel="noopener"><TMPL_VAR NAME=VZLOGGER.METER_USER_JSON_EXAMPLES></a></div></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.METER_USER_JSON_HELP></td></tr>
@@ -421,7 +422,7 @@
 	<p><TMPL_VAR NAME=VZLOGGER.BRIDGE_CONFIGURATION_HELP></p>
 	<table border="0" class="settings-table">
 	<tr>
-		<td colspan="4">
+		<td colspan="4" class="collapsible-cell">
 			<details id="bridge_settings_panel" class="lb-collapsible">
 				<summary><TMPL_VAR NAME=VZLOGGER.BRIDGE_SETTINGS></summary>
 				<div class="lb-collapsible-content">
@@ -630,6 +631,19 @@
 			interval: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_INTERVAL_HELP ESCAPE=JS>", scaler: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_SCALER_HELP ESCAPE=JS>",
 			name: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_REGISTRATION_NAME_HELP ESCAPE=JS>"
 		};
+		var api_field_labels = {
+			middleware: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_MIDDLEWARE_LABEL ESCAPE=JS>", timeout: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_TIMEOUT_LABEL ESCAPE=JS>",
+			version: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_VERSION_LABEL ESCAPE=JS>", host: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_HOST_LABEL ESCAPE=JS>",
+			database: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_DATABASE_LABEL ESCAPE=JS>", organization: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_ORGANIZATION_LABEL ESCAPE=JS>",
+			measurement_name: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_MEASUREMENT_LABEL ESCAPE=JS>", tags: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_TAGS_LABEL ESCAPE=JS>",
+			token: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_TOKEN_LABEL ESCAPE=JS>", username: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_USERNAME_LABEL ESCAPE=JS>",
+			password: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_PASSWORD_LABEL ESCAPE=JS>", max_batch_inserts: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_BATCH_LABEL ESCAPE=JS>",
+			max_buffer_size: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_BUFFER_LABEL ESCAPE=JS>", send_uuid: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_SEND_UUID_LABEL ESCAPE=JS>",
+			ssl_verifypeer: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_TLS_LABEL ESCAPE=JS>", secretKey: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_SECRET_LABEL ESCAPE=JS>",
+			device: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_DEVICE_LABEL ESCAPE=JS>", type: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_TYPE_LABEL ESCAPE=JS>",
+			interval: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_INTERVAL_LABEL ESCAPE=JS>", scaler: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_API_SCALER_LABEL ESCAPE=JS>",
+			name: "<TMPL_VAR NAME=VZLOGGER.CHANNEL_MSG_NAME ESCAPE=JS>"
+		};
 
 		var saved_vzlogger_enabled = "<TMPL_VAR VZLOGGER_ENABLED>";
 		var initial_vzlogger_enabled = "<TMPL_VAR VZLOGGER_ENABLED>";
@@ -648,12 +662,12 @@
 		};
 		var meter_templates = <TMPL_VAR NAME=METER_TEMPLATES_JSON>;
 	</script>
-<script src="./smartmeter-channel-model.js?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>"></script>
-<script src="./smartmeter-settings-services.js?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>"></script>
-<script src="./smartmeter-settings-discovery.js?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>"></script>
-<script src="./smartmeter-settings-channels.js?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>"></script>
-<script src="./smartmeter-settings-config.js?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>"></script>
-<script src="./smartmeter-settings.js?v=<TMPL_VAR NAME=ASSET_VERSION ESCAPE=URL>"></script>
+<script src="./smartmeter-channel-model.js?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_CHANNEL_MODEL_JS ESCAPE=URL>"></script>
+<script src="./smartmeter-settings-services.js?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_SETTINGS_SERVICES_JS ESCAPE=URL>"></script>
+<script src="./smartmeter-settings-discovery.js?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_SETTINGS_DISCOVERY_JS ESCAPE=URL>"></script>
+<script src="./smartmeter-settings-channels.js?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_SETTINGS_CHANNELS_JS ESCAPE=URL>"></script>
+<script src="./smartmeter-settings-config.js?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_SETTINGS_CONFIG_JS ESCAPE=URL>"></script>
+<script src="./smartmeter-settings.js?v=<TMPL_VAR NAME=ASSET_VERSION_SMARTMETER_SETTINGS_JS ESCAPE=URL>"></script>
 </TMPL_IF>
 </div>
 

@@ -4,6 +4,7 @@
 		var obis_poll_failures = 0;
 		var service_poll_timer = null;
 		var service_poll_in_flight = false;
+		var service_details_loaded = false;
 		var service_action_running = false;
 		var service_action_timeout_timer = null;
 		var service_action_feedback_timer = null;
@@ -120,6 +121,7 @@
 
 		function render_service_snapshot(response) {
 			if (!response || !response.services) return;
+			if (response.config) service_details_loaded = true;
 			var merged = SmartMeterSettingsServices.mergeSnapshot(last_service_snapshot, response, expert_mode_active, {
 				expert_runtime_applied: expert_runtime_applied,
 				expert_mqtt_enabled: expert_mqtt_enabled,
@@ -146,7 +148,8 @@
 				return;
 			}
 			service_poll_in_flight = true;
-			var status_url = SmartMeterSettingsServices.statusUrl(!last_service_snapshot, ui_language);
+			var request_details = !!last_service_snapshot && !service_details_loaded;
+			var status_url = SmartMeterSettingsServices.statusUrl(request_details, ui_language);
 			fetch(status_url, { credentials: "same-origin", cache: "no-store" })
 				.then(function (response) {
 					if (!response.ok) throw new Error("HTTP " + response.status);
@@ -156,7 +159,8 @@
 				.catch(function () {})
 				.then(function () {
 					service_poll_in_flight = false;
-					schedule_service_poll();
+					if (!request_details && last_service_snapshot && !service_details_loaded) poll_service_status();
+					else schedule_service_poll();
 				});
 		}
 
@@ -668,8 +672,12 @@
 		function html_text(value) {
 			return String(value == null ? "" : value).replace(/[&<>"']/g, function (c) { return {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]; });
 		}
-		function channel_help_html(value) { return value ? '<small class="obis-channel-help">'+html_text(value)+'</small>' : ''; }
+		function channel_help_html(value, id) { return value ? '<small'+(id?' id="'+html_text(id)+'"':'')+' class="obis-channel-help">'+html_text(value)+'</small>' : ''; }
 		function config_key_html(value) { return '<small class="config-key"><code>'+html_text(value)+'</code></small>'; }
+		function channel_control_prefix(serial, channel, index) {
+			return ('channel_'+serial+'_'+(channel.uuid||index)).replace(/[^A-Za-z0-9_-]/g, '_');
+		}
+		function channel_described_by(help, id) { return help ? ' aria-describedby="'+html_text(id)+'"' : ''; }
 		function channel_uuid() {
 			if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
 			return "xxxxxxxx-xxxx-4xxx-axxx-xxxxxxxxxxxx".replace(/x/g, function () { return Math.floor(Math.random() * 16).toString(16); });
@@ -714,12 +722,16 @@
 			if (channel_definitions_sync_timer) window.clearTimeout(channel_definitions_sync_timer);
 			channel_definitions_sync_timer = window.setTimeout(sync_channel_definitions, 200);
 		}
-		function api_option_fields(api, options) {
+		function api_option_fields(api, options, prefix) {
 			var fields = [];
-			if (api === "volkszaehler") fields = [["middleware","Middleware",true],["timeout","Timeout",false]];
-			if (api === "influxdb") fields = [["version","Version (1 / 2)"],["host","Host",true],["database","Database / Bucket"],["organization","Organization"],["measurement_name","Measurement"],["tags","Tags (JSON)"],["token","Token"],["username","Username"],["password","Password"],["timeout","Timeout"],["max_batch_inserts","Batch"],["max_buffer_size","Buffer"],["send_uuid","Send UUID",false,"checkbox"],["ssl_verifypeer","TLS verify peer",false,"checkbox"]];
-			if (api === "mysmartgrid") fields = [["middleware","Middleware",true],["secretKey","Secret key",true],["device","Device",true],["type","Type",true],["interval","Interval"],["scaler","Scaler"],["timeout","Timeout"],["name",channel_labels.registrationName]];
-			return fields.map(function(field){ var value=options[field[0]]; if(value==null && (field[0]==='send_uuid'||field[0]==='ssl_verifypeer')) value=true; var type=field[3]||((/password|token|secretKey/.test(field[0]))?"password":"text"); return '<div class="obis-channel-field lb-form-field"><label>'+html_text(field[1])+(field[2]?' *':'')+'</label>'+config_key_html('meters[].channels[].'+field[0])+'<input class="'+(type==='checkbox'?'ch-option-checkbox':'lb-input')+'" data-option="'+field[0]+'" type="'+type+'" '+(field[2]?'required ':'')+(type==='checkbox'?(value?'checked':''):'value="'+html_text(value==null?"":(typeof value==='object'?JSON.stringify(value):value))+'"')+'>'+channel_help_html(api_field_help[field[0]])+'</div>'; }).join("");
+			if (api === "volkszaehler") fields = [["middleware",true],["timeout",false]];
+			if (api === "influxdb") fields = [["version"],["host",true],["database"],["organization"],["measurement_name"],["tags"],["token"],["username"],["password"],["timeout"],["max_batch_inserts"],["max_buffer_size"],["send_uuid",false,"checkbox"],["ssl_verifypeer",false,"checkbox"]];
+			if (api === "mysmartgrid") fields = [["middleware",true],["secretKey",true],["device",true],["type",true],["interval"],["scaler"],["timeout"],["name"]];
+			return fields.map(function(field){
+				var key=field[0], value=options[key], type=field[2]||((/password|token|secretKey/.test(key))?"password":"text"), id=prefix+'_option_'+key, helpId=id+'_help', help=api_field_help[key], extra=key==='type'?' pattern="device|sensor"':'';
+				if(value==null && (key==='send_uuid'||key==='ssl_verifypeer')) value=true;
+				return '<div class="obis-channel-field lb-form-field"><label for="'+html_text(id)+'">'+html_text(api_field_labels[key]||key)+(field[1]?' *':'')+'</label>'+config_key_html('meters[].channels[].'+key)+'<input id="'+html_text(id)+'" class="'+(type==='checkbox'?'ch-option-checkbox':'lb-input')+'" data-option="'+html_text(key)+'" type="'+type+'"'+channel_described_by(help,helpId)+extra+' '+(field[1]?'required ':'')+(type==='checkbox'?(value?'checked':''):'value="'+html_text(value==null?"":(typeof value==='object'?JSON.stringify(value):value))+'"')+'>'+channel_help_html(help,helpId)+'</div>';
+			}).join("");
 		}
 		function render_channel_editor(serial) {
 			channel_definitions.meters = channel_definitions.meters || {};
@@ -741,16 +753,25 @@
 			var effectiveTopic=runtime_channel_topics[String(channel.uuid||'').toLowerCase()]||channel_labels.mqttPathUnavailable;
 			var status=channel_labels.source+': '+source+' · '+channel_labels.apiTarget+': '+(api==='null'?channel_labels.apiNone:api)+' · '+channel_labels.bridgeOutput+': '+(channel.plugin_output.enabled?channel_labels.enabledState:channel_labels.disabledState)+' · '+channel_labels.mqttPath+': '+effectiveTopic;
 			var applied=runtime_channel_indices[String(channel.uuid||'').toLowerCase()],assigned=Number.isInteger(applied),number=assigned?channel_labels.channelNumber.replace('{number}',applied):channel_labels.channelUnassigned;
-			var open=channel_details_open(serial,channel.uuid,was_open),card=document.createElement('div'); card.className='obis-channel-card'; card.dataset.index=index;
-			card.innerHTML='<div class="obis-channel-summary"><input class="ch-enabled" type="checkbox" '+(channel.enabled?'checked':'')+' title="'+html_text(channel_labels.active)+'"><span class="obis-channel-number" title="'+html_text(assigned?channel_labels.channelNumberHelp:channel_labels.channelUnassignedHelp)+'">'+html_text(number)+'</span><code>'+html_text(full_obis(channel))+'</code><span title="'+html_text(info.long+(info.unit?' ['+info.unit+']':''))+'">'+html_text(title)+'</span><span class="obis-channel-status">'+html_text(status)+'</span></div><details class="obis-channel-details" '+(open?'open':'')+'><summary>'+html_text(channel_labels.details)+'<span class="obis-channel-uuid">· UUID: '+html_text(channel.uuid||'–')+'</span></summary><div class="obis-channel-grid" data-lazy="1"></div></details>';
+			var open=channel_details_open(serial,channel.uuid,was_open),card=document.createElement('div'),prefix=channel_control_prefix(serial,channel,index); card.className='obis-channel-card'; card.dataset.index=index;
+			card.innerHTML='<div class="obis-channel-summary"><input id="'+html_text(prefix+'_enabled')+'" class="ch-enabled" type="checkbox" aria-label="'+html_text(channel_labels.active)+'" '+(channel.enabled?'checked':'')+'><span class="obis-channel-number" title="'+html_text(assigned?channel_labels.channelNumberHelp:channel_labels.channelUnassignedHelp)+'">'+html_text(number)+'</span><code>'+html_text(full_obis(channel))+'</code><span title="'+html_text(info.long+(info.unit?' ['+info.unit+']':''))+'">'+html_text(title)+'</span><span class="obis-channel-status">'+html_text(status)+'</span></div><details class="obis-channel-details" '+(open?'open':'')+'><summary>'+html_text(channel_labels.details)+'<span class="obis-channel-uuid">· UUID: '+html_text(channel.uuid||'–')+'</span></summary><div class="obis-channel-grid" data-lazy="1"></div></details>';
 			if(open) render_channel_details(serial,index,card);
 			return card;
 		}
 		function render_channel_details(serial,index,card) {
 			var grid=card.querySelector('.obis-channel-grid'); if(!grid||grid.dataset.rendered==='1') return;
 			var channel=channel_definitions.meters[serial][index],container=document.getElementById(serial+'_obis_channels'),protocol=container.getAttribute('data-protocol')||'',aggtime=Number((document.getElementById(serial+'_aggtime')||{}).value||0),api=channel.api||'null',options=channel.api_options[api]||{},info=catalog_info(full_obis(channel));
+			var prefix=channel_control_prefix(serial,channel,index), identifierId=prefix+'_identifier', storageId=prefix+'_storage', displayId=prefix+'_display', apiId=prefix+'_api', aggId=prefix+'_aggregation', duplicatesId=prefix+'_duplicates', outputKeyId=prefix+'_output_key';
 			var remove=channel.origin==='manual'?'<div class="obis-channel-remove"><button class="ch-remove obis-channel-remove-button lb-btn lb-compact" type="button"><i class="pi pi-trash" aria-hidden="true"></i>'+html_text(channel_labels.remove)+'</button>'+channel_help_html(channel_labels.removeHelp)+'</div>':'';
-			grid.innerHTML='<div class="obis-channel-info"><strong>'+html_text(info.short)+'</strong>'+(info.unit?' · '+html_text(info.unit):'')+'<br>'+html_text(info.long)+(info.warning?'<br>'+html_text(info.warning):'')+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.identifier)+'</label>'+config_key_html('meters[].channels[].identifier')+'<input class="ch-obis lb-input" required value="'+html_text(channel.obis)+'">'+channel_help_html(channel_help.identifier)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.storage)+'</label>'+config_key_html('meters[].channels[].identifier')+'<div class="obis-storage-control"><input class="ch-storage obis-number-spinner lb-input" type="number" min="0" max="254" step="1" inputmode="numeric" '+(protocol==='oms'?'disabled title="'+html_text(channel_labels.storageOms)+'"':'')+' value="'+html_text(channel.storage==null?'':channel.storage)+'"><button class="ch-storage-clear obis-storage-clear lb-btn '+(channel.storage==null?'is-active':'')+'" type="button" aria-pressed="'+(channel.storage==null?'true':'false')+'" '+(protocol==='oms'?'disabled ':'')+'title="'+html_text(channel_labels.storageClear)+'">'+html_text(channel_labels.storageClear)+'</button></div>'+channel_help_html(protocol==='oms'?channel_labels.storageOms:channel_help.storage)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.display)+'</label><small class="config-key config-key-spacer" aria-hidden="true">&nbsp;</small><input class="ch-display lb-input" value="'+html_text(channel.display_name||'')+'">'+channel_help_html(channel_help.display)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.api)+'</label>'+config_key_html('meters[].channels[].api')+'<select class="ch-api lb-select"><option value="null">'+html_text(channel_labels.apiNoneOption)+'</option><option value="volkszaehler">volkszaehler</option><option value="influxdb">influxdb</option><option value="mysmartgrid">mysmartgrid</option></select>'+channel_help_html(channel_help.api)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.aggregation)+'</label>'+config_key_html('meters[].channels[].aggmode')+'<select class="ch-agg lb-select" '+(aggtime>0?'':'disabled')+'><option value="none">none</option><option value="avg">avg</option><option value="max">max</option><option value="sum">sum</option></select>'+channel_help_html(channel_help.aggregation)+'</div><div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.duplicates)+'</label>'+config_key_html('meters[].channels[].duplicates')+'<input class="ch-duplicates lb-input" type="number" min="0" '+((api==='volkszaehler'||api==='influxdb')?'':'disabled')+' value="'+html_text(channel.duplicates||0)+'">'+channel_help_html(channel_help.duplicates)+'</div><div class="obis-api-fields"><strong>'+html_text(channel_labels.apiOptions)+'</strong>'+api_option_fields(api,options)+'</div><div class="obis-output-fields"><label><input class="ch-output" type="checkbox" '+(channel.plugin_output.enabled?'checked':'')+'> '+html_text(channel_labels.output)+'</label>'+channel_help_html(channel_help.output)+'<div class="obis-channel-field lb-form-field"><label>'+html_text(channel_labels.outputKey)+'</label><input class="ch-output-key lb-input" maxlength="64" title="'+html_text(channel_labels.outputKeyFormat)+'" '+(channel.plugin_output.enabled?'required':'disabled')+' value="'+html_text(channel.plugin_output.key||'')+'">'+channel_help_html(channel_help.outputKey)+'</div></div>'+remove;
+			var storageHelp=protocol==='oms'?channel_labels.storageOms:channel_help.storage;
+			grid.innerHTML='<div class="obis-channel-info"><strong>'+html_text(info.short)+'</strong>'+(info.unit?' · '+html_text(info.unit):'')+'<br>'+html_text(info.long)+(info.warning?'<br>'+html_text(info.warning):'')+'</div>'+
+				'<div class="obis-channel-field lb-form-field"><label for="'+identifierId+'">'+html_text(channel_labels.identifier)+'</label>'+config_key_html('meters[].channels[].identifier')+'<input id="'+identifierId+'" class="ch-obis lb-input" required aria-describedby="'+identifierId+'_help" value="'+html_text(channel.obis)+'">'+channel_help_html(channel_help.identifier,identifierId+'_help')+'</div>'+
+				'<div class="obis-channel-field lb-form-field"><label for="'+storageId+'">'+html_text(channel_labels.storage)+'</label>'+config_key_html('meters[].channels[].identifier')+'<div class="obis-storage-control"><input id="'+storageId+'" class="ch-storage obis-number-spinner lb-input" type="number" min="0" max="254" step="1" inputmode="numeric" aria-describedby="'+storageId+'_help" '+(protocol==='oms'?'disabled ':'')+'value="'+html_text(channel.storage==null?'':channel.storage)+'"><button class="ch-storage-clear obis-storage-clear lb-btn '+(channel.storage==null?'is-active':'')+'" type="button" aria-pressed="'+(channel.storage==null?'true':'false')+'" '+(protocol==='oms'?'disabled ':'')+'title="'+html_text(channel_labels.storageClear)+'">'+html_text(channel_labels.storageClear)+'</button></div>'+channel_help_html(storageHelp,storageId+'_help')+'</div>'+
+				'<div class="obis-channel-field lb-form-field"><label for="'+displayId+'">'+html_text(channel_labels.display)+'</label><small class="config-key config-key-spacer" aria-hidden="true">&nbsp;</small><input id="'+displayId+'" class="ch-display lb-input" aria-describedby="'+displayId+'_help" value="'+html_text(channel.display_name||'')+'">'+channel_help_html(channel_help.display,displayId+'_help')+'</div>'+
+				'<div class="obis-channel-field lb-form-field"><label for="'+apiId+'">'+html_text(channel_labels.api)+'</label>'+config_key_html('meters[].channels[].api')+'<select id="'+apiId+'" class="ch-api lb-select" aria-describedby="'+apiId+'_help"><option value="null">'+html_text(channel_labels.apiNoneOption)+'</option><option value="volkszaehler">volkszaehler</option><option value="influxdb">influxdb</option><option value="mysmartgrid">mysmartgrid</option></select>'+channel_help_html(channel_help.api,apiId+'_help')+'</div>'+
+				'<div class="obis-channel-field lb-form-field"><label for="'+aggId+'">'+html_text(channel_labels.aggregation)+'</label>'+config_key_html('meters[].channels[].aggmode')+'<select id="'+aggId+'" class="ch-agg lb-select" aria-describedby="'+aggId+'_help" '+(aggtime>0?'':'disabled')+'><option value="none">none</option><option value="avg">avg</option><option value="max">max</option><option value="sum">sum</option></select>'+channel_help_html(channel_help.aggregation,aggId+'_help')+'</div>'+
+				'<div class="obis-channel-field lb-form-field"><label for="'+duplicatesId+'">'+html_text(channel_labels.duplicates)+'</label>'+config_key_html('meters[].channels[].duplicates')+'<input id="'+duplicatesId+'" class="ch-duplicates lb-input" type="number" min="0" aria-describedby="'+duplicatesId+'_help" '+((api==='volkszaehler'||api==='influxdb')?'':'disabled')+' value="'+html_text(channel.duplicates||0)+'">'+channel_help_html(channel_help.duplicates,duplicatesId+'_help')+'</div>'+
+				'<div class="obis-api-fields"><strong>'+html_text(channel_labels.apiOptions)+'</strong>'+api_option_fields(api,options,prefix)+'</div><div class="obis-output-fields"><label><input class="ch-output" type="checkbox" '+(channel.plugin_output.enabled?'checked':'')+'> '+html_text(channel_labels.output)+'</label>'+channel_help_html(channel_help.output)+'<div class="obis-channel-field lb-form-field"><label for="'+outputKeyId+'">'+html_text(channel_labels.outputKey)+'</label><input id="'+outputKeyId+'" class="ch-output-key lb-input" maxlength="64" aria-describedby="'+outputKeyId+'_help" '+(channel.plugin_output.enabled?'required':'disabled')+' value="'+html_text(channel.plugin_output.key||'')+'">'+channel_help_html(channel_help.outputKey+' '+channel_labels.outputKeyFormat,outputKeyId+'_help')+'</div></div>'+remove;
 			grid.dataset.rendered='1'; delete grid.dataset.lazy; grid.querySelector('select.ch-api').value=api; grid.querySelector('select.ch-agg').value=aggtime>0?(channel.aggmode||'none'):'none'; validate_output_key_input(grid.querySelector('input.ch-output-key'));
 		}
 		function replace_channel_card(serial,index,card) { var details=card.querySelector('details'); card.replaceWith(create_channel_card(serial,index,details&&details.open)); update_meter_enabled(serial); }
@@ -1175,6 +1196,7 @@
 				var protocols = (this.getAttribute("data-protocols") || "").split(/\s+/);
 				$(this).toggle(protocols.indexOf(mode) >= 0);
 			});
+			panel.find("[data-required-protocol]").each(function () { this.required = this.getAttribute("data-required-protocol") == mode; });
 			var fieldOrder = {
 				sml: ["interval", "pullseq", "baudrate", "parity", "use_local_time"],
 				d0: ["interval", "dump_file", "pullseq", "ackseq", "baudrate", "baudrate_read", "parity", "wait_sync", "read_timeout", "baudrate_change_delay"],
