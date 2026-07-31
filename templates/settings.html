@@ -194,7 +194,7 @@
 	<p><TMPL_VAR NAME=VZLOGGER.VZLOGGER_CONFIGURATION_HELP></p>
 	<table border="0" class="settings-table">
 	<tr>
-		<td colspan="4">
+		<td colspan="4" class="collapsible-cell">
 			<details id="advanced_service_settings_panel" class="lb-collapsible">
 				<summary><TMPL_VAR NAME=VZLOGGER.ADVANCED_SERVICE_SETTINGS></summary>
 				<div class="lb-collapsible-content">
@@ -211,7 +211,7 @@
 		</td>
 	</tr>
 	<tr>
-		<td colspan="4">
+		<td colspan="4" class="collapsible-cell">
 			<details id="local_settings_panel" class="lb-collapsible">
 				<summary><TMPL_VAR NAME=VZLOGGER.LOCAL_SETTINGS></summary>
 				<div class="lb-collapsible-content">
@@ -254,7 +254,7 @@
 		</td>
 	</tr>
 	<tr>
-		<td colspan="4">
+		<td colspan="4" class="collapsible-cell">
 			<details id="mqtt_settings_panel" class="lb-collapsible">
 				<summary><TMPL_VAR NAME=VZLOGGER.MQTT_SETTINGS></summary>
 				<div class="lb-collapsible-content">
@@ -367,7 +367,7 @@
 		<td>&nbsp;</td><td><a id="rescan_ir_heads" title="<TMPL_VAR NAME=VZLOGGER.RESCAN_IR_HEADS_HELP>" href="./index.cgi?rescan=1" onclick="return start_ir_head_scan(event);"><TMPL_VAR NAME=VZLOGGER.RESCAN_IR_HEADS></a></td><td>&nbsp;</td><td><TMPL_VAR NAME=VZLOGGER.RESCAN_IR_HEADS_HELP></td>
 	</tr>
 	<TMPL_LOOP NAME=ROWS>
-	<tr id="meter_row_<TMPL_VAR NAME=SERIAL>" class="meter-row" data-meter-serial="<TMPL_VAR NAME=SERIAL ESCAPE=HTML>"><td colspan="4">
+	<tr id="meter_row_<TMPL_VAR NAME=SERIAL>" class="meter-row" data-meter-serial="<TMPL_VAR NAME=SERIAL ESCAPE=HTML>"><td colspan="4" class="collapsible-cell">
 		<details id="meter_<TMPL_VAR NAME=SERIAL>" class="meter-panel lb-collapsible" <TMPL_IF NAME=COLLAPSED><TMPL_ELSE>open</TMPL_IF> data-warning-kind="<TMPL_VAR NAME=WARNING_KIND>" data-oms-supported="<TMPL_VAR NAME=OMS_SUPPORTED>" data-current-mode="<TMPL_VAR NAME=METER>" data-meter-enabled="<TMPL_VAR NAME=METER_ENABLED>" data-allowskip="<TMPL_VAR NAME=ALLOWSKIP>" data-aggfixedinterval="<TMPL_VAR NAME=AGGFIXEDINTERVAL>" data-parity="<TMPL_VAR NAME=PARITYMODE>" data-local-time="<TMPL_VAR NAME=USELOCALTIME>" data-wait-sync="<TMPL_VAR NAME=WAITSYNC>" data-mbus-debug="<TMPL_VAR NAME=MBUSDEBUG>">
 			<summary>
 				<TMPL_VAR NAME=NAME ESCAPE=HTML>
@@ -422,7 +422,7 @@
 	<p><TMPL_VAR NAME=VZLOGGER.BRIDGE_CONFIGURATION_HELP></p>
 	<table border="0" class="settings-table">
 	<tr>
-		<td colspan="4">
+		<td colspan="4" class="collapsible-cell">
 			<details id="bridge_settings_panel" class="lb-collapsible">
 				<summary><TMPL_VAR NAME=VZLOGGER.BRIDGE_SETTINGS></summary>
 				<div class="lb-collapsible-content">

@@ -121,10 +121,15 @@
 
 .smartmeter-page details.lb-collapsible {
 	margin: .65rem 0;
+	border: 0;
+	padding-right: 0;
+	padding-left: 0;
+	background: transparent;
+	box-shadow: none;
 }
 
 .smartmeter-page details.lb-collapsible > summary {
-	border: 1px solid #c7d2bb;
+	border: 1px solid transparent;
 	border-radius: .35rem;
 	padding: .7rem .85rem;
 	background: #f0f4ec;
@@ -142,7 +147,11 @@
 }
 
 .smartmeter-page details.lb-collapsible > summary:hover {
-	background: #e8f0e1;
+	background: #e9edf0;
+}
+
+.smartmeter-page details.lb-collapsible[open] > summary:hover {
+	background: #dce9d1;
 }
 
 .smartmeter-page .lb-collapsible-content {

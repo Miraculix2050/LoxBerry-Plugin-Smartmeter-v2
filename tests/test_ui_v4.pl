@@ -129,13 +129,17 @@ like($styles, qr/recovery-settings-panel \.service-controls > \.lb-btn\s*\{[^}]*
 unlike($styles . $vzlogger, qr/implementation-tabs|index_legacy/, "single-implementation UI contains no implementation tabs or Legacy links");
 like($styles, qr/input:checked \+ \.lb-toggle-slider::before/, "toggle knob has an explicit checked position");
 like($styles, qr/details\.lb-collapsible\[open\] > summary/, "open collapsible headers have a distinct state");
+like($styles, qr/details\.lb-collapsible\s*\{[^}]*border:\s*0;[^}]*padding-right:\s*0;[^}]*padding-left:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/s, "collapsibles use no redundant outer frame at any viewport");
+like($styles, qr/details\.lb-collapsible > summary\s*\{[^}]*border:\s*1px solid transparent;[^}]*background:\s*#f0f4ec;/s, "closed collapsible headers retain their green fill without a visible frame");
+like($styles, qr/details\.lb-collapsible\[open\] > summary\s*\{[^}]*border-color:\s*#9db883;[^}]*background:\s*#e3edd9;/s, "the stronger green border is limited to the open inner frame");
+like($styles, qr/td\.collapsible-cell\s*\{[^}]*padding-right:\s*0;[^}]*padding-left:\s*0;/s, "collapsible table cells add no horizontal inset");
+is(() = $sources{'templates/settings.html'} =~ /class="collapsible-cell"/g, 5, "all table-hosted collapsibles use the borderless full-width cell");
 like($styles, qr/\.obis-channel-details>summary\s*\{[^}]*min-height:\s*44px[^}]*cursor:\s*pointer/s, "channel detail toggles have a clear desktop interaction target");
 like($styles, qr/\.smartmeter-page \.obis-channel-details>summary::after\s*\{[^}]*top:\s*calc\(50% - 3\.5px\)[^}]*width:\s*12px[^}]*height:\s*7px[^}]*background:#68737d[^}]*clip-path:polygon\(0 0,50% 70%,100% 0[^}]*transform:none !important/s, "closed channel details use a compact neutral downward chevron without inherited rotation");
 like($styles, qr/\.obis-channel-details\[open\]>summary::after\s*\{[^}]*clip-path:polygon\(0 100%,50% 30%,100% 100%/s, "open channel details replace the fixed chevron with its upward form");
 like($styles, qr/\@media\(max-width:800px\).*?\.obis-channel-details\[open\]>summary\s*\{[^}]*border-color:#eadfa6[^}]*border-radius:4px 4px 0 0[^}]*\}\.obis-channel-details\[open\]>\.obis-channel-grid\s*\{[^}]*margin-top:0[^}]*border-top:0[^}]*border-radius:0 0 4px 4px/s, "open mobile channel content connects directly below its header as one frame");
 like($styles, qr/\@media \(max-width: 700px\).*?\.service-panel tr > td,\s*\.settings-table > tbody > tr > td\s*\{\s*border:\s*0;/s, "mobile form labels, controls, and help text do not retain table-cell frames");
 like($styles, qr/\.service-panel tr > td:nth-child\(4\),\s*\.settings-table > tbody > tr > td:nth-child\(4\)\s*\{\s*border-left:\s*0;/s, "mobile help text omits its former left border");
-like($styles, qr/\@media \(max-width: 700px\).*?#vzlogger_form details\.lb-collapsible\s*\{[^}]*border:\s*0;[^}]*background:\s*transparent;[^}]*box-shadow:\s*none;/s, "mobile collapsibles omit the redundant outer frame");
 like($styles, qr/\.obis-channel-details>summary:hover,\.obis-channel-details>summary:focus-visible\s*\{[^}]*box-shadow:inset[^}]*outline:none/s, "channel detail focus stays inside the shared frame width");
 like($styles, qr/\@media\(max-width:800px\).*?\.obis-channel-details>summary\s*\{[^}]*min-height:\s*48px[^}]*background:#f4f6f7/s, "channel detail toggles remain neutral and touch-friendly on mobile");
 unlike($vzlogger . $shared, qr/\blb-btn-danger\b/, "removal actions use a restrained secondary style");
