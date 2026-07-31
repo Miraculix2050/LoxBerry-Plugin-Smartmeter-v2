@@ -19,6 +19,7 @@ All notable user-visible changes should be documented in this file. Use the late
 - Prevent independent OBIS-discovery and bridge-fallback background processes from retaining the completed parent action's configuration lock.
 - Use the full available width for the Loxone copy-and-paste instructions and clarify how to transfer the displayed recovery settings into Loxone Config.
 - Keep an action-specific notice visible while a hidden vzLogger or bridge service action continues and both service controls remain locked.
+- Remove the orphaned Legacy `show.cgi` and Legacy-only serial package request, exclude local Codex metadata from release archives, and make allowed upgrades clean exact Legacy logs, cache/state files, and cron links while preserving an active compatible vzLogger HTTP cache.
 
 ## 2.1.0.0 - 2026-07-30
 
@@ -35,7 +36,7 @@ Technical implementation details for this development cycle are recorded in [doc
 
 ### Upgrade notes
 
-- An upgrade is blocked before file replacement if Legacy is active or an older configuration is recognized as active Legacy. Stay on or reinstall 2.0.1.0, activate vzLogger, and complete **Save and apply** successfully before retrying.
+- An upgrade is blocked before file replacement if Legacy is active or an older configuration is recognized as active Legacy. For active `Smartmeter-V2.0.0.10`, first update to or reinstall 2.0.1.1, activate vzLogger, and complete **Save and apply** successfully before retrying. An inactive `Smartmeter-V2.0.0.10` installation may update directly and remains disabled.
 - Previous `vzlogger` and `none` modes migrate to the matching enabled or disabled vzLogger desired state. The previous bridge switch migrates independently.
 - Allowed upgrades remove inactive Legacy settings and old Legacy runtime artifacts without creating a persistent backup.
 

@@ -10,7 +10,7 @@
 - Internetzugang für Download und Installation. Der Downloadweg muss GitHub erreichen; LoxBerry selbst muss auf das externe Cloudsmith-Paketrepository des Volkszähler-Projekts zugreifen können.
 - Für vzLogger ein erreichbarer MQTT-Broker. Normalerweise werden die MQTT-Einstellungen von LoxBerry übernommen.
 
-Das Plugin richtet die Volkszähler-Paketquelle ein und installiert `vzlogger`, `mosquitto-clients` und `libdevice-serialport-perl` über die normale LoxBerry-Paketverwaltung. Es bündelt diese Pakete nicht selbst. Schlägt der Zugriff auf die Paketquelle fehl, kann die Plugininstallation nicht vollständig abgeschlossen werden.
+Das Plugin richtet die Volkszähler-Paketquelle ein und installiert `vzlogger` und `mosquitto-clients` über die normale LoxBerry-Paketverwaltung. Es bündelt diese Pakete nicht selbst. Schlägt der Zugriff auf die Paketquelle fehl, kann die Plugininstallation nicht vollständig abgeschlossen werden. Das nur für Legacy benötigte `libdevice-serialport-perl` wird nicht mehr angefordert; eine bereits systemweit installierte Kopie bleibt unangetastet, weil andere Anwendungen sie verwenden könnten.
 
 ## Stable- und Prerelease-Versionen
 
@@ -51,7 +51,7 @@ Erstelle vor einem größeren Update eine aktuelle LoxBerry-Sicherung. Normale U
 
 Version 2.1.0.0 bewahrt eine gültige erzeugte vzLogger-Konfiguration, Kanal-UUIDs, Ausgabeschlüssel, den Expert-Entwurf, Bridge-Ausgaben und Recovery-Einstellungen. Die bisherigen Modi `vzlogger` und `none` werden in den entsprechenden aktivierten oder deaktivierten Sollzustand überführt; der bisherige Bridge-Schalter wird unabhängig migriert.
 
-Ein Upgrade wird vor dem Dateiaustausch blockiert, wenn Legacy noch aktiv ist; dies gilt auch für ältere Installationen, die als aktives Legacy erkannt werden. Bleibe auf der neuesten unterstützten Legacy-Wartungsversion der Reihe 2.0.1.x (derzeit 2.0.1.1) oder installiere sie erneut. Aktiviere dort vzLogger und führe **Speichern und anwenden** erfolgreich aus, bevor du das Upgrade auf 2.1.0.0 erneut versuchst. Inaktive Legacy-Einstellungen werden bei einem erlaubten Upgrade gelöscht und nicht als Sicherung aufbewahrt. Ein Neustart ist nicht erforderlich.
+Ein Upgrade wird vor dem Dateiaustausch blockiert, wenn Legacy noch aktiv ist; dies gilt auch für ältere Installationen, die als aktives Legacy erkannt werden. Bei einem aktiven `Smartmeter-V2.0.0.10` aktualisiere deshalb zuerst auf die neueste unterstützte Legacy-Wartungsversion der Reihe 2.0.1.x (derzeit 2.0.1.1) oder installiere sie erneut. Aktiviere dort vzLogger und führe **Speichern und anwenden** erfolgreich aus, bevor du das Upgrade auf 2.1.0.0 erneut versuchst. Ein inaktives `Smartmeter-V2.0.0.10` mit `READ=0` darf direkt aktualisiert werden und bleibt deaktiviert. Bei einem erlaubten Upgrade werden Legacy-Einstellungen, exakt bekannte Legacy-Laufzeitdateien und alte Cron-Einträge gelöscht; ein weiterhin aktiver kompatibler vzLogger-HTTP-Cache bleibt erhalten. Ein Neustart ist nicht erforderlich.
 
 ## Deinstallieren
 

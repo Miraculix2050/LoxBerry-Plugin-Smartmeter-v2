@@ -69,6 +69,7 @@ foreach my $helper (qw(install_vzlogger_bridge_service.sh install_vzlogger_servi
 
 my $uninstall = read_file("uninstall/uninstall");
 my $attributes = read_file(".gitattributes");
+my $packages = read_file("dpkg/apt");
 unlike($uninstall, qr/\$5\b/, "uninstaller uses only the four documented arguments");
 like($uninstall, qr/\$LBPCONFIG\/\$PDIR/, "uninstaller resolves the ownership markers through LoxBerry V4 paths");
 like($uninstall, qr/vzlogger\.installed-by-plugin/, "uninstaller protects pre-existing vzLogger packages");
@@ -79,5 +80,9 @@ like($uninstall, qr/\. "\$LOCK_HELPER".*?smartmeter_acquire_config_lock/s, "unin
 like($attributes, qr/^tools\/\s+export-ignore$/m, "release archives exclude developer tooling");
 like($attributes, qr/^\.github\/\s+export-ignore$/m, "release archives exclude CI configuration");
 like($attributes, qr/^tests\/\s+export-ignore$/m, "release archives exclude regression tests");
+like($attributes, qr/^\.codex\/\s+export-ignore$/m, "release archives exclude local Codex metadata");
+like($packages, qr/^vzlogger$/m, "vzLogger remains a requested package");
+like($packages, qr/^mosquitto-clients$/m, "MQTT clients remain a requested package");
+unlike($packages, qr/^libdevice-serialport-perl$/m, "removed Legacy serial dependency is no longer requested");
 
 done_testing();

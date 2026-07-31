@@ -14,9 +14,9 @@ my $config_file = "$dir/smartmeter.cfg";
 open(my $cfg, ">", $config_file) or die $!;
 print $cfg <<'CFG';
 [MAIN]
-IMPLEMENTATION=vzlogger
 MQTTTOPIC=smartmeter
 [VZLOGGER]
+ENABLED=1
 LOCALENABLED=1
 LOCALPORT=18080
 MQTTENABLED=1

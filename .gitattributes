@@ -38,6 +38,7 @@ cron/*             text eol=lf
 .gitattributes export-ignore
 .gitignore export-ignore
 .github/ export-ignore
+.codex/ export-ignore
 AGENTS.md export-ignore
 docs/development/ export-ignore
 docs/development/** export-ignore

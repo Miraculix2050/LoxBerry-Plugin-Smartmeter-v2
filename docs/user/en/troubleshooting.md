@@ -9,7 +9,7 @@ Work through the advice for the visible symptom. Do not change several settings 
 1. Open the installation log in LoxBerry Plugin Management.
 2. First find the plugin's final success or failure status. Generic LoxBerry warnings are not automatically plugin failures.
 3. Check Internet access, free storage, and the LoxBerry package sources.
-4. If installation of `vzlogger`, `mosquitto-clients`, or `libdevice-serialport-perl` fails, check the Internet connection and access to the Volkszaehler project's Cloudsmith repository. Resolve the package error first and run the installation again.
+4. If installation of `vzlogger` or `mosquitto-clients` fails, check the Internet connection and access to the Volkszaehler project's Cloudsmith repository. Resolve the package error first and run the installation again.
 
 ## Reading head or device path is missing
 
@@ -67,7 +67,7 @@ The recovery endpoint accepts only `POST` with the displayed token. It starts on
 
 ## Upgrade to 2.1.0.0 is blocked
 
-The upgrade stops before replacing files when Legacy is still active or an older configuration is recognized as active Legacy. Stay on or reinstall the latest supported 2.0.1.x Legacy maintenance release (currently 2.0.1.1). Activate vzLogger and complete **Save and apply** successfully. Then retry the upgrade.
+The upgrade stops before replacing files when Legacy is still active or an older configuration is recognized as active Legacy. For an active `Smartmeter-V2.0.0.10`, first update to or reinstall the latest supported 2.0.1.x Legacy maintenance release (currently 2.0.1.1). Activate vzLogger there and complete **Save and apply** successfully. Then retry the upgrade. An inactive `Smartmeter-V2.0.0.10` with `READ=0` may update directly.
 
 If the issue remains, open a request in [GitHub Issues](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/issues). Include the plugin version, LoxBerry version, meter model, reading head, selected protocol, and relevant log message. Remove MQTT passwords, recovery tokens, private keys, complete certificates, and other private device data first.
 
