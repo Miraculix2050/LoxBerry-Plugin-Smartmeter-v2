@@ -23,6 +23,12 @@ Changes to a normative contract require review, a recorded rationale, and matchi
 - [Release process](release-process.md)
 - [Compatibility follow-up](compatibility-follow-up.md)
 
+## Architecture reviews
+
+- [Architecture review (2026-07-31)](architecture-review.md) — dated review of
+  component boundaries, duplication, testability, and incremental refactoring
+  priorities at `master` commit `97b8d9f`
+
 ## Related evidence and user contracts
 
 - [German user guide](../User-Guide.de.md)
