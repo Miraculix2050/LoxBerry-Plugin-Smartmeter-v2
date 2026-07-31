@@ -131,7 +131,7 @@ navigation, dialog, control, or browser-sensitive changes, is:
 
 - Chrome: full Desktop (`1280x800`), Desktop compact (`900x768`), and Mobile primary (`390x844`) checks;
 - Chrome: additional Mobile compact (`360x800`) and Mobile minimum (`320x568`) smoke checks; and
-- both full viewport checks: basic keyboard reachability and inspection for relevant console errors.
+- all three full viewport checks: basic keyboard reachability and inspection for relevant console errors.
 
 Before accepting a viewport result, verify the effective CSS dimensions in the
 page (`window.innerWidth`, `window.innerHeight`, and
