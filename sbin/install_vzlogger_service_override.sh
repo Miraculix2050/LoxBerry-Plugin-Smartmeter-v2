@@ -116,6 +116,7 @@ chmod 0750 "$RUNTIME_DIR"
 find "$RUNTIME_DIR" -maxdepth 1 -type f -exec chown "loxberry:loxberry" {} \; -exec chmod 0640 {} \;
 
 mkdir -p "$DROPIN_DIR"
+chmod 0755 "$DROPIN_DIR"
 TEMP_FILE=$(mktemp "$DROPIN_DIR/.smartmeter-v2.XXXXXX")
 trap 'rm -f "$TEMP_FILE"' 0 HUP INT TERM
 {
