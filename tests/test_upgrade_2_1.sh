@@ -34,6 +34,8 @@ seed_legacy_artifacts()
 	do
 		printf 'legacy\n' > "$base/bin/smartmeter-v2/$legacy_file"
 	done
+	mkdir -p "$base/bin/smartmeter-v2/vzlogger"
+	printf 'historical bundled vzlogger\n' > "$base/bin/smartmeter-v2/vzlogger/vzlogger"
 	printf 'legacy\n' > "$base/templates/smartmeter-v2/multi/main.html"
 	for legacy_cgi in index_legacy.cgi fetch.cgi show.cgi
 	do
@@ -68,6 +70,7 @@ assert_legacy_artifacts_removed()
 	base=$1
 	reader=$2
 	[ ! -e "$base/bin/smartmeter-v2/fetch.pl" ]
+	[ ! -e "$base/bin/smartmeter-v2/vzlogger/vzlogger" ]
 	[ ! -e "$base/htmlauth/smartmeter-v2/show.cgi" ]
 	[ ! -e "$base/runtime/fetch.lock" ]
 	[ ! -e "$base/runtime/fetch.log" ]

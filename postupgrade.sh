@@ -199,10 +199,12 @@ cleanup_legacy_runtime()
 		"$PBIN/SmartMeterLegacyRuntime.pm" \
 		"$PBIN/smartmeter_legacy_runtime.pl" \
 		"$PBIN/reboot_cron_runner.sh" \
+		"$PBIN/vzlogger/vzlogger" \
 		"$PTEMPL/multi/main.html"
 	do
 		remove_legacy_path "$legacy_path" || cleanup_failed=1
 	done
+	rmdir "$PBIN/vzlogger" 2>/dev/null || true
 	if [ -n "$PCGI" ]; then
 		for legacy_path in \
 			"$PCGI/$PDIR/index_legacy.cgi" \
