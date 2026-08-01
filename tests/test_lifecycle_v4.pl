@@ -45,7 +45,9 @@ foreach my $hook (qw(preroot.sh postinstall.sh postroot.sh postupgrade.sh)) {
 }
 
 my $control = read_file("bin/vzlogger_control.pl");
+my $override_helper = read_file("sbin/install_vzlogger_service_override.sh");
 like($control, qr/\$ENV\{LBPSBIN\}\s*\|\|\s*"\$lbhomedir\/sbin\/plugins"/, "runtime control uses V4 sbin path with a 4.0.0-compatible fallback");
+like($override_helper, qr/chmod 0755 "\$DROPIN_DIR"/, "vzLogger drop-in directory remains traversable for runtime status checks");
 like($postinstall, qr/LBPCGI=\$\{LBPCGI:-\$\{LBPHTMLAUTH:-\}\}/, "postinstall accepts the original LoxBerry 4.0.0 authenticated web-root name");
 like($postroot, qr/LBPSBIN=\$\{LBPSBIN:-"\$LBHOMEDIR\/sbin\/plugins"\}/, "postroot provides the original LoxBerry 4.0.0 sbin fallback");
 like($postroot, qr/install -d -o root -g root -m 0755 "\$LBPSBIN\/\$PDIR"/, "fresh privileged-helper directory remains traversable by the runtime user");

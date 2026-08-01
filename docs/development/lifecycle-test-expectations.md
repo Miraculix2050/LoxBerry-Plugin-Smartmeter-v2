@@ -27,7 +27,7 @@
 
 ## Apply And Temporary Service Actions
 
-- Enabled, valid, metered Apply generates, validates, atomically promotes, installs the override, and starts the requested services.
+- Enabled, valid, metered Apply generates, validates, atomically promotes, installs the override in a root-owned directory that remains traversable for unprivileged status checks, and starts the requested services.
 - Disabled Apply stops and disables vzLogger and bridge and removes the override without deleting the last valid configuration.
 - Enabled meterless Apply is accepted but leaves both services stopped and removes the override.
 - Failed activation restores `VZLOGGER.ENABLED=0` and leaves both services stopped.
