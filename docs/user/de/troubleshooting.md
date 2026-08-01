@@ -9,7 +9,7 @@ Arbeite die Hinweise zum sichtbaren Symptom durch. Ändere nicht mehrere Einstel
 1. Öffne in der LoxBerry-Pluginverwaltung das Installationslog.
 2. Suche zuerst nach dem abschließenden Erfolgs- oder Fehlerstatus des Plugins. Allgemeine LoxBerry-Warnungen sind nicht automatisch ein Pluginfehler.
 3. Prüfe Internetzugang, freie Speicherkapazität und die Paketquellen des LoxBerry.
-4. Schlägt die Installation von `vzlogger`, `mosquitto-clients` oder `libdevice-serialport-perl` fehl, prüfe die Internetverbindung und den Zugriff auf das Cloudsmith-Repository des Volkszähler-Projekts. Behebe zuerst den Paketfehler und starte die Installation erneut.
+4. Schlägt die Installation von `vzlogger` oder `mosquitto-clients` fehl, prüfe die Internetverbindung und den Zugriff auf das Cloudsmith-Repository des Volkszähler-Projekts. Behebe zuerst den Paketfehler und starte die Installation erneut.
 
 ## Lesekopf oder Gerätepfad fehlt
 
@@ -67,7 +67,7 @@ Der Recovery-Endpunkt akzeptiert nur `POST` mit dem angezeigten Token. Er starte
 
 ## Upgrade auf 2.1.0.0 wird blockiert
 
-Das Upgrade stoppt vor dem Dateiaustausch, wenn Legacy noch aktiv ist oder eine ältere Konfiguration als aktives Legacy erkannt wird. Bleibe auf der neuesten unterstützten Legacy-Wartungsversion der Reihe 2.0.1.x (derzeit 2.0.1.1) oder installiere sie erneut. Aktiviere vzLogger und führe **Speichern und anwenden** erfolgreich aus. Versuche danach das Upgrade erneut.
+Das Upgrade stoppt vor dem Dateiaustausch, wenn Legacy noch aktiv ist oder eine ältere Konfiguration als aktives Legacy erkannt wird. Bei einem aktiven `Smartmeter-V2.0.0.10` aktualisiere zuerst auf die neueste unterstützte Legacy-Wartungsversion der Reihe 2.0.1.x (derzeit 2.0.1.1) oder installiere sie erneut. Aktiviere dort vzLogger und führe **Speichern und anwenden** erfolgreich aus. Versuche danach das Upgrade erneut. Ein inaktives `Smartmeter-V2.0.0.10` mit `READ=0` kann direkt aktualisiert werden.
 
 Hilft das nicht, öffne eine Anfrage unter [GitHub Issues](https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/issues). Ergänze Pluginversion, LoxBerry-Version, Zählermodell, Lesekopf, gewähltes Protokoll und die relevante Logmeldung. Entferne vorher MQTT-Passwörter, Recovery-Token, private Schlüssel, vollständige Zertifikate und andere private Gerätedaten.
 

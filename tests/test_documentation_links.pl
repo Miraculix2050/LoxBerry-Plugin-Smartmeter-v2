@@ -94,7 +94,10 @@ like($guide_en . $config_en, qr/\*\*Read OBIS channels\*\*/, "English documentat
 foreach my $document ($install_de, $install_en, $troubleshooting_de, $troubleshooting_en) {
 	like($document, qr/2\.0\.1\.x/, "Legacy upgrade guidance names the maintained version line");
 	like($document, qr/2\.0\.1\.1/, "Legacy upgrade guidance names the current maintenance release");
+	like($document, qr/Smartmeter-V2\.0\.0\.10/, "Legacy upgrade guidance covers the historical 2.0.0.10 baseline");
 }
+like($install_de, qr/libdevice-serialport-perl.*nicht mehr angefordert.*bleibt unangetastet/s, "German installation guide documents removal without purging a shared package");
+like($install_en, qr/libdevice-serialport-perl.*no longer requested.*left untouched/s, "English installation guide documents removal without purging a shared package");
 like($troubleshooting_de, qr/installierte vzLogger-Version.*OMS/s, "German troubleshooting documents conditional OMS discovery");
 like($troubleshooting_en, qr/installed vzLogger version.*OMS support/s, "English troubleshooting documents conditional OMS discovery");
 unlike($troubleshooting_en, qr/Automatic discovery is unavailable for OMS meters/, "English troubleshooting has no obsolete OMS prohibition");

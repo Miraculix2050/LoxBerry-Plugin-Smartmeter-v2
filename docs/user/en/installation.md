@@ -10,7 +10,7 @@
 - Internet access for download and installation. The download path must reach GitHub; LoxBerry itself must reach the external Cloudsmith package repository maintained by the Volkszaehler project.
 - For vzLogger, a reachable MQTT broker. The LoxBerry MQTT settings are normally inherited.
 
-The plugin configures the Volkszaehler package source and installs `vzlogger`, `mosquitto-clients`, and `libdevice-serialport-perl` through LoxBerry's normal package management. It does not bundle these packages. If the package source cannot be reached, plugin installation cannot finish successfully.
+The plugin configures the Volkszaehler package source and installs `vzlogger` and `mosquitto-clients` through LoxBerry's normal package management. It does not bundle these packages. If the package source cannot be reached, plugin installation cannot finish successfully. The Legacy-only `libdevice-serialport-perl` package is no longer requested; an existing system installation is left untouched because another application may use it.
 
 ## Stable and prerelease versions
 
@@ -51,7 +51,7 @@ Create a current LoxBerry backup before a major update. Normal updates preserve 
 
 Version 2.1.0.0 preserves a valid generated vzLogger configuration, channel UUIDs, output keys, the Expert draft, bridge outputs, and recovery settings. Previous `vzlogger` and `none` modes migrate to the matching enabled or disabled desired state; the previous bridge switch is migrated independently.
 
-An upgrade is blocked before file replacement when Legacy is still active, including older installations inferred as active Legacy. Stay on or reinstall the latest supported 2.0.1.x Legacy maintenance release (currently 2.0.1.1). Activate vzLogger there and complete **Save and apply** successfully before retrying the upgrade to 2.1.0.0. Inactive Legacy settings are removed during an allowed upgrade and are not retained as a backup. No reboot is required.
+An upgrade is blocked before file replacement when Legacy is still active, including older installations inferred as active Legacy. For an active `Smartmeter-V2.0.0.10`, first update to or reinstall the latest supported 2.0.1.x Legacy maintenance release (currently 2.0.1.1). Activate vzLogger there and complete **Save and apply** successfully before retrying the upgrade to 2.1.0.0. An inactive `Smartmeter-V2.0.0.10` with `READ=0` may update directly and remains disabled. An allowed upgrade removes Legacy settings, exactly known Legacy runtime files, and old cron entries while preserving a compatible still-active vzLogger HTTP cache. No reboot is required.
 
 ## Uninstall
 

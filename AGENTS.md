@@ -17,7 +17,7 @@ The normative product and engineering contracts are consolidated in `docs/develo
 ## LoxBerry-Specific Checks
 
 - The LoxBerry v4 plugin-management documentation button is driven by `PLUGIN.WEBSITE`, not `AUTHOR.WEBSITE`.
-- Upgrade success should include removal of obsolete Legacy cron entries and restoration of the saved vzLogger desired state through the lifecycle hooks.
+- Upgrade success should include removal of narrowly identified obsolete Legacy installed/runtime artifacts and cron entries, preservation of a compatible active HTTP cache, and restoration of the saved vzLogger desired state through the lifecycle hooks. Legacy-only system dependencies are no longer requested, but an existing shared package is not purged.
 - Generic LoxBerry system warnings in install logs are not automatically plugin failures; check the surrounding plugin success markers first.
 - Installation and upgrade scripts should be POSIX-shell compatible for the target LoxBerry environment.
 

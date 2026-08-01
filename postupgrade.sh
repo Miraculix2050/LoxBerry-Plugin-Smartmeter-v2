@@ -27,13 +27,14 @@ BACKUP="$PTEMPPATH/smartmeter-upgrade"
 configfile="$PCONFIG/smartmeter.cfg"
 LOCK_HELPER="$PTEMPPATH/sbin/smartmeter_config_lock.sh"
 PCGI=${LBPCGI:-${LBPHTMLAUTH:-}}
+RUNTIME_DIR=${SMARTMETER_RUNTIME_DIR:-"/var/run/shm/$PDIR"}
 
 if [ ! -r "$LOCK_HELPER" ]; then
 	echo "<ERROR> SmartMeter configuration lock helper is missing."
 	exit 2
 fi
 . "$LOCK_HELPER"
-smartmeter_acquire_config_lock "/var/run/shm/$PDIR" || exit 4
+smartmeter_acquire_config_lock "$RUNTIME_DIR" || exit 4
 
 cleanup_obsolete_language_files()
 {
@@ -135,6 +136,8 @@ EOF
 		sed -i '/^\[VZLOGGER\]/a HTTPCACHEENABLED=1' "$configfile"
 		echo "<INFO> Preserved the existing HTTP cache output"
 	fi
+	http_cache_enabled=$(awk '$0 == "[VZLOGGER]" { section=1; next } /^\[/ { section=0 } section && /^HTTPCACHEENABLED=/ { sub(/^HTTPCACHEENABLED=/, ""); print; exit }' "$configfile")
+	[ "$http_cache_enabled" = "1" ] || http_cache_enabled=0
 	if ! grep -q '^BRIDGEMQTTENABLED=' "$configfile"; then
 		sed -i '/^\[VZLOGGER\]/a BRIDGEMQTTENABLED=0' "$configfile"
 		echo "<INFO> Added the optional bridge MQTT output without enabling a new upgrade output"
@@ -173,11 +176,22 @@ cleanup_channel_definitions()
 
 cleanup_legacy_runtime()
 {
+	cleanup_failed=0
+	remove_legacy_path()
+	{
+		legacy_path=$1
+		[ -e "$legacy_path" ] || [ -L "$legacy_path" ] || return 0
+		if ! rm -f "$legacy_path"; then
+			echo "<ERROR> Could not remove obsolete Legacy artifact: $legacy_path"
+			return 1
+		fi
+	}
+
 	for cron_folder in cron.01min cron.03min cron.05min cron.10min cron.15min cron.30min cron.hourly cron.reboot
 	do
-		rm -f "$LBHOMEDIR/system/cron/$cron_folder/$PSHNAME"
+		remove_legacy_path "$LBHOMEDIR/system/cron/$cron_folder/$PSHNAME" || cleanup_failed=1
 	done
-	rm -f \
+	for legacy_path in \
 		"$PBIN/fetch.pl" \
 		"$PBIN/sm_logger.pl" \
 		"$PBIN/sml_parser.php" \
@@ -185,11 +199,44 @@ cleanup_legacy_runtime()
 		"$PBIN/SmartMeterLegacyRuntime.pm" \
 		"$PBIN/smartmeter_legacy_runtime.pl" \
 		"$PBIN/reboot_cron_runner.sh" \
+		"$PBIN/vzlogger/vzlogger" \
 		"$PTEMPL/multi/main.html"
+	do
+		remove_legacy_path "$legacy_path" || cleanup_failed=1
+	done
+	rmdir "$PBIN/vzlogger" 2>/dev/null || true
 	if [ -n "$PCGI" ]; then
-		rm -f "$PCGI/$PDIR/index_legacy.cgi" "$PCGI/$PDIR/fetch.cgi"
+		for legacy_path in \
+			"$PCGI/$PDIR/index_legacy.cgi" \
+			"$PCGI/$PDIR/fetch.cgi" \
+			"$PCGI/$PDIR/show.cgi"
+		do
+			remove_legacy_path "$legacy_path" || cleanup_failed=1
+		done
 	fi
-	rm -f "/var/run/shm/$PDIR/fetch.lock"
+	for legacy_name in fetch.lock fetch.log fetch_manually.log
+	do
+		remove_legacy_path "$RUNTIME_DIR/$legacy_name" || cleanup_failed=1
+	done
+
+	reader_sections=$(awk '
+		/^\[[^]]+\]$/ {
+			name=$0; sub(/^\[/, "", name); sub(/\]$/, "", name)
+			if (name != "MAIN" && name != "VZLOGGER" && name ~ /^[A-Za-z0-9_.:-]+$/) print name
+		}
+	' "$configfile")
+	for reader in $reader_sections
+	do
+		for suffix in log dump lastcons lastdel
+		do
+			remove_legacy_path "$RUNTIME_DIR/$reader.$suffix" || cleanup_failed=1
+		done
+		if [ "$bridge_enabled" != "1" ] || [ "$http_cache_enabled" != "1" ]; then
+			remove_legacy_path "$RUNTIME_DIR/$reader.data" || cleanup_failed=1
+		fi
+	done
+
+	[ "$cleanup_failed" -eq 0 ] || return 1
 	echo "<INFO> Removed obsolete Legacy runtime files and cron entries."
 }
 
@@ -223,7 +270,9 @@ do
 	chmod 0755 "$executable" 2>/dev/null || true
 done
 
-cleanup_legacy_runtime
+if ! cleanup_legacy_runtime; then
+	exit 2
+fi
 
 rm -r "$BACKUP" 2>/dev/null || true
 exit 0

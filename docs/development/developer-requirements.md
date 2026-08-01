@@ -59,7 +59,8 @@ Numbered requirements and lifecycle contracts define intended behavior. `../know
 
 - **SM-LEG-001** — SmartMeter v2 2.1.0.0 contains no executable Legacy reader, parser, poller, cron helper, CGI, template, localization namespace, mode switch, or data-transfer path. The immutable `Smartmeter-V2.0.1.0` tag retains the final Legacy implementation; the protected `legacy-2.0` branch carries the supported 2.0.1.x maintenance line, currently 2.0.1.1.
 - **SM-LEG-004** — Upgrade must abort before file replacement when `MAIN.IMPLEMENTATION=legacy`, or when an older configuration has no implementation value and `MAIN.READ=1`. The message directs users to use the latest supported 2.0.1.x Legacy maintenance release, activate vzLogger, and successfully Save/Apply before upgrading again.
-- **SM-LEG-005** — Allowed upgrades atomically migrate `vzlogger` to `VZLOGGER.ENABLED=1`, `none` to `VZLOGGER.ENABLED=0`, and `MAIN.READ` to `VZLOGGER.BRIDGEENABLED`, then remove all mode, cron, Legacy MQTT, and `LEGACY_*` values plus narrowly identified installed Legacy artifacts.
+- **SM-LEG-005** — Allowed upgrades atomically migrate `vzlogger` to `VZLOGGER.ENABLED=1`, `none` to `VZLOGGER.ENABLED=0`, and `MAIN.READ` to `VZLOGGER.BRIDGEENABLED`, then remove all mode, cron, Legacy MQTT, and `LEGACY_*` values plus narrowly identified installed and runtime Legacy artifacts. A per-reader `.data` cache remains only when the migrated bridge and HTTP cache are both enabled; current `vzLogger_*`, `vzlogger_*`, and unrelated runtime artifacts remain untouched. Missing cleanup targets are accepted, but a deletion error fails the upgrade.
+- **SM-LEG-006** — Fresh installation and upgrade no longer request Legacy-only package dependencies. Upgrade must not purge an already installed system package that may be shared with another application.
 
 ## 5. Meter And Channel Model
 

@@ -87,7 +87,8 @@ for my $removed (
 		bin/fetch.pl bin/sm_logger.pl bin/SmartMeterLegacyRuntime.pm
 		bin/smartmeter_legacy_runtime.pl bin/sml_parser.php bin/php_sml_parser.class.php
 		bin/reboot_cron_runner.sh webfrontend/htmlauth/index_legacy.cgi
-		webfrontend/htmlauth/fetch.cgi templates/multi/main.html
+		bin/vzlogger/vzlogger
+		webfrontend/htmlauth/fetch.cgi webfrontend/htmlauth/show.cgi templates/multi/main.html
 		cron/crontab tests/test_legacy_runtime.pl
 	)
 ) {

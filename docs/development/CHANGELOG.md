@@ -9,6 +9,7 @@ This file records implementation detail that is intentionally omitted from user-
 - Centralize status, meter/JSONC input, discovery cache/job state, recovery settings, service policy, command execution, diagnostics, and browser channel/state helpers behind testable modules while preserving all CGI, CLI, configuration, and storage contracts.
 - Align the user-documentation contracts and regression assertions with current UI labels, dependencies, supported intervals, conditional OMS discovery, and the maintained 2.0.1.x Legacy upgrade path.
 - Release the inherited configuration-lock descriptor and metadata before independent OBIS-discovery and bridge-fallback child processes continue, while preserving verified inheritance for synchronous nested helpers.
+- Remove the orphaned Legacy `show.cgi`, the historically bundled `bin/vzlogger/vzlogger`, and the `libdevice-serialport-perl` package request, exclude `.codex` metadata from archives, and harden idempotent upgrade cleanup for exact installed/runtime Legacy artifacts with compatible HTTP-cache preservation and explicit `Smartmeter-V2.0.0.10` active/inactive coverage.
 
 ## 2.1.0.0 - 2026-07-30
 
