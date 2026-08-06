@@ -10,6 +10,8 @@ if [[ -n "$remote_tag" ]]; then
   [[ -n "$peeled" && "$peeled" == "$COMMIT" ]] ||
     { echo "Existing tag $TAG is not an annotated tag for $COMMIT." >&2; exit 1; }
 else
+  git config user.name "github-actions[bot]"
+  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
   git tag -a "$TAG" "$COMMIT" -m "Release $TAG"
   git push origin "refs/tags/$TAG"
 fi
@@ -22,6 +24,15 @@ else
   gh release create "$TAG" --draft --verify-tag \
     --title "Smartmeter V$VERSION" --notes-file "$NOTES"
   gh api "repos/$REPOSITORY/releases/tags/$TAG" >"$release_json"
+fi
+
+expected_title="Smartmeter V$VERSION"
+expected_body="$(cat "$NOTES")"
+actual_title="$(jq -r '.name // ""' "$release_json")"
+actual_body="$(jq -r '.body // ""' "$release_json")"
+if [[ "$actual_title" != "$expected_title" || "$actual_body" != "$expected_body" ]]; then
+  echo "Draft release title or notes do not match the verified release metadata." >&2
+  exit 1
 fi
 
 expected_names="$(printf '%s\n%s\n' "$(basename "$ARCHIVE")" "$(basename "$SIDECAR")" | sort)"

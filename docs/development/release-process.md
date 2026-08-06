@@ -71,15 +71,17 @@ https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/releases/download
 10. In GitHub open **Actions → Publish plugin release → Run workflow**, select
     `master`, enter the exact version, choose `prerelease` or `stable`, tick the
     mandatory confirmation, and start the run.
-11. Wait for the workflow. It accepts only
-    `github.actor == github.repository_owner`, reruns the Full profile, validates
-    metadata and the exact changelog section, builds the canonical ZIP with the
-    shared package builder, verifies the exact archive manifest, and creates the
-    annotated `Smartmeter-V<version>` tag itself.
+11. Wait for the workflow. It accepts only the repository owner as both the
+    original actor and the actor requesting a rerun, checks out the immutable
+    dispatch commit, reruns the Full profile, validates metadata and the exact
+    changelog section, builds the canonical ZIP with the shared package builder,
+    verifies the exact archive manifest, and creates the annotated
+    `Smartmeter-V<version>` tag itself with the GitHub Actions bot identity.
 12. The workflow attaches the ZIP and `.sha256` to a draft release, downloads and
     hashes both uploaded assets, then publishes as the selected prerelease or as
-    stable/latest. A compatible orphaned tag or draft is resumable; a published
-    release, mismatching tag, or differing asset aborts without overwrite.
+    stable/latest. A compatible orphaned tag or draft is resumable only when its
+    title, notes, and assets match the verified build; a published release,
+    mismatching tag, or differing metadata aborts without overwrite.
 13. Verify the completed workflow, release title, channel flag, notes, ZIP,
     checksum, and the URL referenced by the channel configuration.
 14. If a published release is broken, prepare a new patch release. Never rewrite

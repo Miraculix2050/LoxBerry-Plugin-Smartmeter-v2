@@ -9,7 +9,9 @@ function Assert-True([bool]$Condition, [string]$Message) {
 $workflow = Get-Content -LiteralPath (Join-Path $root ".github/workflows/release-asset.yml") -Raw
 Assert-True ($workflow.Contains("workflow_dispatch:")) "Release workflow must be manual."
 Assert-True ($workflow.Contains("github.actor")) "Owner actor guard is missing."
+Assert-True ($workflow.Contains("github.triggering_actor")) "Rerun actor guard is missing."
 Assert-True ($workflow.Contains("github.repository_owner")) "Repository owner guard is missing."
+Assert-True ($workflow.Contains('ref: ${{ github.sha }}')) "Build is not pinned to the dispatch commit."
 Assert-True ($workflow.Contains("confirm_release:")) "Release confirmation input is missing."
 Assert-True ($workflow.Contains("contents: read")) "Read-only build permission is missing."
 Assert-True ($workflow.Contains("contents: write")) "Scoped publish permission is missing."
@@ -24,6 +26,11 @@ foreach ($action in @(
 )) {
 	Assert-True ($workflow.Contains($action)) "Action is not pinned: $action"
 }
+
+$publisher = Get-Content -LiteralPath (Join-Path $root "tools/publish-github-release.sh") -Raw
+Assert-True ($publisher.Contains('git config user.name "github-actions[bot]"')) "Tag identity is missing."
+Assert-True ($publisher.Contains("actual_title=")) "Draft title validation is missing."
+Assert-True ($publisher.Contains("actual_body=")) "Draft notes validation is missing."
 
 $attributes = Get-Content -LiteralPath (Join-Path $root ".gitattributes") -Raw
 Assert-True ($attributes.Contains("release.cfg export-ignore")) "release.cfg must be export-ignored."
