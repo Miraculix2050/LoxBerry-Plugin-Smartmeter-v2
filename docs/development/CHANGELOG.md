@@ -4,6 +4,10 @@ This file records implementation detail that is intentionally omitted from user-
 
 ## Unreleased
 
+- Unify local and GitHub package creation through one canonical builder and exact
+  verifier, exclude remotely consumed update metadata from installable ZIPs, and
+  replace tag-push publication with a manual repository-owner release workflow.
+
 - Complete the architecture follow-up with explicit channel semantics/document imports, shared status encoding, testable command capture and MQTT diagnostics, modular browser state transitions, centralized pending-discovery persistence, and a verified Chrome-only viewport contract.
 - Make repository testing change-driven with risk-based device and browser selection, a shared local/CI runner and Codex **Changed tests** project action, safe base-reference and empty-selection handling, compact failure-focused output, and no periodic test schedule.
 - Centralize status, meter/JSONC input, discovery cache/job state, recovery settings, service policy, command execution, diagnostics, and browser channel/state helpers behind testable modules while preserving all CGI, CLI, configuration, and storage contracts.

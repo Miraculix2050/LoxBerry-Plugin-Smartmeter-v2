@@ -7,10 +7,12 @@ use Getopt::Long qw(GetOptions);
 my $root = ".";
 my $version = "";
 my $channel = "development";
+my $notes_output = "";
 GetOptions(
 	"root=s" => \$root,
 	"version=s" => \$version,
 	"channel=s" => \$channel,
+	"notes-output=s" => \$notes_output,
 ) or die "Usage: $0 [--root path] [--version x.y.z] [--channel development|auto|stable|prerelease]\n";
 
 die "Unsupported channel '$channel'.\n" if ($channel !~ /\A(?:development|auto|stable|prerelease)\z/);
@@ -46,7 +48,36 @@ if ($channel eq "auto") {
 }
 
 validate_channel($channel, $channel eq "stable" ? $stable : $prerelease, $version);
+if ($notes_output ne "") {
+	my $notes = changelog_notes("$root/CHANGELOG.md", $version);
+	open(my $notes_fh, ">:encoding(UTF-8)", $notes_output)
+		or die "Could not write $notes_output: $!\n";
+	print $notes_fh $notes;
+	close($notes_fh);
+}
 print "Validated $channel release metadata for $version.\n";
+
+sub changelog_notes
+{
+	my ($file, $target_version) = @_;
+	open(my $fh, "<:encoding(UTF-8)", $file) or die "Could not read $file: $!\n";
+	my (@notes, $found, $inside);
+	while (my $line = <$fh>) {
+		if ($line =~ /\A##\s+\Q$target_version\E(?:\s+-\s+\d{4}-\d{2}-\d{2})?\s*\z/) {
+			$found = 1;
+			$inside = 1;
+			next;
+		}
+		last if ($inside && $line =~ /\A##\s+/);
+		push @notes, $line if ($inside);
+	}
+	close($fh);
+	die "CHANGELOG.md has no section for $target_version.\n" if (!$found);
+	my $notes = join("", @notes);
+	die "CHANGELOG.md section for $target_version is empty.\n" if ($notes !~ /\S/);
+	$notes =~ s/\A\s+|\s+\z//g;
+	return "$notes\n";
+}
 
 sub validate_channel
 {

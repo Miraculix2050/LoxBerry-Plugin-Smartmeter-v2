@@ -83,6 +83,8 @@ like($attributes, qr/^tools\/\s+export-ignore$/m, "release archives exclude deve
 like($attributes, qr/^\.github\/\s+export-ignore$/m, "release archives exclude CI configuration");
 like($attributes, qr/^tests\/\s+export-ignore$/m, "release archives exclude regression tests");
 like($attributes, qr/^\.codex\/\s+export-ignore$/m, "release archives exclude local Codex metadata");
+like($attributes, qr/^release\.cfg\s+export-ignore$/m, "release archives exclude stable update metadata");
+like($attributes, qr/^prerelease\.cfg\s+export-ignore$/m, "release archives exclude prerelease update metadata");
 like($packages, qr/^vzlogger$/m, "vzLogger remains a requested package");
 like($packages, qr/^mosquitto-clients$/m, "MQTT clients remain a requested package");
 unlike($packages, qr/^libdevice-serialport-perl$/m, "removed Legacy serial dependency is no longer requested");

@@ -4,6 +4,13 @@ All notable user-visible changes should be documented in this file. Use the late
 
 ## Unreleased
 
+### Changed
+
+- Build official stable and prerelease packages only through the manual,
+  repository-owner workflow on prepared `master`, with an exact canonical
+  archive manifest, SHA-256 sidecar, resumable draft verification, and
+  publish-after-upload checks.
+
 ## 2.1.0.1 - 2026-08-01
 
 ### Fixed

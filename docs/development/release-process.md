@@ -13,8 +13,8 @@ A release means:
 - all intended changes are committed and pushed;
 - plugin versions and update metadata are bumped;
 - release notes are prepared in `CHANGELOG.md`;
-- a Git tag is created and pushed;
-- a GitHub Release is created with the release notes;
+- the owner-triggered workflow creates an annotated Git tag;
+- that workflow creates a GitHub Release with the release notes;
 - the GitHub Release contains the generated plugin ZIP asset.
 
 Official releases are created exclusively through GitHub. Do not build, rename, or upload a suffixless `Smartmeter-V<version>.zip` from a developer workstation. Local packages follow [local-builds.md](local-builds.md) and always contain `-local-` in their filename.
@@ -66,20 +66,32 @@ https://github.com/Miraculix2050/LoxBerry-Plugin-Smartmeter-v2/releases/download
    - inspect changed release metadata with `git diff`.
 7. Ensure the required GitHub Actions `Perl and PHP syntax` check passes on the release pull request before merging to `master`.
 8. Run the relevant checks from [lifecycle-test-expectations.md](lifecycle-test-expectations.md) on LoxBerry when the release changes installation, upgrade, uninstall, dependencies, services, cron jobs, or default configuration behavior.
-9. Commit the release changes.
-10. Push the branch.
-11. Create an annotated tag on the pushed release commit:
+9. Commit the release preparation, push its branch, review it, and merge it to
+   `master` only after CI is green.
+10. In GitHub open **Actions → Publish plugin release → Run workflow**, select
+    `master`, enter the exact version, choose `prerelease` or `stable`, tick the
+    mandatory confirmation, and start the run.
+11. Wait for the workflow. It accepts only
+    `github.actor == github.repository_owner`, reruns the Full profile, validates
+    metadata and the exact changelog section, builds the canonical ZIP with the
+    shared package builder, verifies the exact archive manifest, and creates the
+    annotated `Smartmeter-V<version>` tag itself.
+12. The workflow attaches the ZIP and `.sha256` to a draft release, downloads and
+    hashes both uploaded assets, then publishes as the selected prerelease or as
+    stable/latest. A compatible orphaned tag or draft is resumable; a published
+    release, mismatching tag, or differing asset aborts without overwrite.
+13. Verify the completed workflow, release title, channel flag, notes, ZIP,
+    checksum, and the URL referenced by the channel configuration.
+14. If a published release is broken, prepare a new patch release. Never rewrite
+    or delete a published tag or release.
+
+AI agents use the same owner-authenticated workflow after the preparation PR is
+merged:
 
 ```powershell
-git tag -a Smartmeter-V<version> -m "Smartmeter V<version>"
-git push origin Smartmeter-V<version>
+gh workflow run "Publish plugin release" --ref master `
+  -f version=2.1.0.1 -f channel=prerelease -f confirm_release=true
 ```
 
-12. Wait for the `Release asset` GitHub Actions workflow to finish. It verifies that the tag version equals `PLUGIN.VERSION`, detects the matching stable or prerelease channel, validates that channel's tag and generated-asset URLs, builds `Smartmeter-V<version>.zip` from the tag with `git archive --worktree-attributes`, creates a draft GitHub Release with the generated ZIP asset, and initially publishes it as a prerelease.
-	- The metadata validation also requires `PLUGIN.WEBSITE` to contain the same tag and version.
-   - The workflow uploads the ZIP while the release is still a draft because published GitHub Releases can be immutable.
-   - If the tag workflow did not run, dispatch `Release asset` manually with the same tag.
-13. Verify the GitHub Release title, release notes, and uploaded `Smartmeter-V<version>.zip` asset.
-14. For a stable release, promote the verified GitHub Release from prerelease to the latest stable release. Keep prerelease status for a prerelease.
-15. Verify the final stable/prerelease flag, GitHub Release page, and the ZIP URL referenced by the corresponding channel configuration.
-16. If a release is broken after publishing, create a new patch release instead of rewriting or deleting the published tag.
+A future GitHub App remains blocked until its exact actor identity is explicitly
+approved. GitHub's automatic source archives are not installable plugin ZIPs.
