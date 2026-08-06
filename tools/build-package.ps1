@@ -11,6 +11,38 @@ $repoRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
 $output = [System.IO.Path]::GetFullPath($OutputPath)
 $temporary = Join-Path ([System.IO.Path]::GetTempPath()) "smartmeter-package-$PID"
 
+function Set-ZipUnixCreatorMetadata([string] $Path) {
+	$bytes = [System.IO.File]::ReadAllBytes($Path)
+	$eocd = -1
+	for ($offset = $bytes.Length - 22; $offset -ge [Math]::Max(0, $bytes.Length - 65557); $offset--) {
+		if ([System.BitConverter]::ToUInt32($bytes, $offset) -eq 0x06054b50) {
+			$eocd = $offset
+			break
+		}
+	}
+	if ($eocd -lt 0) { throw "ZIP end-of-central-directory record is missing." }
+	$entryCount = [System.BitConverter]::ToUInt16($bytes, $eocd + 10)
+	$centralSize = [System.BitConverter]::ToUInt32($bytes, $eocd + 12)
+	$centralOffset = [System.BitConverter]::ToUInt32($bytes, $eocd + 16)
+	$offset = [int64]$centralOffset
+	for ($index = 0; $index -lt $entryCount; $index++) {
+		if ($offset + 46 -gt $bytes.Length -or
+			[System.BitConverter]::ToUInt32($bytes, [int]$offset) -ne 0x02014b50) {
+			throw "Invalid ZIP central-directory entry $index."
+		}
+		# The high byte of "version made by" is the creator system: 3 means Unix.
+		$bytes[[int]$offset + 5] = 3
+		$nameLength = [System.BitConverter]::ToUInt16($bytes, [int]$offset + 28)
+		$extraLength = [System.BitConverter]::ToUInt16($bytes, [int]$offset + 30)
+		$commentLength = [System.BitConverter]::ToUInt16($bytes, [int]$offset + 32)
+		$offset += 46 + $nameLength + $extraLength + $commentLength
+	}
+	if ($offset -ne [int64]$centralOffset + $centralSize) {
+		throw "ZIP central-directory size does not match its entries."
+	}
+	[System.IO.File]::WriteAllBytes($Path, $bytes)
+}
+
 try {
 	New-Item -ItemType Directory -Path $temporary -Force | Out-Null
 	$tarPath = Join-Path $temporary "source.tar"
@@ -62,6 +94,7 @@ try {
 	} finally {
 		$stream.Dispose()
 	}
+	Set-ZipUnixCreatorMetadata -Path $output
 	$hash = (Get-FileHash -LiteralPath $output -Algorithm SHA256).Hash.ToLowerInvariant()
 	[System.IO.File]::WriteAllText(
 		"$output.sha256",
