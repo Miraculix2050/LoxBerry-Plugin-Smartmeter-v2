@@ -48,7 +48,7 @@ if ($isDirty) {
 }
 $archiveName = ($nameParts -join "-") + ".zip"
 $archivePath = Join-Path $distDirectory $archiveName
-$packageRootName = "LoxBerry-Plugin-Smartmeter-v2-" + ($nameParts -join "-")
+$packageRootName = "LoxBerry-Plugin-Smartmeter-v2-Smartmeter-V$version"
 
 $temporaryBase = Join-Path ([System.IO.Path]::GetTempPath()) "smartmeter-local-build-$PID"
 $temporaryIndex = Join-Path $temporaryBase "index"
@@ -74,10 +74,10 @@ try {
 		throw "Unable to create a temporary Git tree for the local build."
 	}
 
-	New-Item -ItemType Directory -Path $distDirectory -Force | Out-Null
-	& git -C $repoRoot archive --format=zip --worktree-attributes --prefix="$packageRootName/" -o $archivePath $tree
+	& (Join-Path $PSScriptRoot "build-package.ps1") -Tree $tree `
+		-OutputPath $archivePath -PackageRootName $packageRootName
 	if ($LASTEXITCODE -ne 0) {
-		throw "git archive failed."
+		throw "Shared package builder failed."
 	}
 } finally {
 	if ($null -eq $previousIndexFile) {
@@ -88,39 +88,6 @@ try {
 	if (Test-Path -LiteralPath $temporaryBase) {
 		Remove-Item -LiteralPath $temporaryBase -Recurse -Force
 	}
-}
-
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$archive = [System.IO.Compression.ZipFile]::OpenRead($archivePath)
-try {
-	foreach ($entry in $archive.Entries) {
-		if (-not $entry.Name) {
-			continue
-		}
-		$stream = $entry.Open()
-		try {
-			$stream.CopyTo([System.IO.Stream]::Null)
-		} finally {
-			$stream.Dispose()
-		}
-	}
-
-	$pluginEntryName = "$packageRootName/plugin.cfg"
-	$pluginEntry = $archive.Entries | Where-Object { $_.FullName -eq $pluginEntryName }
-	if (-not $pluginEntry) {
-		throw "Built archive does not contain $pluginEntryName."
-	}
-	$reader = [System.IO.StreamReader]::new($pluginEntry.Open())
-	try {
-		$archivedPluginConfig = $reader.ReadToEnd()
-	} finally {
-		$reader.Dispose()
-	}
-	if ($archivedPluginConfig -notmatch "(?m)^VERSION=$([regex]::Escape($version))\r?$") {
-		throw "The archived plugin.cfg version does not match $version."
-	}
-} finally {
-	$archive.Dispose()
 }
 
 $hash = (Get-FileHash -LiteralPath $archivePath -Algorithm SHA256).Hash

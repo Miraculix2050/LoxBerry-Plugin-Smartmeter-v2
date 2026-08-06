@@ -1,118 +1,153 @@
-name: Release asset
+name: Publish plugin release
+run-name: Publish Smartmeter ${{ inputs.version }} (${{ inputs.channel }})
 
 on:
-  push:
-    tags:
-      - "Smartmeter-V*"
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Release tag, for example Smartmeter-V2.0.0.21"
+      version:
+        description: Version from plugin.cfg
         required: true
         type: string
+      channel:
+        description: Release channel
+        required: true
+        type: choice
+        options:
+          - prerelease
+          - stable
+      confirm_release:
+        description: I confirm that master is prepared for publication
+        required: true
+        type: boolean
+
+concurrency:
+  group: official-release-${{ github.repository }}
+  cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  build-release-asset:
-    name: Build and upload plugin ZIP
-    runs-on: ubuntu-latest
-
+  authorize:
+    runs-on: ubuntu-24.04
     steps:
-      - name: Determine release tag
-        id: release
-        shell: bash
+      - name: Enforce owner, master and confirmation
+        env:
+          ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          OWNER: ${{ github.repository_owner }}
+          REF_NAME: ${{ github.ref_name }}
+          CONFIRMED: ${{ inputs.confirm_release }}
+          VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
+          [[ "$ACTOR" == "$OWNER" && "$TRIGGERING_ACTOR" == "$OWNER" ]] ||
+            { echo "Only the repository owner may start or rerun publication." >&2; exit 1; }
+          [[ "$REF_NAME" == "master" ]] || { echo "Official releases must run from master." >&2; exit 1; }
+          [[ "$CONFIRMED" == "true" ]] || { echo "Release confirmation is required." >&2; exit 1; }
+          [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+){3}$ ]] || { echo "Invalid release version." >&2; exit 1; }
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            tag="${{ inputs.tag }}"
-          else
-            tag="${GITHUB_REF_NAME}"
-          fi
-
-          case "$tag" in
-            Smartmeter-V*) ;;
-            *)
-              echo "Unsupported tag format: $tag" >&2
-              exit 1
-              ;;
-          esac
-
-          version="${tag#Smartmeter-V}"
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Check out release tag
-        uses: actions/checkout@v4
+  build:
+    needs: authorize
+    runs-on: ubuntu-24.04
+    outputs:
+      archive: ${{ steps.meta.outputs.archive }}
+      sidecar: ${{ steps.meta.outputs.sidecar }}
+      tag: ${{ steps.meta.outputs.tag }}
+      commit: ${{ steps.meta.outputs.commit }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ steps.release.outputs.tag }}
-
-      - name: Validate release metadata
-        shell: bash
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - name: Install test dependencies
         run: |
-          set -euo pipefail
-          perl tools/validate-release-metadata.pl \
-            --version "${{ steps.release.outputs.version }}" \
-            --channel auto
-
-      - name: Build plugin ZIP
-        shell: bash
+          sudo find /etc/apt/sources.list.d -type f \
+            \( -iname '*microsoft*' -o -iname '*azure*' \) -delete
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libconfig-crontab-perl libconfig-simple-perl libcgi-pm-perl \
+            libdatetime-perl libdevice-serialport-perl libfile-homedir-perl \
+            libhtml-template-perl libjson-perl php-cli
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - name: Run full gate and validate metadata
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
         run: |
-          set -euo pipefail
-
-          tag="${{ steps.release.outputs.tag }}"
-          version="${{ steps.release.outputs.version }}"
-          prefix="LoxBerry-Plugin-Smartmeter-v2-$tag/"
-          zip="dist/Smartmeter-V$version.zip"
-
-          mkdir -p dist
-          git archive --format=zip --worktree-attributes --prefix="$prefix" -o "$zip" "$tag"
-
-          unzip -t "$zip"
-          unzip -p "$zip" "${prefix}plugin.cfg" | tr -d '\r' | grep -Fx "VERSION=$version"
-
-      - name: Prepare release notes
-        shell: bash
+          ./tools/test.ps1 -Profile Full
+          New-Item -ItemType Directory -Path dist -Force | Out-Null
+          perl tools/validate-release-metadata.pl --version "$env:VERSION" `
+            --channel "$env:CHANNEL" --notes-output dist/release-notes.md
+      - name: Build and verify canonical package
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
         run: |
-          set -euo pipefail
-
-          version="${{ steps.release.outputs.version }}"
-          notes="dist/release-notes.md"
-
-          awk -v version="$version" '
-            index($0, "## " version) == 1 { in_section = 1; next }
-            in_section && /^## / { exit }
-            in_section { print }
-          ' CHANGELOG.md > "$notes"
-
-          if ! grep -q '[^[:space:]]' "$notes"; then
-            printf 'Smartmeter V%s\n' "$version" > "$notes"
-          fi
-
-      - name: Create release with plugin ZIP
+          $tag = "Smartmeter-V$env:VERSION"
+          $archive = "dist/$tag.zip"
+          ./tools/build-package.ps1 -Tree HEAD -OutputPath $archive `
+            -PackageRootName "LoxBerry-Plugin-Smartmeter-v2-$tag"
+      - name: Record artifact contract
+        id: meta
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
         run: |
-          set -euo pipefail
+          archive="Smartmeter-V$VERSION.zip"
+          {
+            echo "archive=$archive"
+            echo "sidecar=$archive.sha256"
+            echo "tag=Smartmeter-V$VERSION"
+            echo "commit=$(git rev-parse HEAD)"
+          } >>"$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: verified-release
+          path: |
+            dist/Smartmeter-V*.zip
+            dist/Smartmeter-V*.zip.sha256
+            dist/release-notes.md
+          if-no-files-found: error
+          retention-days: 7
 
-          tag="${{ steps.release.outputs.tag }}"
-          version="${{ steps.release.outputs.version }}"
-          zip="dist/Smartmeter-V$version.zip"
-          notes="dist/release-notes.md"
-
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag already exists. Refusing to modify an existing release." >&2
-            exit 1
-          fi
-
-          gh release create "$tag" "$zip" \
-            --draft \
-            --prerelease \
-            --verify-tag \
-            --title "Smartmeter V$version" \
-            --notes-file "$notes"
-
-          gh release edit "$tag" --draft=false --prerelease
+  publish:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.build.outputs.commit }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: verified-release
+          path: dist
+      - name: Reverify downloaded artifact
+        shell: pwsh
+        env:
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+          ARCHIVE: dist/${{ needs.build.outputs.archive }}
+        run: |
+          perl tools/validate-release-metadata.pl --version "$env:VERSION" --channel "$env:CHANNEL"
+          ./tools/verify-package.ps1 -ArchivePath "$env:ARCHIVE" -Tree HEAD `
+            -PackageRootName "LoxBerry-Plugin-Smartmeter-v2-Smartmeter-V$env:VERSION" `
+            -RequireChecksum
+      - name: Create or resume draft, verify assets, publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.build.outputs.tag }}
+          VERSION: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
+          ARCHIVE: dist/${{ needs.build.outputs.archive }}
+          SIDECAR: dist/${{ needs.build.outputs.sidecar }}
+          NOTES: dist/release-notes.md
+          REPOSITORY: ${{ github.repository }}
+          COMMIT: ${{ needs.build.outputs.commit }}
+        run: bash tools/publish-github-release.sh

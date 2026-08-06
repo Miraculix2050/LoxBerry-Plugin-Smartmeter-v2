@@ -13,7 +13,7 @@
 		Ui = @("ui-v4", "settings-modules", "language-resources", "web-security", "vzlogger-status", "vzlogger-config-validation")
 		LiveUi = @("vzlogger-live", "ui-v4", "language-resources")
 		Lifecycle = @("upgrade-2-1", "lifecycle-v4", "bridge-service-lifecycle", "recovery")
-		Metadata = @("release-metadata", "validate-development-metadata", "documentation-links", "lifecycle-v4")
+		Metadata = @("release-metadata", "validate-development-metadata", "documentation-links", "lifecycle-v4", "release-workflow")
 		DeploymentTooling = @("deploy-line-endings")
 		Runner = @("test-runner")
 		Vendor = @("chartjs-integrity", "vzlogger-live")
@@ -32,7 +32,7 @@
 		@{ Patterns = @("templates/*.html", "templates/**/*.html", "webfrontend/html/index.php", "webfrontend/htmlauth/*.css", "webfrontend/htmlauth/smartmeter-settings*.js", "webfrontend/htmlauth/smartmeter-ui.js", "webfrontend/htmlauth/smartmeter-vzlogger.js"); Groups = @("Ui"); Device = "installed rendering only when needed"; Browser = "assess impact: Chrome primary sizes for behavior, full matrix for layout/responsive/shared controls" }
 		@{ Patterns = @("templates/vzlogger_live.html", "webfrontend/htmlauth/vzlogger_live.js", "webfrontend/htmlauth/vzlogger-live.css"); Groups = @("LiveUi"); Device = "installed live page when behavior changed"; Browser = "Chrome primary sizes; full matrix for layout or browser-sensitive changes" }
 		@{ Patterns = @("preinstall.sh", "preroot.sh", "postinstall.sh", "postroot.sh", "preupgrade.sh", "postupgrade.sh", "cron/**", "dpkg/**", "uninstall/**", "sbin/**", "templates/systemd/**", "sudoers/**", "config/smartmeter.cfg"); Groups = @("Lifecycle"); Device = "only affected lifecycle scenarios using a local package"; Browser = "only affected installed UI flows" }
-		@{ Patterns = @("plugin.cfg", "release.cfg", "prerelease.cfg", ".gitattributes", ".github/workflows/release-asset.yml", "icons/**", "tools/build-local.ps1", "tools/validate-release-metadata.pl"); Groups = @("Metadata"); Device = "none unless packaging or lifecycle behavior changed"; Browser = "none" }
+		@{ Patterns = @("plugin.cfg", "release.cfg", "prerelease.cfg", ".gitattributes", ".github/workflows/release-asset.yml", "icons/**", "tools/build-local.ps1", "tools/build-package.ps1", "tools/verify-package.ps1", "tools/publish-github-release.sh", "tools/validate-release-metadata.pl", "tests/test_release_workflow.ps1"); Groups = @("Metadata"); Device = "none unless packaging or lifecycle behavior changed"; Browser = "none" }
 		@{ Patterns = @("tools/deploy-test-device.ps1", "tools/TestDeviceFileTransfer.ps1", "tools/TestDeviceSettings.ps1", "tools/check-test-device.ps1", "tools/configure-test-device.ps1"); Groups = @("DeploymentTooling"); Device = "none; tooling is tested locally"; Browser = "none" }
 		@{ Patterns = @("tools/test.ps1", "tools/check-perl-syntax.ps1", "tests/test-map.psd1", "tests/test_test_runner.ps1", ".github/workflows/syntax-check.yml", ".codex/environments/**"); Groups = @("Runner"); Device = "none"; Browser = "none" }
 		@{ Patterns = @("webfrontend/htmlauth/vendor/chart.js/**"); Groups = @("Vendor"); Device = "none"; Browser = "live page only when the vendored runtime changed" }

@@ -41,7 +41,12 @@ The normative product and engineering contracts are consolidated in `docs/develo
 ## Release Work
 
 - Build local test packages only with `tools/build-local.ps1`. Local ZIP names must contain `-local-`, the short Git commit, an optional purpose, and `-dirty` for an uncommitted worktree; see `docs/development/local-builds.md`.
-- Never create or publish a suffixless `Smartmeter-V<version>.zip` locally. Official releases and their ZIP assets are created exclusively by the GitHub `Release asset` workflow.
+- Never create or publish a suffixless `Smartmeter-V<version>.zip` locally.
+  Prepare version, channel metadata, and `CHANGELOG.md` through a reviewed PR.
+  Official ZIPs, annotated tags, and releases are created exclusively from
+  prepared `master` by the owner-triggered `Publish plugin release` workflow.
+  AI agents invoke the same workflow with `gh workflow run` after merge and must
+  not merge release preparation without review.
 - When asked to create a release, follow `docs/development/release-process.md`.
 
 ## GitHub Workflow

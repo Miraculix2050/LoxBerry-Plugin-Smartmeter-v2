@@ -53,6 +53,7 @@ $testCatalog = [ordered]@{
 	"vzlogger-live" = @{ Tool = "node"; Args = @("tests/test_vzlogger_live.js"); Path = "tests/test_vzlogger_live.js" }
 	"validate-development-metadata" = @{ Tool = "perl"; Args = @("tools/validate-release-metadata.pl", "--channel", "development"); Path = "tools/validate-release-metadata.pl" }
 	"test-runner" = @{ Tool = "pwsh"; Args = @("-NoProfile", "-File", "tests/test_test_runner.ps1"); Path = "tests/test_test_runner.ps1" }
+	"release-workflow" = @{ Tool = "pwsh"; Args = @("-NoProfile", "-File", "tests/test_release_workflow.ps1"); Path = "tests/test_release_workflow.ps1" }
 	"chartjs-integrity" = @{ Kind = "Hash"; Path = "webfrontend/htmlauth/vendor/chart.js/chart.umd.min.js" }
 }
 

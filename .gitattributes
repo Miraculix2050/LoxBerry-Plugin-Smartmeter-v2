@@ -46,3 +46,5 @@ Tests/ export-ignore
 tests/ export-ignore
 test/ export-ignore
 tools/ export-ignore
+release.cfg export-ignore
+prerelease.cfg export-ignore

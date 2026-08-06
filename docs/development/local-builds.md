@@ -20,7 +20,18 @@ Add a short reason when the package exists for a particular test:
 tools/build-local.ps1 -Purpose mapping-test
 ```
 
-The script reads the version from `plugin.cfg`, writes the package below `dist/`, and prints its SHA-256 checksum. Like the GitHub release workflow, it builds with `git archive --worktree-attributes`, checks every ZIP entry, and verifies the exact `VERSION` line in the archived `plugin.cfg`. A temporary Git index captures the current worktree without changing the developer's real staging area. Files ignored by Git and paths marked `export-ignore` are not packaged, while Git file modes required by LoxBerry are retained.
+The script reads the version from `plugin.cfg`, snapshots the current worktree
+with a temporary Git index, and calls the same canonical package builder and
+exact verifier as GitHub Actions. Entries are sorted, stored without
+platform-dependent compression, assigned fixed timestamps and Git file modes,
+and checked against the exact `git archive --worktree-attributes` export
+manifest. `release.cfg`, `prerelease.cfg`, tests, agent instructions, CI files,
+developer documentation, and tools are excluded. User documentation and
+licenses remain included.
+
+For a clean identical commit, the local ZIP bytes match the official GitHub ZIP;
+only the outer local filename and its sidecar filename differ. A dirty package
+contains the snapshotted worktree and cannot claim equality with a commit build.
 
 ## Naming
 
@@ -48,4 +59,7 @@ The suffixless name is reserved for official GitHub release assets:
 Smartmeter-V2.0.0.33.zip
 ```
 
-Official release ZIPs are created only by the GitHub Actions `Release asset` workflow from a pushed `Smartmeter-V<version>` tag. Developers must not create, rename, or publish an official-looking ZIP locally. Follow the [release process](release-process.md) for releases.
+Official release ZIPs, tags, and releases are created only by the owner-triggered
+GitHub Actions `Publish plugin release` workflow from prepared `master`.
+Developers and AI agents must not create, rename, or publish an official-looking
+ZIP locally. Follow the [release process](release-process.md) for releases.
